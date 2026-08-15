@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2026-08-15
+
+### Added
+
+- Async query API: POST /predict/query + GET /predict/query/<task_id> via Celery + RabbitMQ + Redis — submit a task, poll for the result
+- Redis result store (utils/redis_store.py): pending marker with SET NX, result envelope, TTL expiry (INFERFORGE_RESULT_TTL, default 3600s)
+- INFERFORGE_QUERY=1 env switch to register the query api on top of INFERFORGE_ASYNC=1; requirements-query.txt (redis) split from requirements-async.txt
+- Business codes 4 (task not found) and 5 (task pending), registered in utils/response.py and docs/status-codes.md
+- API test client: scripts/test_predict_query.py (submit + poll, --save option)
+- Docs: concepts guide (web serving, task queues, callback vs polling, Redis)
+
+### Changed
+
+- READMEs: features table reordered (sync first), acknowledgments rewritten as compact grouped lines, test count 30+; README_zh.md renamed to README.zh-CN.md
+- Test suite: 33 smoke tests (16 new for the query api)
+
 ## [0.2.0] - 2026-08-15
 
 ### Added

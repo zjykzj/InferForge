@@ -70,10 +70,10 @@ Version bump locations for this project:
 
 | # | File | Field |
 |---|------|-------|
-| 1 | `VERSION` | `0.1.0` single line |
-| 2 | `CHANGELOG.md` | `## [0.1.0] - YYYY-MM-DD` section header |
+| 1 | `VERSION` | `0.2.0` single line |
+| 2 | `CHANGELOG.md` | `## [0.2.0] - YYYY-MM-DD` section header |
 
-Verify with: `grep -n "0.1.0" VERSION CHANGELOG.md`
+Verify with: `grep -n "0.2.0" VERSION CHANGELOG.md`
 
 Repository URL for the `/release` skill:
 

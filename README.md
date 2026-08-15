@@ -15,13 +15,13 @@
 
 | | | |
 |:---|:---|:---|
-| ⚡ **Async Callback** | Celery + RabbitMQ — submit a task, result POSTed to your URL | `INFERFORGE_ASYNC=1 ./start.sh` |
-| 🔄 **Async Query** | Celery + RabbitMQ + Redis — submit a task, poll for the result | `scripts/test_predict_query.py` |
 | 🔍 **Sync Detection** | `POST /predict` — base64 / URL in, drawn image + JSON out | `scripts/test_predict.py` |
+| ⚡ **Async Callback** | Celery + RabbitMQ — submit a task, result POSTed to your URL | `INFERFORGE_ASYNC=1 ./start.sh` |
+| 🔄 **Async Query** | Celery + RabbitMQ + Redis — submit a task, poll for the result | `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh` |
 | 🧱 **Layered Template** | apis / tasks / engines / utils — replace one layer, keep the rest | [architecture](docs/architecture.md) |
 | 📦 **Business Codes** | `{code, message, data}` envelope — HTTP always 200 | [status-codes](docs/status-codes.md) |
 | 🔗 **Request Tracing** | request_id + task_id across web and worker logs | [logging](docs/logging.md) |
-| ✅ **Smoke Tests** | 33 tests, no model file needed | `pytest tests/ -v` |
+| ✅ **Smoke Tests** | 30+ tests, no model file needed | `pytest tests/ -v` |
 
 ## Quick Start
 
@@ -73,12 +73,14 @@ python3 scripts/test_predict_query.py --image assets/bus.jpg                    
 
 ## Documentation
 
-[docs/](docs/) — quick-start · architecture · stack · api · status-codes · logging · testing · security
+[docs/](docs/) — concepts · quick-start · architecture · stack · api · status-codes · logging · testing · security
 
 ## Acknowledgments
 
-- Built with [Flask](https://flask.palletsprojects.com/), [Gunicorn](https://gunicorn.org/), [ONNX Runtime](https://onnxruntime.ai/), [OpenCV](https://opencv.org/), [NumPy](https://numpy.org/), [Celery](https://docs.celeryq.dev/), and [Redis](https://redis.io/)
-- Demo model: [Ultralytics YOLOv8n](https://docs.ultralytics.com/) (exported to ONNX)
+- **Web & serving** — [Flask](https://flask.palletsprojects.com/) for routing and request handling · [Gunicorn](https://gunicorn.org/) for multi-process WSGI serving
+- **Inference** — [ONNX Runtime](https://onnxruntime.ai/) for the forward pass · [OpenCV](https://opencv.org/) for image pre/post-processing · [NumPy](https://numpy.org/) for vectorized decode and NMS
+- **Async tasks** — [Celery](https://docs.celeryq.dev/) for task submission and execution · [RabbitMQ](https://www.rabbitmq.com/) for message brokering · [Redis](https://redis.io/) for TTL-managed result storage
+- **Demo model** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/) exported to ONNX
 
 ## License
 

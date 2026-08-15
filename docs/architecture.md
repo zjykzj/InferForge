@@ -28,7 +28,7 @@
 | Flask | blueprint 路由、请求上下文、响应处理 |
 | requests | URL 下载图片、下载异常类型判断 |
 
-**文件**：`app.py`、`apis/predict.py`（同步）、`apis/predict_callback.py`（异步回调，celery 未安装时自动跳过注册）
+**文件**：`app.py`、`apis/predict.py`（同步）、`apis/predict_callback.py`（异步回调，由 `INFERFORGE_ASYNC=1` 开关启用）
 
 ### 2.2 任务层（`tasks/`）
 
@@ -79,7 +79,7 @@
 
 | 库 | 用途 |
 |----|------|
-| logging | 双通道日志、TimedRotatingFileHandler、自定义 Formatter/Filter |
+| logging | 双通道日志、自定义 Formatter/Filter（轮转交给系统 logrotate） |
 | base64 | 图片编解码 |
 | uuid | request_id 生成 |
 | cv2 / NumPy | 图像解码与编码 |
@@ -157,7 +157,7 @@ app -> apis -> tasks -> engines
 | onnxruntime | 引擎层 | ONNX 模型推理（延迟导入） |
 | OpenCV | 引擎层 / 横切层 | 图像处理：缩放、绘图、编解码 |
 | NumPy | 引擎层 / 横切层 | 向量化计算、数组处理 |
-| logging | 横切层 | 双通道日志、按天轮转 |
+| logging | 横切层 | 双通道日志、轮转交给系统 logrotate |
 | uuid | 横切层 | request_id 生成 |
 | gunicorn | 部署 | 进程管理（preload_app、worker） |
 | RabbitMQ | 部署 | 异步任务消息队列（可选） |

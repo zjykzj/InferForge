@@ -4,31 +4,16 @@
 >
 > Web API · task orchestration · engine abstraction · logging & tracing · tests. A template, not a framework: download, adapt, deploy.
 
-## Architecture
-
-```
-InferForge/
-├── app.py              # Flask entry: logging setup + blueprint registration
-├── celery_app.py       # Celery entry for async tasks (optional)
-├── apis/               # Interface layer: one blueprint per endpoint
-├── tasks/              # Task layer: orchestration; each task owns its predictors
-├── engines/            # Engine layer: BasePredictor contract + YOLO implementation
-├── utils/              # Common utilities: logging / image / response / request id
-├── tests/              # Smoke tests
-├── scripts/            # Helper scripts (API test client)
-├── assets/             # Test images
-├── models/             # Model files (gitignored — put yolov8n.onnx here)
-├── docs/               # Specifications (api / status-codes / logging / testing)
-├── start.sh            # One-command startup (web)
-├── start_celery.sh     # Celery worker startup (async, optional)
-├── gunicorn.conf.py    # Gunicorn configuration
-├── requirements.txt    # Core dependencies
-└── requirements-async.txt  # Optional async dependencies (celery)
-```
-
-Layer responsibilities and dependency rules: [docs/architecture.md](docs/architecture.md).
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+"></a>
+  <a href="https://github.com/zjykzj/InferForge/releases"><img src="https://img.shields.io/github/v/release/zjykzj/InferForge" alt="Release"></a>
+  <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
+</p>
 
 ## Quick Start
+
+### Sync
 
 ```bash
 # 1. Install dependencies
@@ -45,24 +30,26 @@ python3 scripts/test_predict.py --image assets/bus.jpg                          
 python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg        # remote url
 ```
 
-Async API with server-side callback (optional — requires a RabbitMQ service):
-
-```bash
-pip install -r requirements-async.txt
-INFERFORGE_ASYNC=1 ./start.sh                                                   # start web with async api enabled
-./start_celery.sh                                                               # start the worker
-python3 scripts/callback_receiver.py                                            # start the callback receiver (saves to outputs/callbacks/)
-python3 scripts/test_predict_callback.py --image assets/bus.jpg \
-  --callback-url http://localhost:9000/result                                   # result is POSTed back
-```
-
 Run the smoke tests:
 
 ```bash
 pytest tests/ -v
 ```
 
-Logs land in `logs/app.log` (JSON, per-request trace ids) — see [docs/logging.md](docs/logging.md). API reference and curl recipes: [docs/api.md](docs/api.md).
+### Async (optional)
+
+Server-side callback via Celery + RabbitMQ — no Redis needed:
+
+```bash
+pip install -r requirements-async.txt
+INFERFORGE_ASYNC=1 ./start.sh                                                   # start web with the async api
+./start_celery.sh                                                               # start the worker
+python3 scripts/callback_receiver.py                                            # start the callback receiver (saves to outputs/callbacks/)
+python3 scripts/test_predict_callback.py --image assets/bus.jpg \
+  --callback-url http://localhost:9000/result                                   # result is POSTed back
+```
+
+Detailed guide (RabbitMQ setup, troubleshooting): [docs/quick-start.md](docs/quick-start.md). API reference: [docs/api.md](docs/api.md).
 
 ## License
 

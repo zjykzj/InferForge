@@ -71,9 +71,10 @@ def test_submit_returns_task_id(client, fake_delay):
     body = resp.get_json()
     assert body["code"] == 0
     assert body["data"]["task_id"] == "fake-task-id"
-    # delay called with callback_url first, then the image kwargs
+    # delay called with callback_url first, then the image kwargs + request_id
     assert fake_delay[0][0] == ("http://cb.local/result",)
     assert "image_b64" in fake_delay[0][1]
+    assert len(fake_delay[0][1]["request_id"]) == 12
 
 
 def test_submit_requires_callback_url(client):

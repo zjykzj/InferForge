@@ -29,10 +29,11 @@
 | 能力 | 实现 |
 |------|------|
 | 双通道 | console 文本（INFO+，给人看）/ 文件 JSON（DEBUG+，给机器采集） |
-| 统一格式 | `时间 \| 级别 \| 模块名 \| request_id \| 消息` |
+| 统一格式 | `时间 \| 级别 \| 模块名 \| request_id \| task_id \| 消息` |
 | 全链路埋点 | apis（请求/成败）→ tasks（总耗时、检测数）→ engines（预处理/推理/后处理分段耗时）→ utils（解码耗时） |
 | trace_id | 请求入口生成 12 位 hex，贯穿该请求所有日志行；响应头 `X-Request-ID` 回传给调用方 |
-| 轮转与保留 | 按天轮转（midnight），保留 7 天 |
+| task_id | worker 内关联任务实例：celery 任务 ID，任务执行期间自动附带；异步任务的 request_id 随任务参数传入 |
+| 轮转与保留 | 系统 logrotate 按天 copytruncate，保留 7 份（见 deploy/logrotate.conf） |
 | 异常带堆栈 | `logger.exception()` → 文件 JSON 的 `exc_info` 字段 |
 | 第三方降噪 | onnxruntime / urllib3 / requests → WARNING |
 
@@ -41,8 +42,29 @@
 - 文件日志为 JSON 的原因：文本只能 grep，JSON 才能被 ELK/Loki 等采集系统按字段（request_id/level/logger）检索聚合
 - console 保持文本的原因：开发者 `tail` 时人眼可读
 - `request_id` 12 位 hex（48 bit）：服务规模下碰撞可忽略，日志行又足够短
+- **进程组文件分离**：web 写 `app.log`、celery worker 写 `celery.log`——互不干扰，排障时定位进程更直接
+- **轮转交给系统**：应用内不做轮转（多进程各自 rename 同一文件会互相覆盖/丢行）；logrotate 用 copytruncate（复制后原地截断，不换 inode），任意数量进程同时写都安全
+- **worker 的 request_id**：worker 无 Flask 上下文，request_id 随任务参数传入，日志 filter 从 celery 任务上下文提取——request_id 回答"谁提交的"，task_id 回答"哪个任务"
 
-## 4. 成长版（多副本 / 日志量上来后）
+## 4. 日志轮转部署（logrotate）
+
+应用内不做轮转，交给系统 logrotate。用 copytruncate（复制后原地截断，不换 inode）——任意数量进程同时写同一文件都不会出现轮转竞态。配置模板见 `deploy/logrotate.conf`。
+
+```bash
+# 1. 安装（以 Ubuntu/WSL 为例）
+sudo cp deploy/logrotate.conf /etc/logrotate.d/inferforge
+sudo sed -i "s|/path/to/InferForge|$(pwd)|" /etc/logrotate.d/inferforge
+
+# 2. 预演检查（不实际轮转）
+logrotate -d /etc/logrotate.d/inferforge
+
+# 3. 手动触发一次验证（产生 app.log.1 即成功）
+logrotate -f /etc/logrotate.d/inferforge
+```
+
+轮转策略：每天一次、保留 7 份（压缩）；`missingok` / `notifempty` 保证无日志时不报错。系统环境无 logrotate 时（如 Windows 原生），可退回到应用内轮转，但需注意多进程竞态。
+
+## 5. 成长版（多副本 / 日志量上来后）
 
 - **集中采集**：文件 JSON → Filebeat/Fluentd → ELK/Loki；或改为 stdout 输出交给容器平台采集（二选一，不并存）
 - **按字段检索**：用 request_id 过滤单个请求链路；按 level/logger 聚合错误分布
@@ -50,13 +72,13 @@
 - **动态调级别**：线上排障时临时打开某模块 DEBUG，不重启
 - **异步写入**：`QueueHandler`，日志 IO 不阻塞请求热路径
 
-## 5. 工业级（平台化 / SLO 运营）
+## 6. 工业级（平台化 / SLO 运营）
 
 - **三支柱**：logs + Prometheus 指标 + OpenTelemetry 链路，三者通过 trace_id 关联——"发生了什么 / 多频繁 / 在哪一层"各司其职
 - **采样**：DEBUG 级按比例采样，控制日志成本
 - **分级存储**：热数据快速检索，冷数据归档压缩
 
-## 6. 使用规范（本项目编码约定）
+## 7. 使用规范（本项目编码约定）
 
 1. **模块级 logger**：`logger = logging.getLogger(__name__)`，禁止在函数内现取
 2. **级别选择**：DEBUG 中间状态 / INFO 请求与任务节点 / WARNING 可恢复异常 / ERROR 需要人处理
@@ -65,7 +87,7 @@
 5. **不落敏感信息**：图片数据、token 等一律不进日志
 6. **分层纪律**：只有 apis 层捕获异常并包装响应；tasks/engines 只记录与抛出，不接触响应格式
 
-## 7. 与响应格式的配合
+## 8. 与响应格式的配合
 
 - 客户端报障时携带响应头 `X-Request-ID` → 服务端用该 ID 过滤 `logs/app.log` 得到该请求完整链路
 - 日志级别与业务状态码对应：code=1/2（业务错误）→ WARNING；code=3（内部错误）→ ERROR（见 [status-codes.md](status-codes.md)）

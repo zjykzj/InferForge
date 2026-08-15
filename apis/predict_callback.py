@@ -8,7 +8,7 @@ import logging
 from flask import Blueprint, request
 
 from tasks.detection_callback import detect_callback_task
-from utils import response
+from utils import request_id, response
 
 logger = logging.getLogger("apis.predict_callback")
 
@@ -34,7 +34,10 @@ def predict_callback():
 
     try:
         task = detect_callback_task.delay(
-            callback_url, image_b64=image_b64, image_url=image_url
+            callback_url,
+            image_b64=image_b64,
+            image_url=image_url,
+            request_id=request_id.get_request_id(),
         )
     except Exception:  # broker unreachable, serialization failure, ...
         logger.exception("failed to submit callback task")

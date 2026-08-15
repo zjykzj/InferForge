@@ -35,8 +35,12 @@ def _post_callback(callback_url, payload):
 
 
 @shared_task(name="tasks.detection_callback", bind=True)
-def detect_callback_task(self, callback_url, image_b64=None, image_url=None):
-    """Run detection and POST the result (success or failure) to callback_url."""
+def detect_callback_task(self, callback_url, image_b64=None, image_url=None, request_id="-"):
+    """Run detection and POST the result (success or failure) to callback_url.
+
+    request_id travels with the task so worker logs can be correlated with
+    the submitting request (injected into log lines by utils.logger).
+    """
     logger.info("callback task started: callback=%s has_image=%s has_url=%s",
                 callback_url, bool(image_b64), bool(image_url))
     try:

@@ -72,7 +72,7 @@
 
 **逻辑**：
 
-- **日志**（logger.py）：console 文本（INFO+，给人看）+ 文件 JSON（DEBUG+，给机器采集）；每行自动携带 request_id；按天轮转保留 7 天（详见 [logging.md](logging.md)）
+- **日志**（logger.py）：console 文本（INFO+）+ 文件 JSON（DEBUG+）；每行携带 request_id/task_id；web 写 `app.log`、worker 写 `celery.log`，轮转交给系统 logrotate（详见 [logging.md](logging.md)）
 - **图片转换**（image.py）：base64 / URL ↔ BGR numpy；下载超时 10s、大小上限 20MB
 - **响应格式**（response.py）：统一 `{code, message, data}` 封装
 - **request_id**（request_id.py）：请求入口生成 12 位 hex，贯穿日志 + `X-Request-ID` 响应头

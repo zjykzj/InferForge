@@ -38,7 +38,7 @@ from tasks import detection_callback  # noqa: E402,F401
 
 @setup_logging.connect
 def _configure_logging(**kwargs):
-    """Reuse the project logging config (console + JSON file) in workers."""
+    """Reuse the project logging config in workers (separate file: celery.log)."""
     from utils.logger import setup_logging
 
-    setup_logging()
+    setup_logging(log_file="celery.log")

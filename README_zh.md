@@ -23,11 +23,7 @@ InferForge/
 └── requirements.txt    # 依赖清单
 ```
 
-依赖链——每层只认识下一层（`utils/` 为横切层，各层共用）：
-
-```
-app -> apis -> tasks -> engines
-```
+分层职责与依赖规则：[docs/architecture.md](docs/architecture.md)。
 
 ## 快速开始
 

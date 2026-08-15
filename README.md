@@ -23,11 +23,7 @@ InferForge/
 └── requirements.txt    # Dependencies
 ```
 
-Dependency chain — each layer only talks to the one below (`utils/` is cross-cutting):
-
-```
-app -> apis -> tasks -> engines
-```
+Layer responsibilities and dependency rules: [docs/architecture.md](docs/architecture.md).
 
 ## Quick Start
 

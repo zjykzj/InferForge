@@ -82,7 +82,7 @@ curl -d '{"url":"http://localhost:9/x.jpg"}' ...        # → code=2 下载失�
 
 ## 2. 异步回调接口：POST /predict/callback
 
-提交检测任务后立即返回，检测完成时服务端把结果 POST 到调用方提供的 `callback_url`。需要 Celery + RabbitMQ（见 README 快速开始）。
+提交检测任务后立即返回，检测完成时服务端把结果 POST 到调用方提供的 `callback_url`。需要 Celery + RabbitMQ，且 web 以 `INFERFORGE_ASYNC=1` 启动（见 README 快速开始）。
 
 ### 2.1 请求参数
 

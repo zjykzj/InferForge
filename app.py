@@ -2,8 +2,12 @@
 
 Dependency chain: app -> apis -> tasks -> engines. app.py knows nothing about
 tasks or algorithms — tasks own their predictors, apis own their tasks.
+
+Async APIs are registered when INFERFORGE_ASYNC=1 (they additionally require
+celery; missing celery logs a warning and skips registration).
 """
 import logging
+import os
 
 from flask import Flask
 
@@ -14,6 +18,10 @@ from utils.logger import setup_logging
 logger = logging.getLogger("app")
 
 
+def _async_enabled() -> bool:
+    return os.environ.get("INFERFORGE_ASYNC", "").lower() in ("1", "true", "yes")
+
+
 def create_app() -> Flask:
     setup_logging()
     app = Flask(__name__)
@@ -21,15 +29,18 @@ def create_app() -> Flask:
     app.after_request(request_id.after_request)
     app.register_blueprint(predict_bp)
 
-    # Optional async APIs: registered only when celery is installed,
-    # so sync-only deployments never import celery.
-    try:
-        from apis.predict_callback import predict_callback_bp
+    if _async_enabled():
+        try:
+            from apis.predict_callback import predict_callback_bp
 
-        app.register_blueprint(predict_callback_bp)
-        logger.info("async callback api enabled")
-    except ImportError:
-        logger.info("async callback api disabled (celery not installed)")
+            app.register_blueprint(predict_callback_bp)
+            logger.info("async callback api enabled")
+        except ImportError:
+            logger.warning(
+                "INFERFORGE_ASYNC=1 but celery is not installed — async api disabled"
+            )
+    else:
+        logger.info("async api disabled (set INFERFORGE_ASYNC=1 to enable)")
 
     logger.info("app created")
     return app

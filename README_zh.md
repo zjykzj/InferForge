@@ -49,6 +49,7 @@ python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg    
 
 ```bash
 pip install -r requirements-async.txt
+INFERFORGE_ASYNC=1 ./start.sh                                                   # 启动 web（启用异步接口）
 ./start_celery.sh                                                               # 启动 worker
 python3 scripts/callback_receiver.py                                            # 启动回调接收器（结果保存到 outputs/callbacks/）
 python3 scripts/test_predict_callback.py --image assets/bus.jpg \

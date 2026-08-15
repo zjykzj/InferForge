@@ -109,7 +109,7 @@ app -> apis -> tasks -> engines
 
 实现机制：
 
-- `app.py` 用 try/except ImportError 注册异步 blueprint——celery 未安装时打印一行日志并跳过，同步接口照常
+- `app.py` 按 `INFERFORGE_ASYNC=1` 环境变量注册异步 blueprint（显式声明部署形态）；开了开关但缺 celery 时打印告警并跳过，同步接口照常
 - 任务模块用 `shared_task` 注册，避免与 celery_app 循环导入
 - `celery_app.py` 显式导入任务模块（不用惰性 autodiscover），并保证项目根目录在 sys.path 中（celery CLI 会临时移除 cwd）
 

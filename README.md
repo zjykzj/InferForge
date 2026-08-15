@@ -49,6 +49,7 @@ Async API with server-side callback (optional — requires a RabbitMQ service):
 
 ```bash
 pip install -r requirements-async.txt
+INFERFORGE_ASYNC=1 ./start.sh                                                   # start web with async api enabled
 ./start_celery.sh                                                               # start the worker
 python3 scripts/callback_receiver.py                                            # start the callback receiver (saves to outputs/callbacks/)
 python3 scripts/test_predict_callback.py --image assets/bus.jpg \

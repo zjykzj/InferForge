@@ -7,7 +7,7 @@
 | 层 | 目录 | 技术 | 一句话职责 |
 |----|------|------|-----------|
 | 接口层 | `apis/` + `app.py` | Flask、requests | 校验参数 → 转发任务层 → 包装响应（业务状态码） |
-| 任务层 | `tasks/` | threading | 任务编排；每个任务持有自己的预测器 |
+| 任务层 | `tasks/` | threading、celery | 任务编排；每个任务持有自己的预测器；异步任务经 RabbitMQ 执行 |
 | 引擎层 | `engines/` | onnxruntime、OpenCV、NumPy | 推理引擎契约 + YOLOv8n 实现 |
 | 横切层 | `utils/` | logging、base64、uuid | 日志、图片转换、响应格式、request_id（各层共用） |
 
@@ -28,7 +28,7 @@
 | Flask | blueprint 路由、请求上下文、响应处理 |
 | requests | URL 下载图片、下载异常类型判断 |
 
-**文件**：`app.py`、`apis/predict.py`
+**文件**：`app.py`、`apis/predict.py`（同步）、`apis/predict_callback.py`（异步回调，celery 未安装时自动跳过注册）
 
 ### 2.2 任务层（`tasks/`）
 
@@ -43,8 +43,9 @@
 | 库 | 用途 |
 |----|------|
 | threading | 预测器懒加载的双重检查锁 |
+| celery | 异步任务：经 RabbitMQ 投递、worker 执行 |
 
-**文件**：`tasks/detection.py`
+**文件**：`tasks/detection.py`（同步编排）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试）
 
 ### 2.3 引擎层（`engines/`）
 
@@ -97,6 +98,21 @@ app -> apis -> tasks -> engines
 - **替换原则**：换 Web 框架只动 `app.py` + `apis/`；换算法只动 `engines/`（+ 对应 task 的持有关系）；换任务编排只动 `tasks/`
 - **测试同向**：冒烟测试从 apis 层用 `FakePredictor` 替换 engines，验证外壳接线（见 [testing.md](testing.md)）
 
+### 按需启用与裁剪
+
+异步能力是可选的——"装什么用什么"，不需要删文件：
+
+| 场景 | 额外安装 | 额外服务 | 可用接口 |
+|------|---------|---------|---------|
+| 纯同步 | 无 | 无 | `/predict` |
+| 同步 + 异步回调 | `requirements-async.txt` | RabbitMQ（无需 Redis） | `/predict` + `/predict/callback` |
+
+实现机制：
+
+- `app.py` 用 try/except ImportError 注册异步 blueprint——celery 未安装时打印一行日志并跳过，同步接口照常
+- 任务模块用 `shared_task` 注册，避免与 celery_app 循环导入
+- `celery_app.py` 显式导入任务模块（不用惰性 autodiscover），并保证项目根目录在 sys.path 中（celery CLI 会临时移除 cwd）
+
 ## 4. 请求生命周期
 
 一次 `POST /predict`（base64 方式）的完整流程：
@@ -118,6 +134,18 @@ app -> apis -> tasks -> engines
 
 每一步的日志都携带 request_id，以 JSON 落盘 `logs/app.log`——用户报障时携带 `X-Request-ID`，即可过滤出该请求的完整链路。
 
+### 异步回调流程（POST /predict/callback）
+
+```
+ 1. apis/predict_callback.py    校验参数（callback_url 必填）→ delay() 提交任务
+ 2. RabbitMQ                    任务排队
+ 3. Celery worker               消费任务：懒加载模型 → run_detection（复用同步编排）
+ 4. worker                      成功 → code=0 信封；业务失败 → code=1/2/3 信封
+ 5. worker                      POST 结果到 callback_url（网络失败指数退避重试，最多 3 次）
+```
+
+回调**恰好触发一次**：检测业务错误不重试（直接回调失败信封），只有回调 POST 本身的网络故障才重试。
+
 ## 5. 技术栈总览
 
 | 库 | 所属层 | 用途 |
@@ -125,10 +153,12 @@ app -> apis -> tasks -> engines
 | Flask | 接口层 | blueprint 路由、请求/响应处理 |
 | requests | 接口层 / 横切层 | URL 下载图片、下载异常类型 |
 | threading | 任务层 | 预测器懒加载双重检查锁 |
+| celery | 任务层 | 异步任务投递与执行 |
 | onnxruntime | 引擎层 | ONNX 模型推理（延迟导入） |
 | OpenCV | 引擎层 / 横切层 | 图像处理：缩放、绘图、编解码 |
 | NumPy | 引擎层 / 横切层 | 向量化计算、数组处理 |
 | logging | 横切层 | 双通道日志、按天轮转 |
 | uuid | 横切层 | request_id 生成 |
 | gunicorn | 部署 | 进程管理（preload_app、worker） |
+| RabbitMQ | 部署 | 异步任务消息队列（可选） |
 | pytest | 测试 | 冒烟测试 |

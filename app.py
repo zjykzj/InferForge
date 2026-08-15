@@ -20,6 +20,17 @@ def create_app() -> Flask:
     app.before_request(request_id.before_request)
     app.after_request(request_id.after_request)
     app.register_blueprint(predict_bp)
+
+    # Optional async APIs: registered only when celery is installed,
+    # so sync-only deployments never import celery.
+    try:
+        from apis.predict_callback import predict_callback_bp
+
+        app.register_blueprint(predict_callback_bp)
+        logger.info("async callback api enabled")
+    except ImportError:
+        logger.info("async callback api disabled (celery not installed)")
+
     logger.info("app created")
     return app
 

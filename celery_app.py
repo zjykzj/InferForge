@@ -1,0 +1,44 @@
+"""Celery application for async tasks.
+
+Two entry points, two processes:
+- web:    imports this module to submit tasks (via delay)
+- worker: celery -A celery_app worker
+"""
+import os
+import sys
+
+# Make the project root importable regardless of the worker's working directory.
+# Unconditional insert: the celery CLI temporarily adds and then removes cwd from
+# sys.path while importing this module, so a dedup guard would lose the entry.
+_PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, _PROJECT_ROOT)
+
+from celery import Celery  # noqa: E402
+from celery.signals import setup_logging  # noqa: E402
+
+celery_app = Celery("inferforge")
+
+celery_app.conf.update(
+    broker_url=os.environ.get("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672//"),
+    task_ignore_result=True,  # callback mode: results are pushed, not stored
+    task_serializer="json",
+    result_serializer="json",
+    accept_content=["json"],
+    enable_utc=True,
+    timezone="Asia/Shanghai",
+    task_time_limit=300,
+    task_soft_time_limit=240,
+    worker_prefetch_multiplier=1,  # CPU-bound inference: one task at a time per worker
+)
+
+# Explicit task registration instead of lazy autodiscovery: task modules use
+# shared_task, which binds to this app without a circular import.
+from tasks import detection_callback  # noqa: E402,F401
+
+
+@setup_logging.connect
+def _configure_logging(**kwargs):
+    """Reuse the project logging config (console + JSON file) in workers."""
+    from utils.logger import setup_logging
+
+    setup_logging()

@@ -9,6 +9,7 @@
 ```
 InferForge/
 ├── app.py              # Flask entry: logging setup + blueprint registration
+├── celery_app.py       # Celery entry for async tasks (optional)
 ├── apis/               # Interface layer: one blueprint per endpoint
 ├── tasks/              # Task layer: orchestration; each task owns its predictors
 ├── engines/            # Engine layer: BasePredictor contract + YOLO implementation
@@ -18,9 +19,11 @@ InferForge/
 ├── assets/             # Test images
 ├── models/             # Model files (gitignored — put yolov8n.onnx here)
 ├── docs/               # Specifications (api / status-codes / logging / testing)
-├── start.sh            # One-command startup
+├── start.sh            # One-command startup (web)
+├── start_celery.sh     # Celery worker startup (async, optional)
 ├── gunicorn.conf.py    # Gunicorn configuration
-└── requirements.txt    # Dependencies
+├── requirements.txt    # Core dependencies
+└── requirements-async.txt  # Optional async dependencies (celery)
 ```
 
 Layer responsibilities and dependency rules: [docs/architecture.md](docs/architecture.md).
@@ -40,6 +43,15 @@ cp /path/to/yolov8n.onnx models/
 # 4. Test the API
 python3 scripts/test_api.py --image assets/bus.jpg                              # local image (base64)
 python3 scripts/test_api.py --url https://ultralytics.com/images/bus.jpg        # remote url
+```
+
+Async API with server-side callback (optional — requires a RabbitMQ service):
+
+```bash
+pip install -r requirements-async.txt
+./start_celery.sh                                                               # start the worker
+python3 scripts/test_api.py --image assets/bus.jpg \
+  --callback-url http://localhost:9000/result                                   # result is POSTed back
 ```
 
 Run the smoke tests:

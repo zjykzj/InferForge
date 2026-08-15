@@ -27,6 +27,7 @@ Authoritative details live in [docs/architecture.md](docs/architecture.md); the 
 ```bash
 pytest tests/ -v                                    # smoke tests (no model file needed)
 ./start.sh                                          # run service (requires models/yolov8n.onnx)
+./start_celery.sh                                   # run async worker (requires RabbitMQ + celery)
 python3 scripts/test_api.py --image assets/bus.jpg  # test the running API
 python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py
 ```
@@ -38,6 +39,7 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 - Python 3.9 compatibility: no `X | None` syntax; use `Optional` from typing.
 - New business codes must be registered in **both** `utils/response.py` docstring and `docs/status-codes.md`.
 - Gitignored: `models/*.onnx`, `logs/`, `result*.jpg`/`result*.json`, `archive/` (old design docs — leave untouched).
+- Celery is optional: `app.py` registers async blueprints behind try/except ImportError. Async task modules use `shared_task` (never import celery_app from tasks — circular import). `celery_app.py` must keep its unconditional sys.path insert — the celery CLI temporarily removes cwd from sys.path.
 - Docs language: `docs/` in Chinese, READMEs bilingual. Docs describe current implementation only — no version planning.
 
 ## Git Operations

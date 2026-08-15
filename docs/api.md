@@ -80,7 +80,41 @@ curl -d '{"image":"!!not-base64!!"}' ...                # → code=1 非法图�
 curl -d '{"url":"http://localhost:9/x.jpg"}' ...        # → code=2 下载失败
 ```
 
-## 2. 参数设计规范（推理接口的通用模式）
+## 2. 异步回调接口：POST /predict/callback
+
+提交检测任务后立即返回，检测完成时服务端把结果 POST 到调用方提供的 `callback_url`。需要 Celery + RabbitMQ（见 README 快速开始）。
+
+### 2.1 请求参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:---:|------|
+| `callback_url` | string | 是 | 结果回调地址（服务端主动 POST 结果到这里） |
+| `image` | string | 二选一 | base64 图片（同同步接口） |
+| `url` | string | 二选一 | 图片 URL（同同步接口） |
+
+### 2.2 响应与回调
+
+```json
+// 提交响应（立即返回）
+{"code": 0, "data": {"task_id": "76898f32-c64d-..."}}
+
+// 回调 payload（服务端 → callback_url，与业务信封一致）
+{"code": 0, "message": "success", "data": {"image": "<base64>", "detections": [...]}}
+{"code": 1, "message": "...", "data": null}    // 检测业务失败（图片非法等）
+{"code": 2, "message": "...", "data": null}    // 图片下载失败
+{"code": 3, "message": "...", "data": null}    // 服务内部错误
+```
+
+语义：**回调恰好触发一次**——检测业务错误不重试，只有回调 POST 本身的网络故障才指数退避重试（最多 3 次）。
+
+```bash
+# curl 示例（回调接收端自备，例如本地起一个简易 HTTP 服务）
+curl -X POST http://localhost:8000/predict/callback \
+  -H "Content-Type: application/json" \
+  -d '{"image": "<base64>", "callback_url": "http://localhost:9000/result"}'
+```
+
+## 3. 参数设计规范（推理接口的通用模式）
 
 后续新增推理接口（分类、分割、异步等）遵循同一套参数模式，保证调用方心智一致：
 
@@ -115,8 +149,9 @@ GET  /result/<task_id> → 查询结果（完成前返回 processing 状态）
 
 同步/异步并存时，由接口路径区分而非参数区分——调用方一眼可知行为。
 
-## 3. 测试规范引用
+## 4. 测试规范引用
 
 - 响应格式与业务码：[status-codes.md](status-codes.md)
+- 分层与异步数据流：[architecture.md](architecture.md)
 - 冒烟测试（含 curl 无法覆盖的断言）：[testing.md](testing.md)
 - 日志与报障（X-Request-ID）：[logging.md](logging.md)

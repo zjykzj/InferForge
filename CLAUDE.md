@@ -58,6 +58,15 @@ The AI model used in this project is **DeepSeek-V4-Pro**. Configured in skills a
 
 ### Release Configuration
 
+Version bump locations for this project:
+
+| # | File | Field |
+|---|------|-------|
+| 1 | `VERSION` | `0.1.0` single line |
+| 2 | `CHANGELOG.md` | `## [0.1.0] - YYYY-MM-DD` section header |
+
+Verify with: `grep -n "0.1.0" VERSION CHANGELOG.md`
+
 Repository URL for the `/release` skill:
 
 ```

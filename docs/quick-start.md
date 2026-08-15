@@ -17,6 +17,9 @@ pip install -r requirements.txt
 ### 1.3 准备模型
 
 ```bash
+# ONNX 导出方式之一（仅使用导出工具，不复制其代码，不影响本项目协议）：
+yolo export model=yolov8n.pt format=onnx
+
 cp /path/to/yolov8n.onnx models/
 ```
 

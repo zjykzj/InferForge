@@ -11,6 +11,17 @@
   <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
 </p>
 
+## 特性
+
+| | | |
+|:---|:---|:---|
+| ⚡ **异步回调** | Celery + RabbitMQ —— 提交任务，结果 POST 到你的回调地址 | `INFERFORGE_ASYNC=1 ./start.sh` |
+| 🔍 **同步检测** | `POST /predict` —— base64 / URL 输入，返回绘图 + JSON 结果 | `scripts/test_predict.py` |
+| 🧱 **分层模板** | apis / tasks / engines / utils —— 换一层不动其余 | [architecture](docs/architecture.md) |
+| 📦 **业务状态码** | `{code, message, data}` 信封 —— HTTP 永远 200 | [status-codes](docs/status-codes.md) |
+| 🔗 **请求追踪** | request_id + task_id 贯穿 web 与 worker 日志 | [logging](docs/logging.md) |
+| ✅ **冒烟测试** | 16 个测试，无需模型文件 | `pytest tests/ -v` |
+
 ## 快速开始
 
 ### 同步
@@ -36,9 +47,9 @@ python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg    
 pytest tests/ -v
 ```
 
-### 异步（可选）
+### 异步
 
-Celery + RabbitMQ 服务端回调，无需 Redis：
+Celery + RabbitMQ 服务端回调：
 
 ```bash
 pip install -r requirements-async.txt
@@ -49,7 +60,13 @@ python3 scripts/test_predict_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                                   # 结果完成后 POST 回调
 ```
 
-详细指南（含 RabbitMQ 安装与排障）：[docs/quick-start.md](docs/quick-start.md)。接口文档：[docs/api.md](docs/api.md)。
+## 文档
+
+[docs/](docs/) —— quick-start · architecture · stack · api · status-codes · logging · testing · security
+
+## 致谢
+
+基于 [Flask](https://flask.palletsprojects.com/)、[Gunicorn](https://gunicorn.org/)、[ONNX Runtime](https://onnxruntime.ai/)、[OpenCV](https://opencv.org/)、[Celery](https://docs.celeryq.dev/) 构建。演示模型：[Ultralytics YOLOv8n](https://docs.ultralytics.com/)。
 
 ## 开源协议
 

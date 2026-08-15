@@ -11,6 +11,17 @@
   <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
 </p>
 
+## Features
+
+| | | |
+|:---|:---|:---|
+| ⚡ **Async Callback** | Celery + RabbitMQ — submit a task, result POSTed to your URL | `INFERFORGE_ASYNC=1 ./start.sh` |
+| 🔍 **Sync Detection** | `POST /predict` — base64 / URL in, drawn image + JSON out | `scripts/test_predict.py` |
+| 🧱 **Layered Template** | apis / tasks / engines / utils — replace one layer, keep the rest | [architecture](docs/architecture.md) |
+| 📦 **Business Codes** | `{code, message, data}` envelope — HTTP always 200 | [status-codes](docs/status-codes.md) |
+| 🔗 **Request Tracing** | request_id + task_id across web and worker logs | [logging](docs/logging.md) |
+| ✅ **Smoke Tests** | 16 tests, no model file needed | `pytest tests/ -v` |
+
 ## Quick Start
 
 ### Sync
@@ -36,9 +47,9 @@ Run the smoke tests:
 pytest tests/ -v
 ```
 
-### Async (optional)
+### Async
 
-Server-side callback via Celery + RabbitMQ — no Redis needed:
+Server-side callback via Celery + RabbitMQ:
 
 ```bash
 pip install -r requirements-async.txt
@@ -49,7 +60,13 @@ python3 scripts/test_predict_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                                   # result is POSTed back
 ```
 
-Detailed guide (RabbitMQ setup, troubleshooting): [docs/quick-start.md](docs/quick-start.md). API reference: [docs/api.md](docs/api.md).
+## Documentation
+
+[docs/](docs/) — quick-start · architecture · stack · api · status-codes · logging · testing · security
+
+## Acknowledgments
+
+Built with [Flask](https://flask.palletsprojects.com/), [Gunicorn](https://gunicorn.org/), [ONNX Runtime](https://onnxruntime.ai/), [OpenCV](https://opencv.org/), and [Celery](https://docs.celeryq.dev/). Demo model: [Ultralytics YOLOv8n](https://docs.ultralytics.com/).
 
 ## License
 

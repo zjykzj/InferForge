@@ -30,7 +30,7 @@
 |------|------|
 | 双通道 | console 文本（INFO+，给人看）/ 文件 JSON（DEBUG+，给机器采集） |
 | 统一格式 | `时间 \| 级别 \| 模块名 \| request_id \| 消息` |
-| 全链路埋点 | apis（请求/成败）→ tasks（总耗时、检测数）→ algs（预处理/推理/后处理分段耗时）→ utils（解码耗时） |
+| 全链路埋点 | apis（请求/成败）→ tasks（总耗时、检测数）→ engines（预处理/推理/后处理分段耗时）→ utils（解码耗时） |
 | trace_id | 请求入口生成 12 位 hex，贯穿该请求所有日志行；响应头 `X-Request-ID` 回传给调用方 |
 | 轮转与保留 | 按天轮转（midnight），保留 7 天 |
 | 异常带堆栈 | `logger.exception()` → 文件 JSON 的 `exc_info` 字段 |
@@ -63,7 +63,7 @@
 3. **每条 ERROR 可行动**：写清楚"什么失败了、什么原因、下一步"——`"inference failed"` 不合格，`"predict failed (internal)"` + 堆栈合格
 4. **异常统一 `logger.exception(...)`**：自动带堆栈
 5. **不落敏感信息**：图片数据、token 等一律不进日志
-6. **分层纪律**：只有 apis 层捕获异常并包装响应；tasks/algs 只记录与抛出，不接触响应格式
+6. **分层纪律**：只有 apis 层捕获异常并包装响应；tasks/engines 只记录与抛出，不接触响应格式
 
 ## 7. 与响应格式的配合
 

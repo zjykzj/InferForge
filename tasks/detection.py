@@ -10,8 +10,8 @@ import threading
 import time
 from typing import Optional
 
-from algs.base import BasePredictor
-from algs.yolo import COCO_CLASS_NAMES, YoloPredictor, draw_detections
+from engines.base import BasePredictor
+from engines.yolo import COCO_CLASS_NAMES, YoloPredictor, draw_detections
 from utils import image as image_utils
 
 logger = logging.getLogger("tasks.detection")

@@ -1,6 +1,6 @@
 """Flask application factory: logging setup and blueprint registration only.
 
-Dependency chain: app -> apis -> tasks -> algs. app.py knows nothing about
+Dependency chain: app -> apis -> tasks -> engines. app.py knows nothing about
 tasks or algorithms — tasks own their predictors, apis own their tasks.
 """
 import logging

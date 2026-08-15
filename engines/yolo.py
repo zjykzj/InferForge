@@ -11,9 +11,9 @@ from typing import Tuple
 import cv2
 import numpy as np
 
-from algs.base import BasePredictor, DetectionResult
+from engines.base import BasePredictor, DetectionResult
 
-logger = logging.getLogger("algs.yolo")
+logger = logging.getLogger("engines.yolo")
 
 INPUT_SIZE = (640, 640)
 CONF_THRES = 0.25

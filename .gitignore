@@ -669,3 +669,7 @@ models/*
 !models/.gitkeep
 logs/
 archive/
+
+# Test outputs
+result*.jpg
+result*.json

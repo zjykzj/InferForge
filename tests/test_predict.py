@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from flask import Flask
 
-from algs.base import BasePredictor, DetectionResult
+from engines.base import BasePredictor, DetectionResult
 from apis.predict import predict_bp
 from tasks import detection
 from utils import request_id

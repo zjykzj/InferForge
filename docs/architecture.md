@@ -1,6 +1,6 @@
 # 架构说明（Architecture）
 
-> InferForge 的分层架构：各层职责、实现逻辑与技术栈。最后更新：2026-08-15
+> InferForge 的分层架构：各层职责、实现逻辑与技术栈。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-15
 
 ## 1. 分层总览
 

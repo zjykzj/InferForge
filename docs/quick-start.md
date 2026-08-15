@@ -1,6 +1,6 @@
 # 快速开始（Quick Start）
 
-> 从零跑起 InferForge 的操作手册，覆盖同步/异步（回调 + 轮询）部署场景。最后更新：2026-08-15
+> 从零跑起 InferForge 的操作手册，覆盖同步/异步（回调 + 轮询）部署场景。概念不熟？先读 [concepts.md](concepts.md)。最后更新：2026-08-15
 
 ## 1. 场景一：同步接口（Flask + Gunicorn）
 

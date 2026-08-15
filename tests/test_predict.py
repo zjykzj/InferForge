@@ -9,6 +9,7 @@ from flask import Flask
 from algs.base import BasePredictor, DetectionResult
 from apis.predict import predict_bp
 from tasks import detection
+from utils import request_id
 
 
 class FakePredictor(BasePredictor):
@@ -32,6 +33,8 @@ def client(monkeypatch):
     monkeypatch.setattr(detection, "get_predictor", lambda: FakePredictor())
     app = Flask(__name__)
     app.config["TESTING"] = True
+    app.before_request(request_id.before_request)
+    app.after_request(request_id.after_request)
     app.register_blueprint(predict_bp)
     return app.test_client()
 
@@ -59,15 +62,31 @@ def test_predict_with_base64(client):
 
 def test_predict_missing_input(client):
     resp = client.post("/predict", json={})
-    assert resp.status_code == 400
-    assert resp.get_json()["code"] == 1
+    assert resp.status_code == 200  # HTTP is always 200; errors use business codes
+    body = resp.get_json()
+    assert body["code"] == 1
+    assert body["data"] is None
 
 
 def test_predict_both_inputs_rejected(client):
     resp = client.post("/predict", json={"image": _tiny_image_b64(), "url": "http://x/y.jpg"})
-    assert resp.status_code == 400
+    assert resp.status_code == 200
+    assert resp.get_json()["code"] == 1
 
 
 def test_predict_invalid_base64(client):
     resp = client.post("/predict", json={"image": "!!not-base64!!"})
-    assert resp.status_code == 400
+    assert resp.status_code == 200
+    assert resp.get_json()["code"] == 1
+
+
+def test_response_has_request_id(client):
+    resp = client.post("/predict", json={"image": _tiny_image_b64()})
+    rid = resp.headers.get("X-Request-ID")
+    assert rid and len(rid) == 12
+
+
+def test_request_ids_are_unique(client):
+    r1 = client.post("/predict", json={"image": _tiny_image_b64()}).headers["X-Request-ID"]
+    r2 = client.post("/predict", json={"image": _tiny_image_b64()}).headers["X-Request-ID"]
+    assert r1 != r2

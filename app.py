@@ -8,6 +8,7 @@ import logging
 from flask import Flask
 
 from apis.predict import predict_bp
+from utils import request_id
 from utils.logger import setup_logging
 
 logger = logging.getLogger("app")
@@ -16,6 +17,8 @@ logger = logging.getLogger("app")
 def create_app() -> Flask:
     setup_logging()
     app = Flask(__name__)
+    app.before_request(request_id.before_request)
+    app.after_request(request_id.after_request)
     app.register_blueprint(predict_bp)
     logger.info("app created")
     return app

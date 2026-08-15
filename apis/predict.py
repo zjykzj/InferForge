@@ -30,13 +30,13 @@ def predict():
         )
     except ValueError as exc:  # invalid input (bad base64, missing params, ...)
         logger.warning("predict rejected: %s", exc)
-        return response.error(str(exc), code=1, http_status=400)
+        return response.error(str(exc), code=1)
     except requests.RequestException as exc:  # image download failure
         logger.warning("predict failed (download): %s", exc)
-        return response.error("failed to download image: %s" % exc, code=2, http_status=502)
+        return response.error("failed to download image: %s" % exc, code=2)
     except Exception:  # unexpected internal error
         logger.exception("predict failed (internal)")
-        return response.error("internal server error", code=3, http_status=500)
+        return response.error("internal server error", code=3)
 
     logger.info("predict succeeded: %d detections", len(detections))
     return response.success({"image": out_image, "detections": detections})

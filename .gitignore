@@ -668,3 +668,4 @@ cython_debug/
 models/*
 !models/.gitkeep
 logs/
+archive/

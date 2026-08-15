@@ -1,6 +1,8 @@
 # InferForge
 
-> An algorithm-agnostic inference-serving project template — a serving shell above inference kernels, forging any model (CV → LLM → Agent) into production services.
+> 🔨 Your model does inference. InferForge does everything after — forging any model (CV → LLM → Agent) into a production inference service.
+>
+> Web API · task orchestration · engine abstraction · logging & tracing · tests. A template, not a framework: download, adapt, deploy.
 
 ## License
 

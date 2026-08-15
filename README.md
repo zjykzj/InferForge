@@ -1,6 +1,6 @@
 # InferForge
 
-> 🔨 Your model does inference. InferForge does everything after — forging any model (CV → LLM → Agent) into a production inference service.
+> 🔨 Everything above model inference — InferForge forges any model (CV → LLM → Agent) into production.
 >
 > Web API · task orchestration · engine abstraction · logging & tracing · tests. A template, not a framework: download, adapt, deploy.
 

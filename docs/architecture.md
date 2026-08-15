@@ -28,7 +28,7 @@
 | Flask | blueprint 路由、请求上下文、响应处理 |
 | requests | URL 下载图片、下载异常类型判断 |
 
-**文件**：`app.py`、`apis/predict.py`（同步）、`apis/predict_callback.py`（异步回调，由 `INFERFORGE_ASYNC=1` 开关启用）
+**文件**：`app.py`、`apis/predict.py`（同步）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；两者均由 `INFERFORGE_ASYNC=1` 开关启用）
 
 ### 2.2 任务层（`tasks/`）
 
@@ -45,7 +45,7 @@
 | threading | 预测器懒加载的双重检查锁 |
 | celery | 异步任务：经 RabbitMQ 投递、worker 执行 |
 
-**文件**：`tasks/detection.py`（同步编排）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试）
+**文件**：`tasks/detection.py`（同步编排）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，结果信封写入 Redis，无重试）
 
 ### 2.3 引擎层（`engines/`）
 
@@ -76,6 +76,7 @@
 - **图片转换**（image.py）：base64 / URL ↔ BGR numpy；下载超时 10s、大小上限 20MB
 - **响应格式**（response.py）：统一 `{code, message, data}` 封装
 - **request_id**（request_id.py）：请求入口生成 12 位 hex，贯穿日志 + `X-Request-ID` 响应头
+- **结果存储**（redis_store.py）：异步轮询结果暂存——pending 占位符 + 结果信封，TTL 过期回收，客户端懒连接（详见 [stack.md](stack.md) §3）
 
 | 库 | 用途 |
 |----|------|
@@ -83,8 +84,9 @@
 | base64 | 图片编解码 |
 | uuid | request_id 生成 |
 | cv2 / NumPy | 图像解码与编码 |
+| redis | 结果信封暂存（TTL 过期、NX 占位） |
 
-**文件**：`utils/logger.py`、`utils/image.py`、`utils/response.py`、`utils/request_id.py`
+**文件**：`utils/logger.py`、`utils/image.py`、`utils/response.py`、`utils/request_id.py`、`utils/redis_store.py`
 
 ## 3. 依赖规则
 
@@ -102,14 +104,15 @@ app -> apis -> tasks -> engines
 
 异步能力是可选的——"装什么用什么"，不需要删文件：
 
-| 场景 | 额外安装 | 额外服务 | 可用接口 |
-|------|---------|---------|---------|
-| 纯同步 | 无 | 无 | `/predict` |
-| 同步 + 异步回调 | `requirements-async.txt` | RabbitMQ（无需 Redis） | `/predict` + `/predict/callback` |
+| 场景 | 额外安装 | 额外服务 | 环境变量 | 可用接口 |
+|------|---------|---------|---------|---------|
+| 纯同步 | 无 | 无 | 无 | `/predict` |
+| 同步 + 异步回调 | `requirements-async.txt` | RabbitMQ（无需 Redis） | `INFERFORGE_ASYNC=1` | `/predict` + `/predict/callback` |
+| 同步 + 回调 + 查询 | `requirements-async.txt` + `requirements-query.txt` | RabbitMQ + Redis | `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1` | `/predict` + `/predict/callback` + `/predict/query` |
 
 实现机制：
 
-- `app.py` 按 `INFERFORGE_ASYNC=1` 环境变量注册异步 blueprint（显式声明部署形态）；开了开关但缺 celery 时打印告警并跳过，同步接口照常
+- `app.py` 按 `INFERFORGE_ASYNC=1`（回调）/ `INFERFORGE_QUERY=1`（查询，叠加在前者之上）注册异步 blueprint——两个开关正交，显式声明部署形态；开了开关但缺依赖时打印告警并跳过，同步接口照常
 - 任务模块用 `shared_task` 注册，避免与 celery_app 循环导入
 - `celery_app.py` 显式导入任务模块（不用惰性 autodiscover），并保证项目根目录在 sys.path 中（celery CLI 会临时移除 cwd）
 
@@ -146,6 +149,20 @@ app -> apis -> tasks -> engines
 
 回调**恰好触发一次**：检测业务错误不重试（直接回调失败信封），只有回调 POST 本身的网络故障才重试。
 
+### 异步查询流程（POST /predict/query + GET /predict/query/<task_id>）
+
+```
+ 1. apis/predict_query.py    校验参数（image/url 二选一）→ delay() 提交任务
+ 2. apis/predict_query.py    Redis 写 pending 占位（SET NX，防 worker 抢先完成的竞态）
+ 3. RabbitMQ                  任务排队
+ 4. Celery worker             消费任务：懒加载模型 → run_detection（复用同步编排）
+ 5. worker                    成功 → code=0 信封；业务失败 → code=1/2/3 信封
+ 6. worker                    信封写入 Redis（覆写 pending，TTL 刷新；写失败任务报错）
+ 7. client 轮询               pending → code=5；key 不存在 → code=4；信封 → 原样返回
+```
+
+轮询**幂等**：结果落 Redis 后原样返回，多次轮询无副作用；结果带 TTL（默认 3600s），过期后轮询返回 code=4。
+
 ## 5. 技术栈总览
 
 | 库 | 所属层 | 用途 |
@@ -161,4 +178,5 @@ app -> apis -> tasks -> engines
 | uuid | 横切层 | request_id 生成 |
 | gunicorn | 部署 | 进程管理（preload_app、worker） |
 | RabbitMQ | 部署 | 异步任务消息队列（可选） |
+| Redis | 部署 | 异步轮询结果暂存（可选） |
 | pytest | 测试 | 冒烟测试 |

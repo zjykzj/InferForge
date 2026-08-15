@@ -3,8 +3,10 @@
 Dependency chain: app -> apis -> tasks -> engines. app.py knows nothing about
 tasks or algorithms — tasks own their predictors, apis own their tasks.
 
-Async APIs are registered when INFERFORGE_ASYNC=1 (they additionally require
-celery; missing celery logs a warning and skips registration).
+Async APIs are registered behind explicit env switches: INFERFORGE_ASYNC=1
+registers the callback api (requires celery); INFERFORGE_QUERY=1 additionally
+registers the query api (requires celery + redis). A missing dependency logs
+a warning and skips only the affected api.
 """
 import logging
 import os
@@ -20,6 +22,10 @@ logger = logging.getLogger("app")
 
 def _async_enabled() -> bool:
     return os.environ.get("INFERFORGE_ASYNC", "").lower() in ("1", "true", "yes")
+
+
+def _query_enabled() -> bool:
+    return os.environ.get("INFERFORGE_QUERY", "").lower() in ("1", "true", "yes")
 
 
 def create_app() -> Flask:
@@ -39,6 +45,19 @@ def create_app() -> Flask:
             logger.warning(
                 "INFERFORGE_ASYNC=1 but celery is not installed — async api disabled"
             )
+        if _query_enabled():
+            try:
+                from apis.predict_query import predict_query_bp
+
+                app.register_blueprint(predict_query_bp)
+                logger.info("async query api enabled")
+            except ImportError:
+                logger.warning(
+                    "INFERFORGE_QUERY=1 but celery or redis is not installed — "
+                    "async query api disabled"
+                )
+        else:
+            logger.info("async query api disabled (set INFERFORGE_QUERY=1 to enable)")
     else:
         logger.info("async api disabled (set INFERFORGE_ASYNC=1 to enable)")
 

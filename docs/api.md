@@ -114,11 +114,61 @@ curl -X POST http://localhost:8000/predict/callback \
   -d '{"image": "<base64>", "callback_url": "http://localhost:9000/result"}'
 ```
 
-## 3. 参数设计规范（推理接口的通用模式）
+## 3. 异步轮询接口：POST /predict/query + GET /predict/query/&lt;task_id&gt;
+
+提交检测任务后立即返回 `task_id`，worker 把结果信封写入 Redis，调用方**主动轮询**拉取结果。需要 Celery + RabbitMQ + Redis，且 web 以 `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1` 启动。
+
+### 3.1 请求参数（提交）
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:---:|------|
+| `image` | string | 二选一 | base64 图片（同同步接口） |
+| `url` | string | 二选一 | 图片 URL（同同步接口） |
+
+### 3.2 提交响应
+
+```json
+// 成功（立即返回）
+{"code": 0, "message": "success", "data": {"task_id": "76898f32-c64d-..."}}
+// RabbitMQ 或 Redis 不可用
+{"code": 3, "message": "failed to submit task", "data": null}
+```
+
+### 3.3 轮询响应（GET /predict/query/<task_id>）
+
+| 场景 | 响应 |
+|------|------|
+| 任务处理中 | `{"code": 5, "message": "task is still processing", "data": null}` |
+| 任务不存在（未提交 / 已过期） | `{"code": 4, "message": "task not found", "data": null}` |
+| 完成（成功） | `{"code": 0, "message": "success", "data": {"image": "<base64>", "detections": [...]}}` |
+| 完成（业务失败） | `{"code": 1/2/3, "message": "...", "data": null}`（与提交时的错误语义一致） |
+| Redis 掉线 / 存储值损坏 | `{"code": 3, "message": "internal server error", "data": null}` |
+
+### 3.4 语义
+
+- 轮询**幂等**：结果信封写入 Redis 后原样返回，多次轮询结果一致，无重试副作用
+- 结果带 TTL（默认 3600s，`INFERFORGE_RESULT_TTL` 可调）：过期后轮询返回 code=4；code=4 同时覆盖「从未提交 / 已过期 / 结果写入失败」三种情形
+- 无回调重试概念：worker 只写 Redis 不联系调用方；Redis 写入失败时任务报错（`logs/celery.log` 可见）
+
+### 3.5 curl 示例
+
+```bash
+# 提交（payload 文件方式避免 base64 超长）
+python3 -c "import base64,json; json.dump({'image': base64.b64encode(open('assets/bus.jpg','rb').read()).decode()}, open('/tmp/payload.json','w'))"
+curl -s -X POST http://localhost:8000/predict/query \
+  -H "Content-Type: application/json" -d @/tmp/payload.json
+
+# 轮询（task_id 为提交响应里的值；code=5 继续轮询，0/1/2/3 为终态）
+curl -s http://localhost:8000/predict/query/<task_id>
+```
+
+自动化客户端可直接用 `python3 scripts/test_predict_query.py --image assets/bus.jpg`（自带轮询循环）。
+
+## 4. 参数设计规范（推理接口的通用模式）
 
 后续新增推理接口（分类、分割、异步等）遵循同一套参数模式，保证调用方心智一致：
 
-### 2.1 输入载体：三选一
+### 4.1 输入载体：三选一
 
 | 参数 | 形式 | 适用场景 |
 |------|------|---------|
@@ -128,7 +178,7 @@ curl -X POST http://localhost:8000/predict/callback \
 
 规则：同一接口最多提供两种载体（如 image + url），**至少一种、至多一种**，冲突即 code=1。
 
-### 2.2 推理参数（规划）
+### 4.2 推理参数（规划）
 
 可选的阈值/行为覆盖，不传用服务端默认值：
 
@@ -138,18 +188,18 @@ curl -X POST http://localhost:8000/predict/callback \
 | `iou_thres` | float | NMS IoU 阈值（默认 0.45） |
 | `with_image` | bool | 是否返回绘图 base64（默认 true；纯取坐标的调用方省流量） |
 
-### 2.3 异步模式（规划）
+### 4.3 异步模式
 
 长耗时推理（大模型/Agent）不适合同步等待，参数模式变为：
 
 ```
-POST /predict（异步）→ {"code": 0, "data": {"task_id": "..."}}
-GET  /result/<task_id> → 查询结果（完成前返回 processing 状态）
+POST /predict/query → {"code": 0, "data": {"task_id": "..."}}
+GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processing 状态）
 ```
 
-同步/异步并存时，由接口路径区分而非参数区分——调用方一眼可知行为。
+已落地：见 §3 异步轮询接口（POST /predict/query + GET 轮询）。同步/异步并存时，由接口路径区分而非参数区分——调用方一眼可知行为。
 
-## 4. 测试规范引用
+## 5. 测试规范引用
 
 - 响应格式与业务码：[status-codes.md](status-codes.md)
 - 分层与异步数据流：[architecture.md](architecture.md)

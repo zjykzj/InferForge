@@ -12,7 +12,7 @@
 | **成长** | 算法/工具逻辑增多 | + 单元测试（边界）、集成测试（真实模型 + 真实图片） |
 | **工业级** | SLO 运营 | + 端到端、压测、精度一致性、长稳 |
 
-当前处于基础阶段，`tests/test_predict.py` 即本阶段交付物（§3 详解）。
+当前处于基础阶段，`tests/test_predict.py` / `tests/test_predict_callback.py` / `tests/test_predict_query.py` 即本阶段交付物（§3 以 test_predict.py 为例详解）。
 
 ## 2. 测试分层（金字塔）
 
@@ -80,7 +80,7 @@ pytest tests/test_predict.py::test_predict_with_base64  # 单用例
 | 单元测试 | `engines/yolo.py` 的 letterbox/decode/nms 边界：空输出、全零置信度、IoU=0/1、极端宽高比图片 | 算法逻辑稳定后 |
 | 集成测试 | 真实 `yolov8n.onnx` + 真实图片：检测数/坐标合理性；精度与官方导出结果一致（mAP 不下降） | 模型落地后 |
 | 回归测试 | 同一批冒烟测试在替换后的接口层实现下全数通过——验证接口层可替换 | 接口层替换时 |
-| 异步任务测试 | task_id 生命周期、任务失败重试、长任务不阻塞短任务 | 任务队列落地后 |
+| 异步任务测试 | task_id 生命周期、任务失败重试、长任务不阻塞短任务 | 已部分落地：`test_predict_query.py` 覆盖 task_id 生命周期（提交/处理中/完成/不存在）与 Redis 故障路径 |
 | 压测 | locust 压测 + 扩展比验证 | 部署上线前 |
 
 ## 5. 编码约定

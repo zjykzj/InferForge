@@ -16,11 +16,12 @@
 | | | |
 |:---|:---|:---|
 | ⚡ **异步回调** | Celery + RabbitMQ —— 提交任务，结果 POST 到你的回调地址 | `INFERFORGE_ASYNC=1 ./start.sh` |
+| 🔄 **异步查询** | Celery + RabbitMQ + Redis —— 提交任务，主动轮询拉取结果 | `scripts/test_predict_query.py` |
 | 🔍 **同步检测** | `POST /predict` —— base64 / URL 输入，返回绘图 + JSON 结果 | `scripts/test_predict.py` |
 | 🧱 **分层模板** | apis / tasks / engines / utils —— 换一层不动其余 | [architecture](docs/architecture.md) |
 | 📦 **业务状态码** | `{code, message, data}` 信封 —— HTTP 永远 200 | [status-codes](docs/status-codes.md) |
 | 🔗 **请求追踪** | request_id + task_id 贯穿 web 与 worker 日志 | [logging](docs/logging.md) |
-| ✅ **冒烟测试** | 16 个测试，无需模型文件 | `pytest tests/ -v` |
+| ✅ **冒烟测试** | 33 个测试，无需模型文件 | `pytest tests/ -v` |
 
 ## 快速开始
 
@@ -60,13 +61,23 @@ python3 scripts/test_predict_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                                   # 结果完成后 POST 回调
 ```
 
+Celery + RabbitMQ + Redis 客户端轮询（结果缓存到 Redis，轮询直至就绪）：
+
+```bash
+pip install -r requirements-async.txt -r requirements-query.txt
+redis-server &                                                                  # 启动 redis（结果存储）
+INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh                                # 启动 web（启用异步接口）
+./start_celery.sh                                                               # 启动 worker
+python3 scripts/test_predict_query.py --image assets/bus.jpg                    # 提交 + 轮询直到完成
+```
+
 ## 文档
 
 [docs/](docs/) —— quick-start · architecture · stack · api · status-codes · logging · testing · security
 
 ## 致谢
 
-- 基于 [Flask](https://flask.palletsprojects.com/)、[Gunicorn](https://gunicorn.org/)、[ONNX Runtime](https://onnxruntime.ai/)、[OpenCV](https://opencv.org/)、[NumPy](https://numpy.org/)、[Celery](https://docs.celeryq.dev/) 构建
+- 基于 [Flask](https://flask.palletsprojects.com/)、[Gunicorn](https://gunicorn.org/)、[ONNX Runtime](https://onnxruntime.ai/)、[OpenCV](https://opencv.org/)、[NumPy](https://numpy.org/)、[Celery](https://docs.celeryq.dev/)、[Redis](https://redis.io/) 构建
 - 演示模型：[Ultralytics YOLOv8n](https://docs.ultralytics.com/)（导出为 ONNX）
 
 ## 开源协议

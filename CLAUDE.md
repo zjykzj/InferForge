@@ -27,11 +27,13 @@ Authoritative details live in [docs/architecture.md](docs/architecture.md); the 
 ```bash
 pytest tests/ -v                                    # smoke tests (no model file needed)
 ./start.sh                                          # run service (requires models/yolov8n.onnx)
-INFERFORGE_ASYNC=1 ./start.sh                       # run service with the async api
+INFERFORGE_ASYNC=1 ./start.sh                       # run service with the async callback api
+INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh    # run service with callback + query api
 ./start_celery.sh                                   # run async worker (requires RabbitMQ + celery)
 python3 scripts/test_predict.py --image assets/bus.jpg          # test the sync API
-python3 scripts/test_predict_callback.py --image assets/bus.jpg \  # test the async API
+python3 scripts/test_predict_callback.py --image assets/bus.jpg \  # test the async callback API
   --callback-url http://localhost:9000/result
+python3 scripts/test_predict_query.py --image assets/bus.jpg     # test the async query API
 python3 scripts/callback_receiver.py                # receive async results (saves to outputs/callbacks/)
 python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py
 ```
@@ -43,7 +45,7 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 - Python 3.9 compatibility: no `X | None` syntax; use `Optional` from typing.
 - New business codes must be registered in **both** `utils/response.py` docstring and `docs/status-codes.md`.
 - Gitignored: `models/*.onnx`, `logs/`, `outputs/`, `result*.jpg`/`result*.json`, `archive/` (old design docs — leave untouched).
-- Celery is optional: async blueprints register behind the `INFERFORGE_ASYNC=1` env switch in `app.py` (missing celery logs a warning). Async task modules use `shared_task` (never import celery_app from tasks — circular import). `celery_app.py` must keep its unconditional sys.path insert — the celery CLI temporarily removes cwd from sys.path.
+- Celery is optional: async blueprints register behind explicit env switches in `app.py` — `INFERFORGE_ASYNC=1` for the callback api, `INFERFORGE_QUERY=1` (on top of it) for the query api (missing deps log a warning and skip only the affected api). Async task modules use `shared_task` (never import celery_app from tasks — circular import). `celery_app.py` must keep its unconditional sys.path insert — the celery CLI temporarily removes cwd from sys.path.
 - Callback fires exactly once: detection business errors (code 1/2/3) are NOT retried — only network failures on the callback POST retry (3 attempts, exponential backoff). Keep it that way.
 - Log rotation belongs to system logrotate (copytruncate, `deploy/logrotate.conf`) — do not reintroduce in-app rotation handlers (multi-process rotation races).
 - Docs language: `docs/` in Chinese, READMEs bilingual. Docs describe current implementation only — no version planning.

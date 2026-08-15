@@ -34,6 +34,7 @@ celery_app.conf.update(
 # Explicit task registration instead of lazy autodiscovery: task modules use
 # shared_task, which binds to this app without a circular import.
 from tasks import detection_callback  # noqa: E402,F401
+from tasks import detection_query  # noqa: E402,F401
 
 
 @setup_logging.connect

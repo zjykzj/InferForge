@@ -1,6 +1,6 @@
 # 快速开始（Quick Start）
 
-> 从零跑起 InferForge 的操作手册，覆盖同步/异步两个部署场景。最后更新：2026-08-15
+> 从零跑起 InferForge 的操作手册，覆盖同步/异步（回调 + 轮询）部署场景。最后更新：2026-08-15
 
 ## 1. 场景一：同步接口（Flask + Gunicorn）
 
@@ -74,7 +74,7 @@ pip install -r requirements-async.txt
 ### 2.3 启动（三个终端，各一个进程）
 
 ```bash
-# 终端 1：web（必须带 INFERFORGE_ASYNC=1，否则异步接口不注册）
+# 终端 1：web（必须带 INFERFORGE_ASYNC=1，否则回调接口不注册）
 INFERFORGE_ASYNC=1 ./start.sh
 
 # 终端 2：worker
@@ -107,3 +107,59 @@ tail -f logs/celery.log        # 任务日志：request_id + task_id 贯穿
 | 提交返回 code=3 "failed to submit task" | RabbitMQ 未启动 |
 | 提交成功但回调迟迟不来 | 接收器未启动或 callback_url 不可达（worker 会重试 3 次后任务失败） |
 | worker 日志 request_id 为 `-` | 旧版本 worker（重启 `./start_celery.sh` 拉新代码） |
+
+## 3. 场景三：异步轮询接口（Celery + RabbitMQ + Redis）
+
+### 3.1 环境准备
+
+- Python 3.9+
+- RabbitMQ（同场景二）
+- Redis：
+
+```bash
+sudo apt-get install redis-server          # Ubuntu/WSL
+sudo service redis-server start            # 启动
+redis-cli ping                             # 返回 PONG 即正常
+```
+
+### 3.2 安装依赖
+
+```bash
+pip install -r requirements-async.txt -r requirements-query.txt
+```
+
+### 3.3 启动（两个终端，各一个进程）
+
+```bash
+# 终端 1：web（两个开关叠加：INFERFORGE_ASYNC=1 注册回调，INFERFORGE_QUERY=1 追加注册轮询）
+INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh
+
+# 终端 2：worker
+./start_celery.sh
+```
+
+无需回调接收器——结果是调用方主动拉取的。
+
+### 3.4 验证
+
+```bash
+python3 scripts/test_predict_query.py --image assets/bus.jpg
+python3 scripts/test_predict_query.py --image assets/bus.jpg --save result.jpg   # 另存绘图结果到本地
+```
+
+预期：提交返回 `task_id` → 轮询打印若干次 `code: 5`（处理中）→ 最终 `code: 0` + 检测列表。结果暂存期间可直接查看：
+
+```bash
+redis-cli GET inferforge:result:<task_id>   # 结果信封 JSON
+redis-cli TTL inferforge:result:<task_id>   # 剩余存活秒数（≤ 3600）
+```
+
+### 3.5 常见问题
+
+| 现象 | 原因 |
+|------|------|
+| `/predict/query` 返回 404 | web 没带 `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1` 启动 |
+| 提交返回 code=3 "failed to submit task" | RabbitMQ 或 Redis 未启动 |
+| 轮询返回 code=3 | Redis 掉线 |
+| 轮询一直 code=5 | worker 未启动（`./start_celery.sh`） |
+| 轮询返回 code=4 | task_id 错误，或结果已过期（默认 3600s，`INFERFORGE_RESULT_TTL` 可调） |

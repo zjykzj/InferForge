@@ -5,6 +5,8 @@ HTTP status is always 200; business status is carried by `code`:
     1     invalid request (bad params / bad image data)
     2     image download failure
     3     internal error
+    4     task not found (query api: never submitted or result expired)
+    5     task pending (query api: submitted, not finished yet)
 """
 from typing import Any
 

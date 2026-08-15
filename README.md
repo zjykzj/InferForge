@@ -16,11 +16,12 @@
 | | | |
 |:---|:---|:---|
 | ⚡ **Async Callback** | Celery + RabbitMQ — submit a task, result POSTed to your URL | `INFERFORGE_ASYNC=1 ./start.sh` |
+| 🔄 **Async Query** | Celery + RabbitMQ + Redis — submit a task, poll for the result | `scripts/test_predict_query.py` |
 | 🔍 **Sync Detection** | `POST /predict` — base64 / URL in, drawn image + JSON out | `scripts/test_predict.py` |
 | 🧱 **Layered Template** | apis / tasks / engines / utils — replace one layer, keep the rest | [architecture](docs/architecture.md) |
 | 📦 **Business Codes** | `{code, message, data}` envelope — HTTP always 200 | [status-codes](docs/status-codes.md) |
 | 🔗 **Request Tracing** | request_id + task_id across web and worker logs | [logging](docs/logging.md) |
-| ✅ **Smoke Tests** | 16 tests, no model file needed | `pytest tests/ -v` |
+| ✅ **Smoke Tests** | 33 tests, no model file needed | `pytest tests/ -v` |
 
 ## Quick Start
 
@@ -60,13 +61,23 @@ python3 scripts/test_predict_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                                   # result is POSTed back
 ```
 
+Client polling via Celery + RabbitMQ + Redis (result cached in Redis, poll until ready):
+
+```bash
+pip install -r requirements-async.txt -r requirements-query.txt
+redis-server &                                                                  # start redis (result store)
+INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh                                # start web with the async apis
+./start_celery.sh                                                               # start the worker
+python3 scripts/test_predict_query.py --image assets/bus.jpg                    # submit + poll until done
+```
+
 ## Documentation
 
 [docs/](docs/) — quick-start · architecture · stack · api · status-codes · logging · testing · security
 
 ## Acknowledgments
 
-- Built with [Flask](https://flask.palletsprojects.com/), [Gunicorn](https://gunicorn.org/), [ONNX Runtime](https://onnxruntime.ai/), [OpenCV](https://opencv.org/), [NumPy](https://numpy.org/), and [Celery](https://docs.celeryq.dev/)
+- Built with [Flask](https://flask.palletsprojects.com/), [Gunicorn](https://gunicorn.org/), [ONNX Runtime](https://onnxruntime.ai/), [OpenCV](https://opencv.org/), [NumPy](https://numpy.org/), [Celery](https://docs.celeryq.dev/), and [Redis](https://redis.io/)
 - Demo model: [Ultralytics YOLOv8n](https://docs.ultralytics.com/) (exported to ONNX)
 
 ## License

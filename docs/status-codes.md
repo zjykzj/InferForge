@@ -30,6 +30,8 @@
 | `1` | invalid request | 参数缺失/冲突、图片数据非法（如同时传 `image` 和 `url`） |
 | `2` | download failure | 图片 URL 下载失败（超时、404、文件过大） |
 | `3` | internal error | 服务内部异常（推理失败、未预期异常） |
+| `4` | task not found | 查询任务结果不存在：从未提交、结果已过期（TTL 回收）或结果写入失败 |
+| `5` | task pending | 查询任务处理中：已提交、worker 尚未写入结果 |
 
 扩展原则：
 
@@ -53,6 +55,8 @@ return response.success({"image": b64, "detections": [...]})
 return response.error("provide either 'image' or 'url'", code=1)
 return response.error("failed to download image: %s" % exc, code=2)
 return response.error("internal server error", code=3)
+return response.error("task not found", code=4)
+return response.error("task is still processing", code=5)
 ```
 
 分层约束：**任务层 / 算法层不接触响应格式**——它们抛异常或返回数据，由 apis 层统一捕获并包装，保持各层可替换。
@@ -74,7 +78,7 @@ else:
 
 1. 在 `utils/response.py` docstring 与本文档 §2 登记新码语义
 2. apis 层调用 `response.error(msg, code=N)`
-3. 在 `tests/test_predict.py` 补充对应断言
+3. 在对应测试文件（`tests/test_predict.py` / `tests/test_predict_query.py`）补充对应断言
 
 ## 4. 方案比较：永远 200 vs HTTP 状态码
 

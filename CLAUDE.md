@@ -6,8 +6,8 @@ InferForge is an algorithm-agnostic inference-serving project template — a ser
 
 Layers:
 
-- `apis/` + `app.py` — interface layer: Flask blueprints, input validation, unified responses
-- `tasks/` — task layer: orchestration; each task owns its predictors (lazy loading)
+- `apis/` + `app.py` — interface layer: Flask blueprints (sync + optional async), input validation, unified responses
+- `tasks/` + `celery_app.py` — task layer: orchestration; each task owns its predictors (lazy loading); celery tasks run via RabbitMQ
 - `engines/` — engine layer: `BasePredictor` contract + YOLOv8n implementation
 - `utils/` — cross-cutting: logging, image conversion, response format, request_id
 
@@ -27,10 +27,12 @@ Authoritative details live in [docs/architecture.md](docs/architecture.md); the 
 ```bash
 pytest tests/ -v                                    # smoke tests (no model file needed)
 ./start.sh                                          # run service (requires models/yolov8n.onnx)
+INFERFORGE_ASYNC=1 ./start.sh                       # run service with the async api
 ./start_celery.sh                                   # run async worker (requires RabbitMQ + celery)
 python3 scripts/test_predict.py --image assets/bus.jpg          # test the sync API
 python3 scripts/test_predict_callback.py --image assets/bus.jpg \  # test the async API
   --callback-url http://localhost:9000/result
+python3 scripts/callback_receiver.py                # receive async results (saves to outputs/callbacks/)
 python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py
 ```
 
@@ -40,8 +42,10 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 - Tests inject `FakePredictor` by monkeypatching `tasks.detection.get_predictor`; never load a real model or hit the network in tests.
 - Python 3.9 compatibility: no `X | None` syntax; use `Optional` from typing.
 - New business codes must be registered in **both** `utils/response.py` docstring and `docs/status-codes.md`.
-- Gitignored: `models/*.onnx`, `logs/`, `result*.jpg`/`result*.json`, `archive/` (old design docs — leave untouched).
+- Gitignored: `models/*.onnx`, `logs/`, `outputs/`, `result*.jpg`/`result*.json`, `archive/` (old design docs — leave untouched).
 - Celery is optional: async blueprints register behind the `INFERFORGE_ASYNC=1` env switch in `app.py` (missing celery logs a warning). Async task modules use `shared_task` (never import celery_app from tasks — circular import). `celery_app.py` must keep its unconditional sys.path insert — the celery CLI temporarily removes cwd from sys.path.
+- Callback fires exactly once: detection business errors (code 1/2/3) are NOT retried — only network failures on the callback POST retry (3 attempts, exponential backoff). Keep it that way.
+- Log rotation belongs to system logrotate (copytruncate, `deploy/logrotate.conf`) — do not reintroduce in-app rotation handlers (multi-process rotation races).
 - Docs language: `docs/` in Chinese, READMEs bilingual. Docs describe current implementation only — no version planning.
 
 ## Git Operations

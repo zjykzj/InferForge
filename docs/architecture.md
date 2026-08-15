@@ -7,9 +7,9 @@
 | 层 | 目录 | 技术 | 一句话职责 |
 |----|------|------|-----------|
 | 接口层 | `apis/` + `app.py` | Flask、requests | 校验参数 → 转发任务层 → 包装响应（业务状态码） |
-| 任务层 | `tasks/` | threading、celery | 任务编排；每个任务持有自己的预测器；异步任务经 RabbitMQ 执行 |
+| 任务层 | `tasks/` + `celery_app.py` | threading、celery | 任务编排；每个任务持有自己的预测器；异步任务经 RabbitMQ 执行 |
 | 引擎层 | `engines/` | onnxruntime、OpenCV、NumPy | 推理引擎契约 + YOLOv8n 实现 |
-| 横切层 | `utils/` | logging、base64、uuid | 日志、图片转换、响应格式、request_id（各层共用） |
+| 横切层 | `utils/` | logging、cv2、requests、base64、uuid | 日志、图片转换、响应格式、request_id（各层共用） |
 
 ## 2. 各层职责与实现
 

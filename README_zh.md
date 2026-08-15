@@ -66,7 +66,8 @@ python3 scripts/test_predict_callback.py --image assets/bus.jpg \
 
 ## 致谢
 
-基于 [Flask](https://flask.palletsprojects.com/)、[Gunicorn](https://gunicorn.org/)、[ONNX Runtime](https://onnxruntime.ai/)、[OpenCV](https://opencv.org/)、[Celery](https://docs.celeryq.dev/) 构建。演示模型：[Ultralytics YOLOv8n](https://docs.ultralytics.com/)。
+- 基于 [Flask](https://flask.palletsprojects.com/)、[Gunicorn](https://gunicorn.org/)、[ONNX Runtime](https://onnxruntime.ai/)、[OpenCV](https://opencv.org/)、[NumPy](https://numpy.org/)、[Celery](https://docs.celeryq.dev/) 构建
+- 演示模型：[Ultralytics YOLOv8n](https://docs.ultralytics.com/)（导出为 ONNX）
 
 ## 开源协议
 

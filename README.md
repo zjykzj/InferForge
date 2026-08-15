@@ -66,7 +66,8 @@ python3 scripts/test_predict_callback.py --image assets/bus.jpg \
 
 ## Acknowledgments
 
-Built with [Flask](https://flask.palletsprojects.com/), [Gunicorn](https://gunicorn.org/), [ONNX Runtime](https://onnxruntime.ai/), [OpenCV](https://opencv.org/), and [Celery](https://docs.celeryq.dev/). Demo model: [Ultralytics YOLOv8n](https://docs.ultralytics.com/).
+- Built with [Flask](https://flask.palletsprojects.com/), [Gunicorn](https://gunicorn.org/), [ONNX Runtime](https://onnxruntime.ai/), [OpenCV](https://opencv.org/), [NumPy](https://numpy.org/), and [Celery](https://docs.celeryq.dev/)
+- Demo model: [Ultralytics YOLOv8n](https://docs.ultralytics.com/) (exported to ONNX)
 
 ## License
 

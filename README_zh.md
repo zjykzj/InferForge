@@ -41,8 +41,8 @@ cp /path/to/yolov8n.onnx models/
 ./start.sh
 
 # 4. 测试接口
-python3 scripts/test_api.py --image assets/bus.jpg                              # 本地图片（base64）
-python3 scripts/test_api.py --url https://ultralytics.com/images/bus.jpg        # 在线 URL
+python3 scripts/test_predict.py --image assets/bus.jpg                              # 本地图片（base64）
+python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg        # 在线 URL
 ```
 
 异步回调接口（可选——需要 RabbitMQ 服务）：
@@ -50,7 +50,8 @@ python3 scripts/test_api.py --url https://ultralytics.com/images/bus.jpg        
 ```bash
 pip install -r requirements-async.txt
 ./start_celery.sh                                                               # 启动 worker
-python3 scripts/test_api.py --image assets/bus.jpg \
+python3 scripts/callback_receiver.py                                            # 启动回调接收器（结果保存到 outputs/callbacks/）
+python3 scripts/test_predict_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                                   # 结果完成后 POST 回调
 ```
 

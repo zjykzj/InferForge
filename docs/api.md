@@ -108,7 +108,7 @@ curl -d '{"url":"http://localhost:9/x.jpg"}' ...        # → code=2 下载失�
 语义：**回调恰好触发一次**——检测业务错误不重试，只有回调 POST 本身的网络故障才指数退避重试（最多 3 次）。
 
 ```bash
-# curl 示例（回调接收端自备，例如本地起一个简易 HTTP 服务）
+# curl 示例（回调接收端自备——可用 scripts/callback_receiver.py 起一个测试接收器）
 curl -X POST http://localhost:8000/predict/callback \
   -H "Content-Type: application/json" \
   -d '{"image": "<base64>", "callback_url": "http://localhost:9000/result"}'

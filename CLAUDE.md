@@ -28,7 +28,9 @@ Authoritative details live in [docs/architecture.md](docs/architecture.md); the 
 pytest tests/ -v                                    # smoke tests (no model file needed)
 ./start.sh                                          # run service (requires models/yolov8n.onnx)
 ./start_celery.sh                                   # run async worker (requires RabbitMQ + celery)
-python3 scripts/test_api.py --image assets/bus.jpg  # test the running API
+python3 scripts/test_predict.py --image assets/bus.jpg          # test the sync API
+python3 scripts/test_predict_callback.py --image assets/bus.jpg \  # test the async API
+  --callback-url http://localhost:9000/result
 python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py
 ```
 

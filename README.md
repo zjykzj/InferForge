@@ -41,8 +41,8 @@ cp /path/to/yolov8n.onnx models/
 ./start.sh
 
 # 4. Test the API
-python3 scripts/test_api.py --image assets/bus.jpg                              # local image (base64)
-python3 scripts/test_api.py --url https://ultralytics.com/images/bus.jpg        # remote url
+python3 scripts/test_predict.py --image assets/bus.jpg                              # local image (base64)
+python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg        # remote url
 ```
 
 Async API with server-side callback (optional — requires a RabbitMQ service):
@@ -50,7 +50,8 @@ Async API with server-side callback (optional — requires a RabbitMQ service):
 ```bash
 pip install -r requirements-async.txt
 ./start_celery.sh                                                               # start the worker
-python3 scripts/test_api.py --image assets/bus.jpg \
+python3 scripts/callback_receiver.py                                            # start the callback receiver (saves to outputs/callbacks/)
+python3 scripts/test_predict_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                                   # result is POSTed back
 ```
 

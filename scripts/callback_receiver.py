@@ -14,16 +14,17 @@ import json
 import logging
 import os
 import time
+from typing import Any, Dict, Optional
 
-from flask import Flask, request
+from fastapi import Body, FastAPI
+from fastapi.responses import PlainTextResponse
 
 logger = logging.getLogger("callback_receiver")
 
 SAVE_DIR = None
 
 
-def _handle():
-    payload = request.get_json(silent=True) or {}
+def _handle(payload: Dict[str, Any]) -> str:
     ts = time.strftime("%Y%m%d_%H%M%S")
     code = payload.get("code", -1)
     message = payload.get("message", "")
@@ -54,9 +55,13 @@ def _handle():
     return "ok"
 
 
-app = Flask(__name__)
-app.add_url_rule("/result", "result", _handle, methods=["POST"])
-app.add_url_rule("/<path:path>", "result_any", _handle, methods=["POST"])
+app = FastAPI()
+
+
+@app.post("/result")
+@app.post("/{path:path}")
+def receive(path: str = "", payload: Optional[Dict[str, Any]] = Body(default=None)):
+    return PlainTextResponse(_handle(payload or {}))
 
 
 def main():
@@ -71,7 +76,10 @@ def main():
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-7s | %(message)s")
     logger.info("callback receiver listening on :%d, saving to %s", args.port, SAVE_DIR)
-    app.run(host="0.0.0.0", port=args.port)
+
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=args.port, log_config=None)
 
 
 if __name__ == "__main__":

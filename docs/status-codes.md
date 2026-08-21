@@ -72,6 +72,8 @@ return response.error("task is still processing", code=5)
 return response.error("model not loaded", code=6, http_status=503)  # 仅健康检查端点
 ```
 
+参数结构校验（Pydantic 模型）失败时同样走 code=1：FastAPI 抛出的 `RequestValidationError` 由 `utils.response.validation_error_handler` 统一折叠为 `200 + code=1` 信封——框架默认的 422 永不泄漏。
+
 分层约束：**任务层 / 算法层不接触响应格式**——它们抛异常或返回数据，由 apis 层统一捕获并包装，保持各层可替换。
 
 ### 3.2 客户端

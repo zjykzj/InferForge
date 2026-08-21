@@ -8,29 +8,25 @@ verbatim (code 0/1/2/3 + data).
 import json
 import logging
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Request
 
+from apis.schemas import QueryRequest
 from tasks.detection_query import detect_query_task
 from utils import redis_store, request_id, response
 
 logger = logging.getLogger("apis.predict_query")
 
-predict_query_bp = Blueprint("predict_query", __name__)
+predict_query_router = APIRouter()
 
 
-@predict_query_bp.route("/predict/query", methods=["POST"])
-def submit_query():
-    data = request.get_json(silent=True) or {}
-    image_b64 = data.get("image")
-    image_url = data.get("url")
+@predict_query_router.post("/predict/query")
+def submit_query(request: Request, payload: QueryRequest):
+    image_b64 = payload.image
+    image_url = payload.url
 
     logger.info("predict query request: remote=%s has_image=%s has_url=%s",
-                request.remote_addr, bool(image_b64), bool(image_url))
-
-    if image_b64 and image_url:
-        return response.error("provide either 'image' or 'url', not both", code=1)
-    if not image_b64 and not image_url:
-        return response.error("provide either 'image' or 'url'", code=1)
+                request.client.host if request.client else "-",
+                bool(image_b64), bool(image_url))
 
     try:
         task = detect_query_task.delay(
@@ -47,8 +43,8 @@ def submit_query():
     return response.success({"task_id": task.id})
 
 
-@predict_query_bp.route("/predict/query/<task_id>", methods=["GET"])
-def poll_query(task_id):
+@predict_query_router.get("/predict/query/{task_id}")
+def poll_query(task_id: str):
     logger.info("query poll: task_id=%s", task_id)
     try:
         raw = redis_store.get_result(task_id)
@@ -67,4 +63,4 @@ def poll_query(task_id):
     if not isinstance(payload, dict):
         logger.error("result payload is not an envelope: task_id=%s", task_id)
         return response.error("internal server error", code=3)
-    return jsonify(payload)  # worker-stored envelope verbatim (code 0/1/2/3 + data)
+    return response.JSONResponse(payload)  # worker-stored envelope verbatim (code 0/1/2/3 + data)

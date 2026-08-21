@@ -11,23 +11,23 @@ whether the predictor has been loaded.
 """
 import logging
 
-from flask import Blueprint
+from fastapi import APIRouter
 
 from tasks import detection
 from utils import response
 
 logger = logging.getLogger("apis.health")
 
-health_bp = Blueprint("health", __name__)
+health_router = APIRouter()
 
 
-@health_bp.route("/health")
+@health_router.get("/health")
 def liveness():
     """The process is alive and serving — never does real work."""
     return response.success({"status": "ok"})
 
 
-@health_bp.route("/health/ready")
+@health_router.get("/health/ready")
 def readiness():
     """Ready to accept traffic: the predictor has been loaded in this process.
 

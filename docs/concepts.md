@@ -1,6 +1,6 @@
 # 概念入门（Concepts）
 
-> 给没接触过 Web 服务、消息队列、Redis 的读者：以「一次推理请求的旅程」为主线，建立心智模型。读完全文，你会理解 InferForge 为什么是现在这套架构。最后更新：2026-08-15
+> 给没接触过 Web 服务、消息队列、Redis 的读者：以「一次推理请求的旅程」为主线，建立心智模型。读完全文，你会理解 InferForge 为什么是现在这套架构。最后更新：2026-08-21
 
 **建议阅读顺序**：本文（概念）→ [quick-start.md](quick-start.md)（跑起来）→ [architecture.md](architecture.md) / [api.md](api.md) / [stack.md](stack.md)（深入实现）。
 
@@ -18,17 +18,20 @@
    └─ ④ 返回 HTTP 响应（"这是检测结果"）
 ```
 
-### 1.2 Flask 与 Gunicorn 的分工
+### 1.2 FastAPI、ASGI 与 Gunicorn 的分工
 
 | 角色 | 是什么 | 负责 |
 |------|--------|------|
-| **Flask** | Python Web 应用框架 | 写"处理逻辑"：路由（哪个 URL 走哪个函数）、解析请求参数、组装响应。自带开发服务器，仅适合调试 |
-| **WSGI** | Python Web 服务器与应用之间的标准协议 | 约定"服务器怎么把请求交给应用、应用怎么把响应交回来" |
-| **Gunicorn** | WSGI 服务器 | 生产环境进程管理：开 N 个 worker 进程并发收请求，一个进程卡住不影响其他进程 |
+| **FastAPI** | Python Web 应用框架 | 写"处理逻辑"：路由（哪个 URL 走哪个函数）、Pydantic 声明式参数校验、组装响应、自动生成接口文档（`/docs`）。自带开发服务器，仅适合调试 |
+| **ASGI** | 服务器与应用之间的标准协议（WSGI 的现代继任者） | 约定"服务器怎么把请求交给应用、应用怎么把响应交回来"，原生支持异步 |
+| **Uvicorn** | ASGI 服务器实现 | 每个 gunicorn worker 进程内的"引擎"：运行事件循环、收发 HTTP |
+| **Gunicorn** | 进程管理器 | 生产环境进程管理：开 N 个 worker 进程并发收请求，一个进程卡住不影响其他进程；优雅停机、平滑重启 |
 
-类比：Flask 是"菜单和做法"，Gunicorn 是"多个服务员"，WSGI 是服务员和后厨之间的"传菜口标准"。
+类比：FastAPI 是"菜单和做法"，Gunicorn 是"餐厅经理（管服务员）"，Uvicorn 是"每个服务员体内的传菜引擎"，ASGI 是服务员和后厨之间的"传菜口标准"。
 
-本项目对应：`app.py`（装配 Flask 蓝图）、`gunicorn.conf.py`（2 个 worker、8000 端口）、`start.sh`（启动 gunicorn）。
+本项目对应：`app.py`（装配 FastAPI router）、`gunicorn.conf.py`（2 个 worker、`uvicorn.workers.UvicornWorker`、8000 端口）、`start.sh`（启动 gunicorn）。开发调试可用 `python3 app.py`（uvicorn 单进程）。Gunicorn 与直接 uvicorn 的选择见 [stack.md](stack.md) §1.4。
+
+补充：接口端点写的是**同步函数**（`def`），FastAPI 会把它们放进线程池执行——推理是 CPU 密集的阻塞操作，线程池正好适配；单进程也能同时服务多个请求。
 
 ### 1.3 多进程意味着什么（第 5 节的伏笔）
 
@@ -142,8 +145,8 @@ worker 完成后把结果放进一个**共享的"快递柜"**（Redis），发�
 
 | 概念 | 本项目对应 |
 |------|-----------|
-| Web 应用 | `app.py` + `apis/`（Flask 蓝图） |
-| Web 服务器 | gunicorn（`gunicorn.conf.py`，`start.sh` 启动） |
+| Web 应用 | `app.py` + `apis/`（FastAPI router） |
+| Web 服务器 | gunicorn + uvicorn worker（`gunicorn.conf.py`，`start.sh` 启动；开发用 `python3 app.py`） |
 | 任务框架 | `celery_app.py` + `tasks/` 的 `@shared_task` |
 | 消息队列 | RabbitMQ（`CELERY_BROKER_URL`） |
 | 生产者 | `apis/predict_callback.py` / `apis/predict_query.py` 里的 `.delay()` |

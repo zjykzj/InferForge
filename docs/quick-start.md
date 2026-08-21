@@ -2,7 +2,7 @@
 
 > 从零跑起 InferForge 的操作手册，覆盖同步/异步（回调 + 轮询）/容器化部署场景。概念不熟？先读 [concepts.md](concepts.md)。最后更新：2026-08-21
 
-## 1. 场景一：同步接口（Flask + Gunicorn）
+## 1. 场景一：同步接口（FastAPI + Gunicorn/Uvicorn）
 
 ### 1.1 环境准备
 
@@ -26,10 +26,11 @@ cp /path/to/yolov8n.onnx models/
 ### 1.4 启动服务
 
 ```bash
-./start.sh        # 默认 2 worker，端口 8000
+python3 app.py    # 开发模式：uvicorn 单进程（不检查模型文件，接口调试用）
+./start.sh        # 生产模式：gunicorn 多 worker（默认 2 worker，端口 8000）
 ```
 
-启动失败说明：模型文件缺失时会直接提示；端口冲突改 `gunicorn.conf.py` 的 `bind`。
+启动失败说明：`start.sh` 在模型文件缺失时会直接提示；端口冲突改 `gunicorn.conf.py` 的 `bind`。开发模式自带交互式接口文档：浏览器打开 `http://localhost:8000/docs`。
 
 ### 1.5 验证
 

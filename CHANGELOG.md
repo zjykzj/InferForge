@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- Web framework migrated from Flask to FastAPI (breaking): ASGI serving via gunicorn + uvicorn.workers.UvicornWorker (one-line change in gunicorn.conf.py — process management, logrotate and graceful shutdown unchanged); Pydantic request models with validation failures folded into the 200 + code=1 envelope (FastAPI's 422 never leaks); request_id moved from flask.g to a ContextVar + pure-ASGI middleware; endpoints are sync `def` (threadpool execution for CPU-bound inference)
+- Python floor raised to 3.12 (Dockerfile python:3.12-slim; latest fastapi/uvicorn)
+- RabbitMQ >= 4.3 compatibility: control_queue_durable=True (pidbox reply queue no longer transient) + --without-gossip in start_celery.sh and compose (gossip's transient queue has no durability knob and its features are unused)
+
+### Added
+
+- OpenAPI docs: GET /docs (Swagger UI) + GET /openapi.json, version read from VERSION
+- Request-body guard: Content-Length 20MB ceiling in app.py middleware (200 + code=1 envelope, matches the image download limit)
+- Docs: stack.md §1.4 documents the gunicorn-vs-uvicorn decision (differences + when to choose each)
+
 ## [0.4.0] - 2026-08-21
 
 ### Added

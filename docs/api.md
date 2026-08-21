@@ -33,6 +33,7 @@
 - `bbox`：像素坐标 `[x1, y1, x2, y2]`（左上角 + 右下角）
 - `confidence`：保留 4 位小数
 - 响应头 `X-Request-ID`：本次请求的 trace id，报障时提供
+- 自动文档：`GET /docs`（Swagger UI 交互式调试）、`GET /openapi.json`（机器可读契约）
 
 业务状态码见 [status-codes.md](status-codes.md)。
 
@@ -78,6 +79,7 @@ curl -d '{}' ...                                        # → code=1 缺参数
 curl -d '{"image":"x","url":"http://a/b.jpg"}' ...      # → code=1 双参数
 curl -d '{"image":"!!not-base64!!"}' ...                # → code=1 非法图片
 curl -d '{"url":"http://localhost:9/x.jpg"}' ...        # → code=2 下载失败
+curl -d '{bad json' ...                                 # → code=1 非法 JSON（Pydantic 校验折叠进信封，HTTP 仍 200）
 ```
 
 ## 2. 异步回调接口：POST /predict/callback

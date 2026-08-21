@@ -1,28 +1,31 @@
 """POST /predict — validate input, forward to the task layer, format the response.
 
 An API may combine one or more tasks; it never touches algorithms directly.
+The endpoint is a plain `def` — FastAPI runs it in its threadpool, because
+the detection pipeline (download + ONNX inference) is blocking and CPU-bound.
 """
 import logging
 
 import requests
-from flask import Blueprint, request
+from fastapi import APIRouter, Request
 
+from apis.schemas import PredictRequest
 from tasks import detection
 from utils import response
 
 logger = logging.getLogger("apis.predict")
 
-predict_bp = Blueprint("predict", __name__)
+predict_router = APIRouter()
 
 
-@predict_bp.route("/predict", methods=["POST"])
-def predict():
-    data = request.get_json(silent=True) or {}
-    image_b64 = data.get("image")
-    image_url = data.get("url")
+@predict_router.post("/predict")
+def predict(request: Request, payload: PredictRequest):
+    image_b64 = payload.image
+    image_url = payload.url
+    remote = request.client.host if request.client else "-"
 
     logger.info("predict request: remote=%s has_image=%s has_url=%s",
-                request.remote_addr, bool(image_b64), bool(image_url))
+                remote, bool(image_b64), bool(image_url))
 
     try:
         out_image, detections = detection.run_detection(

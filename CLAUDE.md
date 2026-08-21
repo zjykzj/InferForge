@@ -6,7 +6,7 @@ InferForge is an algorithm-agnostic inference-serving project template — a ser
 
 Layers:
 
-- `apis/` + `app.py` — interface layer: Flask blueprints (sync + optional async), input validation, unified responses
+- `apis/` + `app.py` — interface layer: FastAPI routers (sync + optional async), Pydantic input validation, unified responses
 - `tasks/` + `celery_app.py` — task layer: orchestration; each task owns its predictors (lazy loading); celery tasks run via RabbitMQ
 - `engines/` — engine layer: `BasePredictor` contract + YOLOv8n implementation
 - `utils/` — cross-cutting: logging, image conversion, response format, request_id
@@ -19,13 +19,14 @@ Authoritative details live in [docs/architecture.md](docs/architecture.md); the 
 - `utils/` is cross-cutting — usable by any layer, must not depend on business layers.
 - `BasePredictor` (`engines/base.py`) is the only stable contract. Swapping an algorithm touches `engines/` only.
 - Tasks own their predictors; the API layer never touches them.
-- HTTP always returns 200; business status in `{code, message, data}` (see docs/status-codes.md).
+- HTTP always returns 200; business status in `{code, message, data}` (see docs/status-codes.md). Pydantic validation failures must fold into the envelope via `utils.response.validation_error_handler` (code=1) — FastAPI's default 422 must never leak.
 - Engine pre/post processing is self-written — never import ultralytics (AGPL-3.0).
 
 ## Development Commands
 
 ```bash
 pytest tests/ -v                                    # smoke tests (no model file needed)
+python3 app.py                                      # dev server (uvicorn single process, no model check)
 ./start.sh                                          # run service (requires models/yolov8n.onnx)
 INFERFORGE_ASYNC=1 ./start.sh                       # run service with the async apis (callback + query)
 ./start_celery.sh                                   # run async worker (requires RabbitMQ + celery)
@@ -35,14 +36,17 @@ python3 scripts/test_predict_callback.py --image assets/bus.jpg \  # test the as
   --callback-url http://localhost:9000/result
 python3 scripts/test_predict_query.py --image assets/bus.jpg     # test the async query API
 python3 scripts/callback_receiver.py                # receive async results (saves to outputs/callbacks/)
-python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py
+python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py
 ```
 
 ## Critical Details
 
 - onnxruntime is imported **inside** `YoloPredictor.load()` on purpose — tests must stay model-free. Do not move it to module level.
 - Tests inject `FakePredictor` by monkeypatching `tasks.detection.get_predictor`; never load a real model or hit the network in tests.
-- Python 3.9 compatibility: no `X | None` syntax; use `Optional` from typing.
+- Test apps are built via the `conftest.app_factory` fixture (RequestIdMiddleware + validation handler, one router per test) or `create_app()` — never register the validation handler twice.
+- Python floor is 3.12 (conda env `py312`); `X | None` syntax is allowed.
+- API endpoints are plain `def` (FastAPI threadpool) — the inference path is CPU-bound blocking; never async/await around predictor calls. Don't spawn raw `threading.Thread` in endpoints (request_id ContextVar propagates via anyio's threadpool only).
+- request_id flows via `utils.request_id.RequestIdMiddleware` (ContextVar + X-Request-ID header on every response); workers fall back to the request_id in task kwargs.
 - New business codes must be registered in **both** `utils/response.py` docstring and `docs/status-codes.md`.
 - Gitignored: `models/*.onnx`, `logs/`, `outputs/`, `result*.jpg`/`result*.json`, `archive/` (old design docs — leave untouched).
 - Celery/redis are optional: async is one deployment shape behind `INFERFORGE_ASYNC=1` — it registers both async apis (callback + query; requires celery + rabbitmq + redis). `INFERFORGE_QUERY=1` is a deprecated alias (logs a warning). Missing deps log a warning and skip the whole async mode. Async task modules use `shared_task` (never import celery_app from tasks — circular import). `celery_app.py` must keep its unconditional sys.path insert — the celery CLI temporarily removes cwd from sys.path.

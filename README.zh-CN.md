@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.12%2B-blue.svg" alt="Python 3.12+"></a>
   <a href="https://github.com/zjykzj/InferForge/releases"><img src="https://img.shields.io/github/v/release/zjykzj/InferForge" alt="Release"></a>
   <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
 </p>
@@ -20,6 +20,7 @@
 | 🧱 **分层模板** | apis / tasks / engines / utils —— 换一层不动其余 | [architecture](docs/architecture.md) |
 | 📦 **业务状态码** | `{code, message, data}` 信封 —— HTTP 永远 200 | [status-codes](docs/status-codes.md) |
 | 🚦 **健康探针** | `GET /health` + `/health/ready` —— 供 K8s / 负载均衡存活与就绪检查 | [api](docs/api.md) |
+| 📚 **OpenAPI 文档** | 自动生成 `/docs`（Swagger UI）+ `/openapi.json` | `GET /docs` |
 | 🐳 **Docker Compose** | 一条命令起全栈 —— web + worker + RabbitMQ + Redis | `docker compose up -d` |
 | 🔗 **请求追踪** | request_id + task_id 贯穿 web 与 worker 日志 | [logging](docs/logging.md) |
 | ✅ **冒烟测试** | 30+ 个测试，无需模型文件 | `pytest tests/ -v` |
@@ -92,7 +93,7 @@ RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compos
 
 ## 致谢
 
-- **Web 与服务** — [Flask](https://flask.palletsprojects.com/) 路由与请求处理 · [Gunicorn](https://gunicorn.org/) 多进程 WSGI 服务
+- **Web 与服务** — [FastAPI](https://fastapi.tiangolo.com/) 路由、Pydantic 校验与 OpenAPI 文档 · [Uvicorn](https://www.uvicorn.org/) ASGI 服务 · [Gunicorn](https://gunicorn.org/) 多进程管理
 - **推理引擎** — [ONNX Runtime](https://onnxruntime.ai/) 前向推理 · [OpenCV](https://opencv.org/) 图像前后处理与绘图 · [NumPy](https://numpy.org/) decode 与 NMS 向量化计算
 - **异步任务** — [Celery](https://docs.celeryq.dev/) 任务定义与投递 · [RabbitMQ](https://www.rabbitmq.com/) 消息中转 · [Redis](https://redis.io/) 结果暂存（TTL 自动回收）
 - **演示模型** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/) 导出为 ONNX

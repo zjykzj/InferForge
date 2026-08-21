@@ -5,32 +5,26 @@ Submit a detection task; when it finishes the server POSTs the result
 """
 import logging
 
-from flask import Blueprint, request
+from fastapi import APIRouter, Request
 
+from apis.schemas import CallbackRequest
 from tasks.detection_callback import detect_callback_task
 from utils import request_id, response
 
 logger = logging.getLogger("apis.predict_callback")
 
-predict_callback_bp = Blueprint("predict_callback", __name__)
+predict_callback_router = APIRouter()
 
 
-@predict_callback_bp.route("/predict/callback", methods=["POST"])
-def predict_callback():
-    data = request.get_json(silent=True) or {}
-    image_b64 = data.get("image")
-    image_url = data.get("url")
-    callback_url = data.get("callback_url")
+@predict_callback_router.post("/predict/callback")
+def predict_callback(request: Request, payload: CallbackRequest):
+    image_b64 = payload.image
+    image_url = payload.url
+    callback_url = payload.callback_url
 
     logger.info("predict callback request: remote=%s has_image=%s has_url=%s",
-                request.remote_addr, bool(image_b64), bool(image_url))
-
-    if not callback_url:
-        return response.error("provide 'callback_url'", code=1)
-    if image_b64 and image_url:
-        return response.error("provide either 'image' or 'url', not both", code=1)
-    if not image_b64 and not image_url:
-        return response.error("provide either 'image' or 'url'", code=1)
+                request.client.host if request.client else "-",
+                bool(image_b64), bool(image_url))
 
     try:
         task = detect_callback_task.delay(

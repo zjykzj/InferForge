@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
-  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.12%2B-blue.svg" alt="Python 3.12+"></a>
   <a href="https://github.com/zjykzj/InferForge/releases"><img src="https://img.shields.io/github/v/release/zjykzj/InferForge" alt="Release"></a>
   <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
 </p>
@@ -20,6 +20,7 @@
 | 🧱 **Layered Template** | apis / tasks / engines / utils — replace one layer, keep the rest | [architecture](docs/architecture.md) |
 | 📦 **Business Codes** | `{code, message, data}` envelope — HTTP always 200 | [status-codes](docs/status-codes.md) |
 | 🚦 **Health Probes** | `GET /health` + `/health/ready` — liveness/readiness for K8s & LBs | [api](docs/api.md) |
+| 📚 **OpenAPI Docs** | auto-generated `/docs` (Swagger UI) + `/openapi.json` | `GET /docs` |
 | 🐳 **Docker Compose** | one command full stack — web + worker + RabbitMQ + Redis | `docker compose up -d` |
 | 🔗 **Request Tracing** | request_id + task_id across web and worker logs | [logging](docs/logging.md) |
 | ✅ **Smoke Tests** | 30+ tests, no model file needed | `pytest tests/ -v` |
@@ -92,7 +93,7 @@ RabbitMQ management UI at http://localhost:15672 (guest/guest). `docker compose 
 
 ## Acknowledgments
 
-- **Web & serving** — [Flask](https://flask.palletsprojects.com/) for routing and request handling · [Gunicorn](https://gunicorn.org/) for multi-process WSGI serving
+- **Web & serving** — [FastAPI](https://fastapi.tiangolo.com/) for routing, Pydantic validation and OpenAPI docs · [Uvicorn](https://www.uvicorn.org/) for the ASGI server · [Gunicorn](https://gunicorn.org/) for multi-process management
 - **Inference** — [ONNX Runtime](https://onnxruntime.ai/) for the forward pass · [OpenCV](https://opencv.org/) for image pre/post-processing · [NumPy](https://numpy.org/) for vectorized decode and NMS
 - **Async tasks** — [Celery](https://docs.celeryq.dev/) for task submission and execution · [RabbitMQ](https://www.rabbitmq.com/) for message brokering · [Redis](https://redis.io/) for TTL-managed result storage
 - **Demo model** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/) exported to ONNX

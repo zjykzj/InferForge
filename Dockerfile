@@ -1,7 +1,7 @@
 # InferForge app image — shared by the web (gunicorn) and worker (celery)
 # containers. The ONNX model is NEVER baked in: bind-mount ./models at
 # runtime (see docker-compose.yml).
-FROM python:3.9-slim
+FROM python:3.12-slim
 
 # opencv runtime libs (imdecode/imencode, drawing) + onnxruntime's libgomp
 RUN apt-get update && apt-get install -y --no-install-recommends \

@@ -29,6 +29,9 @@ celery_app.conf.update(
     task_time_limit=300,
     task_soft_time_limit=240,
     worker_prefetch_multiplier=1,  # CPU-bound inference: one task at a time per worker
+    # RabbitMQ >= 4.3 rejects transient non-exclusive queues by default; the
+    # pidbox broadcast reply queue (mingle / inspect / revoke) must be durable.
+    control_queue_durable=True,
 )
 
 # Explicit task registration instead of lazy autodiscovery: task modules use

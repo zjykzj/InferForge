@@ -6,13 +6,13 @@ File:    one JSON object per line (DEBUG+), one file per process group:
 
 Rotation is delegated to the system logrotate (copytruncate — same inode,
 no multi-process rotation races) — see deploy/logrotate.conf. Every line
-carries request_id (Flask g or Celery task kwargs) and task_id (Celery).
+carries request_id (ContextVar or Celery task kwargs) and task_id (Celery).
 """
 import json
 import logging
 import os
 
-from flask import g, has_request_context
+from utils import request_id
 
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 
@@ -37,8 +37,12 @@ def _celery_task():
 
 
 def _current_request_id() -> str:
-    if has_request_context():
-        return g.get("request_id", "-")
+    # HTTP context: set by utils.request_id.RequestIdMiddleware (ContextVar).
+    # Workers have no HTTP context, so they fall back to the request_id
+    # carried in the celery task kwargs.
+    rid = request_id.get_request_id()
+    if rid != "-":
+        return rid
     task = _celery_task()
     if task is not None and task.request is not None:
         kwargs = getattr(task.request, "kwargs", None) or {}
@@ -54,7 +58,7 @@ def _current_task_id() -> str:
 
 
 class ContextFilter(logging.Filter):
-    """Attach request_id / task_id to every record (Flask or Celery context)."""
+    """Attach request_id / task_id to every record (HTTP or Celery context)."""
 
     def filter(self, record):
         record.request_id = _current_request_id()

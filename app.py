@@ -1,4 +1,4 @@
-"""Flask application factory: logging setup and blueprint registration only.
+"""FastAPI application factory: logging setup, middleware and router registration only.
 
 Dependency chain: app -> apis -> tasks -> engines. app.py knows nothing about
 tasks or algorithms — tasks own their predictors, apis own their tasks.
@@ -9,20 +9,30 @@ INFERFORGE_ASYNC=1 registers both the callback and query apis (requires
 celery + rabbitmq + redis — one deployment shape, callback vs query is a
 per-request choice). INFERFORGE_QUERY=1 is accepted as a deprecated alias.
 A missing dependency logs a warning and skips the whole async mode.
+
+Serving: gunicorn with the uvicorn ASGI worker (gunicorn.conf.py). Endpoints
+are plain `def` (sync) — FastAPI runs them in its threadpool, because ONNX
+inference is CPU-bound blocking. Never add async/await to the inference path.
 """
 import logging
 import os
 
-from flask import Flask
+from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 
-from apis.health import health_bp
-from apis.predict import predict_bp
-from utils import request_id
+from apis.health import health_router
+from apis.predict import predict_router
+from utils import request_id, response
 from utils.logger import setup_logging
 
 logger = logging.getLogger("app")
 
 _TRUTHY = ("1", "true", "yes")
+
+# Request-body ceiling: matches the image download limit (utils/image.py
+# MAX_DOWNLOAD_SIZE). Best-effort: only reads the Content-Length header
+# (chunked bodies without it bypass — see docs/security.md).
+MAX_BODY_SIZE = 20 * 1024 * 1024
 
 
 def _switch_on(name: str) -> bool:
@@ -35,13 +45,59 @@ def _async_enabled() -> bool:
     return _switch_on("INFERFORGE_ASYNC") or _switch_on("INFERFORGE_QUERY")
 
 
-def create_app() -> Flask:
+def _read_version() -> str:
+    try:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")
+        with open(path, encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return "0.0.0"
+
+
+class ContentLengthLimitMiddleware:
+    """Reject declared-oversized bodies with the always-200 envelope (code=1)."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        for name, value in scope.get("headers", []):
+            if name == b"content-length":
+                try:
+                    if int(value) > MAX_BODY_SIZE:
+                        resp = response.error(
+                            "request body too large (max %d bytes)" % MAX_BODY_SIZE,
+                            code=1,
+                        )
+                        await resp(scope, receive, send)
+                        return
+                except ValueError:
+                    pass
+                break
+        await self.app(scope, receive, send)
+
+
+def create_app() -> FastAPI:
     setup_logging()
-    app = Flask(__name__)
-    app.before_request(request_id.before_request)
-    app.after_request(request_id.after_request)
-    app.register_blueprint(health_bp)
-    app.register_blueprint(predict_bp)
+    app = FastAPI(
+        title="InferForge",
+        version=_read_version(),
+        description="Inference serving template — {code, message, data} envelope, HTTP always 200.",
+    )
+    # Middleware order: the LAST added runs FIRST (outermost). RequestId must
+    # be outermost so every response — content-length envelope, validation
+    # envelope, 503 readiness, 404s — carries X-Request-ID.
+    app.add_middleware(ContentLengthLimitMiddleware)
+    app.add_middleware(request_id.RequestIdMiddleware)
+    # Replace FastAPI's default 422 handler: validation failures become
+    # 200 + code=1 envelopes (the always-200 contract, docs/status-codes.md).
+    app.add_exception_handler(RequestValidationError, response.validation_error_handler)
+
+    app.include_router(health_router)
+    app.include_router(predict_router)
 
     if _async_enabled():
         if _switch_on("INFERFORGE_QUERY") and not _switch_on("INFERFORGE_ASYNC"):
@@ -50,11 +106,11 @@ def create_app() -> Flask:
                 "api by default, use INFERFORGE_ASYNC=1 instead"
             )
         try:
-            from apis.predict_callback import predict_callback_bp
-            from apis.predict_query import predict_query_bp
+            from apis.predict_callback import predict_callback_router
+            from apis.predict_query import predict_query_router
 
-            app.register_blueprint(predict_callback_bp)
-            app.register_blueprint(predict_query_bp)
+            app.include_router(predict_callback_router)
+            app.include_router(predict_query_router)
             logger.info("async apis enabled (callback + query)")
         except ImportError:
             logger.warning(
@@ -68,8 +124,13 @@ def create_app() -> Flask:
     return app
 
 
-app = create_app()
+app = create_app()  # keeps `gunicorn -c gunicorn.conf.py app:app` and preload_app working
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000)
+    import uvicorn
+
+    # Dev server. log_config=None: keep the project's single logging pipeline
+    # (utils.logger) — uvicorn loggers propagate to the root handlers instead
+    # of dictConfig-resetting the root logger.
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_config=None)

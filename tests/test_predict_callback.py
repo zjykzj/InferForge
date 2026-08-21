@@ -5,13 +5,12 @@ import cv2
 import numpy as np
 import pytest
 import requests
-from flask import Flask
+from fastapi.testclient import TestClient
 
-from apis.predict_callback import predict_callback_bp
+from apis.predict_callback import predict_callback_router
 from engines.base import BasePredictor, DetectionResult
 from tasks import detection
 from tasks import detection_callback
-from utils import request_id
 
 
 class FakePredictor(BasePredictor):
@@ -46,14 +45,9 @@ def fake_delay(monkeypatch):
 
 
 @pytest.fixture()
-def client(monkeypatch, fake_delay):
+def client(monkeypatch, app_factory, fake_delay):
     monkeypatch.setattr(detection, "get_predictor", lambda: FakePredictor())
-    app = Flask(__name__)
-    app.config["TESTING"] = True
-    app.before_request(request_id.before_request)
-    app.after_request(request_id.after_request)
-    app.register_blueprint(predict_callback_bp)
-    return app.test_client()
+    return TestClient(app_factory(predict_callback_router))
 
 
 def _tiny_image_b64():
@@ -68,7 +62,7 @@ def test_submit_returns_task_id(client, fake_delay):
         "image": _tiny_image_b64(), "callback_url": "http://cb.local/result",
     })
     assert resp.status_code == 200
-    body = resp.get_json()
+    body = resp.json()
     assert body["code"] == 0
     assert body["data"]["task_id"] == "fake-task-id"
     # delay called with callback_url first, then the image kwargs + request_id
@@ -80,12 +74,12 @@ def test_submit_returns_task_id(client, fake_delay):
 def test_submit_requires_callback_url(client):
     resp = client.post("/predict/callback", json={"image": _tiny_image_b64()})
     assert resp.status_code == 200
-    assert resp.get_json()["code"] == 1
+    assert resp.json()["code"] == 1
 
 
 def test_submit_rejects_missing_input(client):
     resp = client.post("/predict/callback", json={"callback_url": "http://cb.local/result"})
-    assert resp.get_json()["code"] == 1
+    assert resp.json()["code"] == 1
 
 
 def test_submit_rejects_both_inputs(client):
@@ -93,7 +87,7 @@ def test_submit_rejects_both_inputs(client):
         "image": _tiny_image_b64(), "url": "http://x/y.jpg",
         "callback_url": "http://cb.local/result",
     })
-    assert resp.get_json()["code"] == 1
+    assert resp.json()["code"] == 1
 
 
 def test_task_posts_success_envelope(monkeypatch):

@@ -63,7 +63,9 @@ services:
   worker:
     build: .
     image: inferforge:latest
-    command: celery -A celery_app worker --loglevel=info
+    # --without-gossip: gossip's transient queue is rejected by RabbitMQ >= 4.3
+    # (see start_celery.sh); the project needs none of gossip's features.
+    command: celery -A celery_app worker --loglevel=info --without-gossip
     environment:
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       INFERFORGE_REDIS_URL: redis://redis:6379/0

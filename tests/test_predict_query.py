@@ -6,16 +6,16 @@ import cv2
 import numpy as np
 import pytest
 import requests
-from flask import Flask
+from fastapi.testclient import TestClient
 
 pytest.importorskip("redis")  # apis.predict_query -> utils.redis_store imports redis
 
-from apis.predict_query import predict_query_bp
+from apis.predict_query import predict_query_router
 from engines.base import BasePredictor, DetectionResult
 from tasks import detection
 from tasks import detection_query
 from utils import image as image_utils
-from utils import redis_store, request_id
+from utils import redis_store
 
 
 class FakePredictor(BasePredictor):
@@ -77,14 +77,9 @@ def fake_redis(monkeypatch):
 
 
 @pytest.fixture()
-def client(monkeypatch, fake_delay, fake_redis):
+def client(monkeypatch, app_factory, fake_delay, fake_redis):
     monkeypatch.setattr(detection, "get_predictor", lambda: FakePredictor())
-    app = Flask(__name__)
-    app.config["TESTING"] = True
-    app.before_request(request_id.before_request)
-    app.after_request(request_id.after_request)
-    app.register_blueprint(predict_query_bp)
-    return app.test_client()
+    return TestClient(app_factory(predict_query_router))
 
 
 def _tiny_image_b64():
@@ -104,7 +99,7 @@ def _store_envelope(fake_redis, task_id, envelope):
 def test_submit_returns_task_id(client, fake_delay, fake_redis):
     resp = client.post("/predict/query", json={"image": _tiny_image_b64()})
     assert resp.status_code == 200
-    body = resp.get_json()
+    body = resp.json()
     assert body["code"] == 0
     assert body["data"]["task_id"] == "fake-task-id"
     # delay called with the image kwarg + request_id
@@ -117,14 +112,14 @@ def test_submit_returns_task_id(client, fake_delay, fake_redis):
 def test_submit_rejects_missing_input(client):
     resp = client.post("/predict/query", json={})
     assert resp.status_code == 200
-    assert resp.get_json()["code"] == 1
+    assert resp.json()["code"] == 1
 
 
 def test_submit_rejects_both_inputs(client):
     resp = client.post("/predict/query", json={
         "image": _tiny_image_b64(), "url": "http://x/y.jpg",
     })
-    assert resp.get_json()["code"] == 1
+    assert resp.json()["code"] == 1
 
 
 def test_submit_delay_failure_returns_code3(monkeypatch, client):
@@ -133,7 +128,7 @@ def test_submit_delay_failure_returns_code3(monkeypatch, client):
 
     monkeypatch.setattr(detection_query.detect_query_task, "delay", _delay_fails)
     resp = client.post("/predict/query", json={"image": _tiny_image_b64()})
-    body = resp.get_json()
+    body = resp.json()
     assert body["code"] == 3
     assert body["data"] is None
 
@@ -141,7 +136,7 @@ def test_submit_delay_failure_returns_code3(monkeypatch, client):
 def test_submit_redis_failure_returns_code3(client, fake_redis):
     fake_redis["fail_set_pending"] = True
     resp = client.post("/predict/query", json={"image": _tiny_image_b64()})
-    body = resp.get_json()
+    body = resp.json()
     assert body["code"] == 3
     assert body["data"] is None
 
@@ -152,14 +147,14 @@ def test_submit_redis_failure_returns_code3(client, fake_redis):
 def test_poll_pending(client, fake_redis):
     fake_redis["values"]["some-task-id"] = redis_store.PENDING_VALUE
     resp = client.get("/predict/query/some-task-id")
-    body = resp.get_json()
+    body = resp.json()
     assert body["code"] == 5
     assert body["data"] is None
 
 
 def test_poll_not_found(client):
     resp = client.get("/predict/query/unknown-task-id")
-    body = resp.get_json()
+    body = resp.json()
     assert body["code"] == 4
     assert body["data"] is None
 
@@ -169,20 +164,20 @@ def test_poll_success_envelope_verbatim(client, fake_redis):
                 "data": {"image": "x", "detections": [{"class": "person"}]}}
     _store_envelope(fake_redis, "done-task-id", envelope)
     resp = client.get("/predict/query/done-task-id")
-    assert resp.get_json() == envelope
+    assert resp.json() == envelope
 
 
 def test_poll_business_error_envelope_verbatim(client, fake_redis):
     envelope = {"code": 1, "message": "failed to decode base64 image", "data": None}
     _store_envelope(fake_redis, "failed-task-id", envelope)
     resp = client.get("/predict/query/failed-task-id")
-    assert resp.get_json() == envelope
+    assert resp.json() == envelope
 
 
 def test_poll_corrupt_payload_returns_code3(client, fake_redis):
     fake_redis["values"]["corrupt-task-id"] = "{not json"
     resp = client.get("/predict/query/corrupt-task-id")
-    body = resp.get_json()
+    body = resp.json()
     assert body["code"] == 3
     assert body["data"] is None
 
@@ -190,7 +185,7 @@ def test_poll_corrupt_payload_returns_code3(client, fake_redis):
 def test_poll_non_envelope_payload_returns_code3(client, fake_redis):
     fake_redis["values"]["weird-task-id"] = "42"
     resp = client.get("/predict/query/weird-task-id")
-    body = resp.get_json()
+    body = resp.json()
     assert body["code"] == 3
     assert body["data"] is None
 
@@ -198,7 +193,7 @@ def test_poll_non_envelope_payload_returns_code3(client, fake_redis):
 def test_poll_redis_failure_returns_code3(client, fake_redis):
     fake_redis["fail_get"] = True
     resp = client.get("/predict/query/some-task-id")
-    body = resp.get_json()
+    body = resp.json()
     assert body["code"] == 3
     assert body["data"] is None
 

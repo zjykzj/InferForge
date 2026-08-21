@@ -7,8 +7,15 @@ is accepted as a deprecated alias. Missing deps skip the whole async mode.
 import importlib.util
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app import create_app
+
+
+def _route_paths(app):
+    # The OpenAPI schema is the public, version-stable view of registered
+    # paths (app.routes internals changed across starlette versions).
+    return list(app.openapi()["paths"].keys())
 
 
 @pytest.fixture()
@@ -18,8 +25,7 @@ def no_async_switch(monkeypatch):
 
 
 def test_async_disabled_by_default(no_async_switch):
-    app = create_app()
-    routes = str(app.url_map)
+    routes = _route_paths(create_app())
     assert "/predict" in routes
     assert "/health" in routes
     assert "/health/ready" in routes
@@ -30,8 +36,7 @@ def test_async_disabled_by_default(no_async_switch):
 def test_async_enabled_registers_both_apis(no_async_switch, monkeypatch):
     pytest.importorskip("redis")  # full async mode needs redis installed
     monkeypatch.setenv("INFERFORGE_ASYNC", "1")
-    app = create_app()
-    routes = str(app.url_map)
+    routes = _route_paths(create_app())
     assert "/predict/callback" in routes
     assert "/predict/query" in routes  # one switch, both async apis
 
@@ -39,8 +44,7 @@ def test_async_enabled_registers_both_apis(no_async_switch, monkeypatch):
 def test_query_switch_is_deprecated_alias(no_async_switch, monkeypatch):
     pytest.importorskip("redis")
     monkeypatch.setenv("INFERFORGE_QUERY", "1")
-    app = create_app()
-    routes = str(app.url_map)
+    routes = _route_paths(create_app())
     assert "/predict/callback" in routes
     assert "/predict/query" in routes
 
@@ -52,7 +56,27 @@ def test_query_switch_is_deprecated_alias(no_async_switch, monkeypatch):
 def test_async_skipped_without_redis(no_async_switch, monkeypatch):
     """Without redis the whole async mode is skipped, not just the query api."""
     monkeypatch.setenv("INFERFORGE_ASYNC", "1")
-    app = create_app()
-    routes = str(app.url_map)
+    routes = _route_paths(create_app())
     assert "/predict/callback" not in routes
     assert "/predict/query" not in routes
+
+
+# --- request-body ceiling ---
+
+
+def test_body_size_limit_enforced(no_async_switch, monkeypatch):
+    monkeypatch.setattr("app.MAX_BODY_SIZE", 64)
+    resp = TestClient(create_app()).post("/predict", json={"image": "x" * 200})
+    assert resp.status_code == 200  # the guard folds into the envelope, never 413
+    body = resp.json()
+    assert body["code"] == 1
+    assert "too large" in body["message"]
+    assert len(resp.headers["X-Request-ID"]) == 12  # guard envelope still traced
+
+
+def test_small_body_passes_guard(no_async_switch, monkeypatch):
+    monkeypatch.setattr("app.MAX_BODY_SIZE", 10 ** 6)
+    resp = TestClient(create_app()).post("/predict", json={"image": "!!not-base64!!"})
+    body = resp.json()
+    assert body["code"] == 1
+    assert "too large" not in body["message"]  # reached semantic validation instead

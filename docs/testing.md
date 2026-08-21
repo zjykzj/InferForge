@@ -1,6 +1,6 @@
 # 测试规范（Testing）
 
-> 测试策略 + InferForge 当前实现对照。最后更新：2026-08-15
+> 测试策略 + InferForge 当前实现对照。最后更新：2026-08-21
 
 ## 1. 核心认知：测试深度与业务阶段匹配
 
@@ -41,7 +41,7 @@
 `test_predict.py` 实际走通的链路（`→` 为真实代码）：
 
 ```
-HTTP 请求 → blueprint 路由 → 参数校验 → run_detection 编排
+HTTP 请求 → FastAPI 路由（Pydantic 结构校验 → code=1 信封）→ run_detection 编排
          → 真实 base64 解码（cv2）→ FakePredictor ← 唯一被替换的环节
          → 真实绘图（draw_detections）→ 真实 JPEG 编码 → 响应组装
 ```
@@ -60,7 +60,7 @@ HTTP 请求 → blueprint 路由 → 参数校验 → run_detection 编排
 | 用例 | 验证什么 |
 |------|---------|
 | `test_predict_with_base64` | 主链路通：返回 code=0、绘图 base64、检测列表结构 |
-| `test_predict_missing_input` | 缺参 → code=1 |
+| `test_predict_missing_input` | 缺参 → code=1（Pydantic 校验折叠进信封，HTTP 仍 200——422 永不泄漏） |
 | `test_predict_both_inputs_rejected` | image+url 同时给 → code=1 |
 | `test_predict_invalid_base64` | 非法图片数据 → code=1 |
 | `test_response_has_request_id` | 响应头 X-Request-ID 存在且 12 位 |

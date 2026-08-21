@@ -1,34 +1,36 @@
 # 架构说明（Architecture）
 
-> InferForge 的分层架构：各层职责、实现逻辑与技术栈。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-15
+> InferForge 的分层架构：各层职责、实现逻辑与技术栈。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-21
 
 ## 1. 分层总览
 
 | 层 | 目录 | 技术 | 一句话职责 |
 |----|------|------|-----------|
-| 接口层 | `apis/` + `app.py` | Flask、requests | 校验参数 → 转发任务层 → 包装响应（业务状态码） |
+| 接口层 | `apis/` + `app.py` | FastAPI、Pydantic、requests | 校验参数 → 转发任务层 → 包装响应（业务状态码） |
 | 任务层 | `tasks/` + `celery_app.py` | threading、celery | 任务编排；每个任务持有自己的预测器；异步任务经 RabbitMQ 执行 |
 | 引擎层 | `engines/` | onnxruntime、OpenCV、NumPy | 推理引擎契约 + YOLOv8n 实现 |
-| 横切层 | `utils/` | logging、cv2、requests、base64、uuid | 日志、图片转换、响应格式、request_id（各层共用） |
+| 横切层 | `utils/` | logging、cv2、requests、base64、uuid、contextvars | 日志、图片转换、响应格式、request_id（各层共用） |
 
 ## 2. 各层职责与实现
 
 ### 2.1 接口层（`apis/` + `app.py`）
 
-**职责**：接收 HTTP 请求、校验参数、转发任务层、统一包装响应。`app.py` 只做装配：日志初始化、request_id 钩子、blueprint 注册——不认识任何任务或算法。
+**职责**：接收 HTTP 请求、校验参数、转发任务层、统一包装响应。`app.py` 只做装配：日志初始化、中间件、异常处理器、router 注册——不认识任何任务或算法。
 
 **逻辑**：
 
-- 一个接口一个 blueprint 文件，接口可组合调用多个任务
-- 异常分层捕获：`ValueError` → code=1（参数/图片非法）、`requests.RequestException` → code=2（下载失败）、其余 → code=3（内部错误）
+- 一个接口一个 router 文件，接口可组合调用多个任务；端点一律写同步 `def`——FastAPI 将其放入 anyio 线程池执行（推理 CPU 密集阻塞式，推理路径禁止 async/await）
+- **Pydantic 结构校验**：请求体模型（`apis/schemas.py`）声明字段与"image/url 二选一"规则；校验失败经 `RequestValidationError` 异常处理器折叠为 `200 + code=1` 信封——FastAPI 默认的 422 永不泄漏
+- 语义校验与异常分层捕获：`ValueError` → code=1（图片内容非法）、`requests.RequestException` → code=2（下载失败）、其余 → code=3（内部错误）
 - HTTP 永远返回 200，业务成败由 `code` 表达（见 [status-codes.md](status-codes.md)）；唯一例外是健康探针（见下）
 
 | 库 | 用途 |
 |----|------|
-| Flask | blueprint 路由、请求上下文、响应处理 |
+| FastAPI | router 路由、线程池执行同步端点、OpenAPI 文档（/docs） |
+| Pydantic | 请求体结构校验（schemas.py） |
 | requests | URL 下载图片、下载异常类型判断 |
 
-**文件**：`app.py`、`apis/predict.py`（同步）、`apis/health.py`（健康探针）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；后两者由 `INFERFORGE_ASYNC=1` 开关启用）
+**文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/predict.py`（同步）、`apis/health.py`（健康探针）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；后两者由 `INFERFORGE_ASYNC=1` 开关启用）
 
 **健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问 predictor 是否已加载（`tasks/detection.predictor_loaded()`，接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §4）。
 
@@ -77,7 +79,7 @@
 - **日志**（logger.py）：console 文本（INFO+）+ 文件 JSON（DEBUG+）；每行携带 request_id/task_id；web 写 `app.log`、worker 写 `celery.log`，轮转交给系统 logrotate（详见 [logging.md](logging.md)）
 - **图片转换**（image.py）：base64 / URL ↔ BGR numpy；下载超时 10s、大小上限 20MB
 - **响应格式**（response.py）：统一 `{code, message, data}` 封装
-- **request_id**（request_id.py）：请求入口生成 12 位 hex，贯穿日志 + `X-Request-ID` 响应头
+- **request_id**（request_id.py）：ASGI 中间件 + ContextVar——请求入口生成 12 位 hex，贯穿日志 + `X-Request-ID` 响应头（覆盖一切响应，含 503 与校验信封）
 - **结果存储**（redis_store.py）：异步轮询结果暂存——pending 占位符 + 结果信封，TTL 过期回收，客户端懒连接（详见 [stack.md](stack.md) §3）
 
 | 库 | 用途 |
@@ -98,8 +100,8 @@ app -> apis -> tasks -> engines
 
 - **单向依赖**：每层只 import 下一层，禁止反向引用
 - **utils 横切**：各层均可使用；utils 不依赖任何业务层
-- **engines 零业务依赖**：不 import Flask / apis / tasks，可独立测试与复用
-- **替换原则**：换 Web 框架只动 `app.py` + `apis/`；换算法只动 `engines/`（+ 对应 task 的持有关系）；换任务编排只动 `tasks/`
+- **engines 零业务依赖**：不 import FastAPI / apis / tasks，可独立测试与复用
+- **替换原则**：换 Web 框架只动 `app.py` + `apis/`；换算法只动 `engines/`（+ 对应 task 的持有关系）；换任务编排只动 `tasks/`。本次 Flask → FastAPI 迁移即为实证：tasks/engines 零改动，utils 仅动响应/日志/request_id 三个横切机制
 - **测试同向**：冒烟测试从 apis 层用 `FakePredictor` 替换 engines，验证外壳接线（见 [testing.md](testing.md)）
 
 ### 按需启用与裁剪
@@ -113,7 +115,7 @@ app -> apis -> tasks -> engines
 
 实现机制：
 
-- `app.py` 按 `INFERFORGE_ASYNC=1` 一次性注册全部异步 blueprint——异步是一种整体部署形态（celery + RabbitMQ + Redis），callback 与 query 是按请求的选择而非部署选择；`INFERFORGE_QUERY=1` 作为废弃别名保留（打印 deprecated 告警）。开了开关但缺依赖时打印告警并整体跳过异步模式，同步接口照常
+- `app.py` 按 `INFERFORGE_ASYNC=1` 一次性注册全部异步 router——异步是一种整体部署形态（celery + RabbitMQ + Redis），callback 与 query 是按请求的选择而非部署选择；`INFERFORGE_QUERY=1` 作为废弃别名保留（打印 deprecated 告警）。开了开关但缺依赖时打印告警并整体跳过异步模式，同步接口照常
 - 任务模块用 `shared_task` 注册，避免与 celery_app 循环导入
 - `celery_app.py` 显式导入任务模块（不用惰性 autodiscover），并保证项目根目录在 sys.path 中（celery CLI 会临时移除 cwd）
 
@@ -122,18 +124,19 @@ app -> apis -> tasks -> engines
 一次 `POST /predict`（base64 方式）的完整流程：
 
 ```
- 1. app.py  before_request     生成 request_id（12 位 hex）
- 2. apis/predict.py            记录请求日志（来源、输入类型）
- 3. tasks/detection.py         开始计时，解析输入
- 4. utils/image.py             base64 → BGR numpy（记录 shape）
- 5. engines/yolo.py            letterbox 预处理
- 6. engines/yolo.py            ONNX 推理（pre/infer/post 分段计时）
- 7. engines/yolo.py            decode + NMS + 坐标还原到原图
- 8. engines/yolo.py            draw_detections 绘图
- 9. utils/image.py             BGR → JPEG base64
-10. tasks/detection.py         组装 detections 列表（记录总数与总耗时）
-11. apis/predict.py            成功 → code=0；异常 → 对应业务码
-12. app.py  after_request      响应头回传 X-Request-ID
+ 1. app.py  RequestIdMiddleware  生成 request_id（12 位 hex，ContextVar 注入请求上下文）
+ 2. apis/schemas.py              Pydantic 结构校验（image/url 二选一；失败 → 200 + code=1 信封）
+ 3. apis/predict.py              记录请求日志（来源、输入类型）
+ 4. tasks/detection.py           开始计时，解析输入
+ 5. utils/image.py               base64 → BGR numpy（记录 shape）
+ 6. engines/yolo.py              letterbox 预处理
+ 7. engines/yolo.py              ONNX 推理（pre/infer/post 分段计时）
+ 8. engines/yolo.py              decode + NMS + 坐标还原到原图
+ 9. engines/yolo.py              draw_detections 绘图
+10. utils/image.py               BGR → JPEG base64
+11. tasks/detection.py           组装 detections 列表（记录总数与总耗时）
+12. apis/predict.py              成功 → code=0；异常 → 对应业务码
+13. app.py  中间件出口            响应头回传 X-Request-ID（覆盖一切响应）
 ```
 
 每一步的日志都携带 request_id，以 JSON 落盘 `logs/app.log`——用户报障时携带 `X-Request-ID`，即可过滤出该请求的完整链路。
@@ -168,7 +171,8 @@ app -> apis -> tasks -> engines
 
 | 库 | 所属层 | 用途 |
 |----|--------|------|
-| Flask | 接口层 | blueprint 路由、请求/响应处理 |
+| FastAPI | 接口层 | router 路由、同步端点线程池、OpenAPI 文档 |
+| Pydantic | 接口层 | 请求体结构校验（校验失败折叠为 code=1 信封） |
 | requests | 接口层 / 横切层 | URL 下载图片、下载异常类型 |
 | threading | 任务层 | 预测器懒加载双重检查锁 |
 | celery | 任务层 | 异步任务投递与执行 |
@@ -177,7 +181,7 @@ app -> apis -> tasks -> engines
 | NumPy | 引擎层 / 横切层 | 向量化计算、数组处理 |
 | logging | 横切层 | 双通道日志、轮转交给系统 logrotate |
 | uuid | 横切层 | request_id 生成 |
-| gunicorn | 部署 | 进程管理（preload_app、worker） |
+| gunicorn + uvicorn | 部署 | 进程管理 + ASGI 服务（UvicornWorker，见 stack.md §1.4） |
 | RabbitMQ | 部署 | 异步任务消息队列（可选） |
 | Redis | 部署 | 异步轮询结果暂存（可选） |
 | pytest | 测试 | 冒烟测试 |

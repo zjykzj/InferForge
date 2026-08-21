@@ -1,6 +1,6 @@
 # 接口调用文档（API）
 
-> 接口说明与 curl 调用指南。最后更新：2026-08-15
+> 接口说明与 curl 调用指南。最后更新：2026-08-21
 
 ## 1. 当前接口：POST /predict
 
@@ -164,11 +164,45 @@ curl -s http://localhost:8000/predict/query/<task_id>
 
 自动化客户端可直接用 `python3 scripts/test_predict_query.py --image assets/bus.jpg`（自带轮询循环）。
 
-## 4. 参数设计规范（推理接口的通用模式）
+## 4. 健康检查接口：GET /health + GET /health/ready
+
+供 K8s / Docker / 负载均衡等基础设施探活使用的端点，业务调用方一般无需关心。始终注册，无需环境变量开关。
+
+### 4.1 存活检查：GET /health
+
+进程活着即返回 200，不做任何实际工作（不加载模型、不查外部依赖）：
+
+```json
+{"code": 0, "message": "success", "data": {"status": "ok"}}
+```
+
+### 4.2 就绪检查：GET /health/ready
+
+检查当前 worker 进程的 predictor 是否已加载：
+
+| 场景 | HTTP | 响应 |
+|------|:---:|------|
+| 已加载（预热完成） | 200 | `{"code": 0, "data": {"status": "ready"}}` |
+| 未加载（冷启动） | **503** | `{"code": 6, "message": "model not loaded", "data": null}` |
+
+注意：
+
+- predictor 是**懒加载**的：新部署的 worker 在收到第一个 /predict 请求前，就绪检查返回 503——探针会把流量导到已就绪的 worker，冷启动期间表现为逐实例渐进就绪
+- 健康检查是**唯一**返回非 200 HTTP 状态码的接口（探针只读状态码）；业务接口永远返回 200，见 [status-codes.md](status-codes.md) §2 例外说明
+- 多 worker 部署（默认 gunicorn 2 workers）下就绪状态**每进程独立**：各 worker 各自持有 predictor，负载均衡需逐实例探活
+
+### 4.3 curl 示例
+
+```bash
+curl -i http://localhost:8000/health
+curl -i http://localhost:8000/health/ready    # 冷启动期间返回 HTTP/1.1 503
+```
+
+## 5. 参数设计规范（推理接口的通用模式）
 
 后续新增推理接口（分类、分割、异步等）遵循同一套参数模式，保证调用方心智一致：
 
-### 4.1 输入载体：三选一
+### 5.1 输入载体：三选一
 
 | 参数 | 形式 | 适用场景 |
 |------|------|---------|
@@ -178,7 +212,7 @@ curl -s http://localhost:8000/predict/query/<task_id>
 
 规则：同一接口最多提供两种载体（如 image + url），**至少一种、至多一种**，冲突即 code=1。
 
-### 4.2 推理参数（规划）
+### 5.2 推理参数（规划）
 
 可选的阈值/行为覆盖，不传用服务端默认值：
 
@@ -188,7 +222,7 @@ curl -s http://localhost:8000/predict/query/<task_id>
 | `iou_thres` | float | NMS IoU 阈值（默认 0.45） |
 | `with_image` | bool | 是否返回绘图 base64（默认 true；纯取坐标的调用方省流量） |
 
-### 4.3 异步模式
+### 5.3 异步模式
 
 长耗时推理（大模型/Agent）不适合同步等待，参数模式变为：
 
@@ -199,7 +233,7 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 
 已落地：见 §3 异步轮询接口（POST /predict/query + GET 轮询）。同步/异步并存时，由接口路径区分而非参数区分——调用方一眼可知行为。
 
-## 5. 测试规范引用
+## 6. 测试规范引用
 
 - 响应格式与业务码：[status-codes.md](status-codes.md)
 - 分层与异步数据流：[architecture.md](architecture.md)

@@ -37,6 +37,11 @@ def get_predictor() -> BasePredictor:
     return _predictor
 
 
+def predictor_loaded() -> bool:
+    """Whether the predictor has been loaded (pure check, no side effects)."""
+    return _predictor is not None
+
+
 def run_detection(image_b64=None, image_url=None):
     """Run the full detection pipeline.
 

@@ -21,14 +21,16 @@
 
 - 一个接口一个 blueprint 文件，接口可组合调用多个任务
 - 异常分层捕获：`ValueError` → code=1（参数/图片非法）、`requests.RequestException` → code=2（下载失败）、其余 → code=3（内部错误）
-- HTTP 永远返回 200，业务成败由 `code` 表达（见 [status-codes.md](status-codes.md)）
+- HTTP 永远返回 200，业务成败由 `code` 表达（见 [status-codes.md](status-codes.md)）；唯一例外是健康探针（见下）
 
 | 库 | 用途 |
 |----|------|
 | Flask | blueprint 路由、请求上下文、响应处理 |
 | requests | URL 下载图片、下载异常类型判断 |
 
-**文件**：`app.py`、`apis/predict.py`（同步）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；两者均由 `INFERFORGE_ASYNC=1` 开关启用）
+**文件**：`app.py`、`apis/predict.py`（同步）、`apis/health.py`（健康探针）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；后两者由 `INFERFORGE_ASYNC=1` 开关启用）
+
+**健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问 predictor 是否已加载（`tasks/detection.predictor_loaded()`，接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §4）。
 
 ### 2.2 任务层（`tasks/`）
 

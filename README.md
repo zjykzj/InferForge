@@ -20,6 +20,7 @@
 | 🔄 **Async Query** | Celery + RabbitMQ + Redis — submit a task, poll for the result | `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh` |
 | 🧱 **Layered Template** | apis / tasks / engines / utils — replace one layer, keep the rest | [architecture](docs/architecture.md) |
 | 📦 **Business Codes** | `{code, message, data}` envelope — HTTP always 200 | [status-codes](docs/status-codes.md) |
+| 🚦 **Health Probes** | `GET /health` + `/health/ready` — liveness/readiness for K8s & LBs | [api](docs/api.md) |
 | 🔗 **Request Tracing** | request_id + task_id across web and worker logs | [logging](docs/logging.md) |
 | ✅ **Smoke Tests** | 30+ tests, no model file needed | `pytest tests/ -v` |
 

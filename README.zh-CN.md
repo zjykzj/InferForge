@@ -20,6 +20,7 @@
 | 🔄 **异步查询** | Celery + RabbitMQ + Redis —— 提交任务，主动轮询拉取结果 | `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh` |
 | 🧱 **分层模板** | apis / tasks / engines / utils —— 换一层不动其余 | [architecture](docs/architecture.md) |
 | 📦 **业务状态码** | `{code, message, data}` 信封 —— HTTP 永远 200 | [status-codes](docs/status-codes.md) |
+| 🚦 **健康探针** | `GET /health` + `/health/ready` —— 供 K8s / 负载均衡存活与就绪检查 | [api](docs/api.md) |
 | 🔗 **请求追踪** | request_id + task_id 贯穿 web 与 worker 日志 | [logging](docs/logging.md) |
 | ✅ **冒烟测试** | 30+ 个测试，无需模型文件 | `pytest tests/ -v` |
 

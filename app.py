@@ -3,16 +3,18 @@
 Dependency chain: app -> apis -> tasks -> engines. app.py knows nothing about
 tasks or algorithms — tasks own their predictors, apis own their tasks.
 
-Async APIs are registered behind explicit env switches: INFERFORGE_ASYNC=1
-registers the callback api (requires celery); INFERFORGE_QUERY=1 additionally
-registers the query api (requires celery + redis). A missing dependency logs
-a warning and skips only the affected api.
+Health probe endpoints (/health, /health/ready) and the sync predict api are
+always registered. Async APIs are registered behind explicit env switches:
+INFERFORGE_ASYNC=1 registers the callback api (requires celery);
+INFERFORGE_QUERY=1 additionally registers the query api (requires celery +
+redis). A missing dependency logs a warning and skips only the affected api.
 """
 import logging
 import os
 
 from flask import Flask
 
+from apis.health import health_bp
 from apis.predict import predict_bp
 from utils import request_id
 from utils.logger import setup_logging
@@ -33,6 +35,7 @@ def create_app() -> Flask:
     app = Flask(__name__)
     app.before_request(request_id.before_request)
     app.after_request(request_id.after_request)
+    app.register_blueprint(health_bp)
     app.register_blueprint(predict_bp)
 
     if _async_enabled():

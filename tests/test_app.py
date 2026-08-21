@@ -10,6 +10,8 @@ def test_async_disabled_by_default(monkeypatch):
     app = create_app()
     routes = str(app.url_map)
     assert "/predict" in routes
+    assert "/health" in routes
+    assert "/health/ready" in routes
     assert "/predict/callback" not in routes
     assert "/predict/query" not in routes
 

@@ -1,6 +1,6 @@
 # 业务状态码规范（Business Status Codes）
 
-> 记录 InferForge 接口层统一响应格式的规范、使用方式与方案比较。最后更新：2026-08-15
+> 记录 InferForge 接口层统一响应格式的规范、使用方式与方案比较。最后更新：2026-08-21
 
 ## 1. 响应格式规范
 
@@ -20,7 +20,7 @@
 | `message` | string | 面向调用方的人类可读说明 |
 | `data` | any | 成功时返回业务载荷；失败时为 `null` |
 
-当前约定：**HTTP 状态码永远返回 200**，业务成败完全由 `code` 表达（取舍分析见 §4）。
+当前约定：**HTTP 状态码永远返回 200**，业务成败完全由 `code` 表达（取舍分析见 §4）。唯一例外是健康检查端点（见 §2「例外：健康检查端点」）。
 
 ## 2. 业务状态码表
 
@@ -32,12 +32,24 @@
 | `3` | internal error | 服务内部异常（推理失败、未预期异常） |
 | `4` | task not found | 查询任务结果不存在：从未提交、结果已过期（TTL 回收）或结果写入失败 |
 | `5` | task pending | 查询任务处理中：已提交、worker 尚未写入结果 |
+| `6` | service not ready | 就绪检查未通过：predictor 尚未加载（`GET /health/ready` 冷启动期间） |
 
 扩展原则：
 
 - 按错误类别递增分配新码；已发布过的码**不删除、不复用**（客户端可能依赖）
 - 每个码的语义在 `utils/response.py` docstring 与本文档同步登记
 - 预留段位：`1xxx` 请求类 / `2xxx` 外部依赖类 / `3xxx` 推理类 / `5xxx` 系统类——当前用短码，需要细分时再启用段位
+
+### 例外：健康检查端点
+
+`GET /health` 与 `GET /health/ready` 是基础设施探针（K8s / Docker / 负载均衡），**不适用「永远 200」约定**——探针只读 HTTP 状态码：
+
+| 端点 | 就绪时 | 未就绪时 |
+|------|--------|----------|
+| `/health`（存活） | `200` + `{"code": 0, "data": {"status": "ok"}}` | 进程存活则永远就绪，无失败态 |
+| `/health/ready`（就绪） | `200` + `{"code": 0, "data": {"status": "ready"}}` | `503` + `{"code": 6, "message": "model not loaded"}` |
+
+若 `/health/ready` 永远返回 200，就绪探针就失去意义。这是本项目**唯一**使用非 200 HTTP 状态码的地方，业务接口（/predict 系列）不受影响。`utils/response.error()` 为此增加了可选参数 `http_status`（默认 200）。
 
 ## 3. 使用方式
 
@@ -57,6 +69,7 @@ return response.error("failed to download image: %s" % exc, code=2)
 return response.error("internal server error", code=3)
 return response.error("task not found", code=4)
 return response.error("task is still processing", code=5)
+return response.error("model not loaded", code=6, http_status=503)  # 仅健康检查端点
 ```
 
 分层约束：**任务层 / 算法层不接触响应格式**——它们抛异常或返回数据，由 apis 层统一捕获并包装，保持各层可替换。
@@ -100,4 +113,4 @@ else:
 2. 与国内主流 API 生态惯例一致
 3. 统一格式降低客户端与网关的处理复杂度
 
-已知取舍：`code=3`（内部错误）暂以 200 返回，会丢失 5xx 监控告警能力。当监控体系（Prometheus 等）落地时，可评估将 `code=3` 改为 HTTP 500 的折中方案（业务错误保持 200）。
+已知取舍：`code=3`（内部错误）暂以 200 返回，会丢失 5xx 监控告警能力。当监控体系（Prometheus 等）落地时，可评估将 `code=3` 改为 HTTP 500 的折中方案（业务错误保持 200）。健康检查端点已按探针语义使用 503（见 §2 例外说明），业务接口仍保持永远 200。

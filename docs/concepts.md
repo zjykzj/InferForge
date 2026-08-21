@@ -102,7 +102,7 @@ worker 完成后把结果放进一个**共享的"快递柜"**（Redis），发�
 | 网络故障 | 回调 POST 重试 3 次 | 无此概念（结果一直在柜子里） |
 | 结果保存 | 接收方自己决定 | TTL 过期自动清除 |
 
-本项目两种都实现了：`POST /predict/callback` 与 `POST/GET /predict/query`，由 `INFERFORGE_ASYNC=1` 和 `INFERFORGE_QUERY=1` 两个开关独立控制（见 [architecture.md](architecture.md) §3）。
+本项目两种都实现了：`POST /predict/callback` 与 `POST/GET /predict/query`，由 `INFERFORGE_ASYNC=1` 一个开关一起启用——callback 还是 query 是按请求的选择，不是部署形态的选择（见 [architecture.md](architecture.md) §3）。
 
 ## 5. Redis 登场
 

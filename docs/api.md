@@ -82,7 +82,7 @@ curl -d '{"url":"http://localhost:9/x.jpg"}' ...        # → code=2 下载失�
 
 ## 2. 异步回调接口：POST /predict/callback
 
-提交检测任务后立即返回，检测完成时服务端把结果 POST 到调用方提供的 `callback_url`。需要 Celery + RabbitMQ，且 web 以 `INFERFORGE_ASYNC=1` 启动（见 README 快速开始）。
+提交检测任务后立即返回，检测完成时服务端把结果 POST 到调用方提供的 `callback_url`。需要 Celery + RabbitMQ + Redis，且 web 以 `INFERFORGE_ASYNC=1` 启动（见 README 快速开始）。
 
 ### 2.1 请求参数
 
@@ -116,7 +116,7 @@ curl -X POST http://localhost:8000/predict/callback \
 
 ## 3. 异步轮询接口：POST /predict/query + GET /predict/query/&lt;task_id&gt;
 
-提交检测任务后立即返回 `task_id`，worker 把结果信封写入 Redis，调用方**主动轮询**拉取结果。需要 Celery + RabbitMQ + Redis，且 web 以 `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1` 启动。
+提交检测任务后立即返回 `task_id`，worker 把结果信封写入 Redis，调用方**主动轮询**拉取结果。需要 Celery + RabbitMQ + Redis，且 web 以 `INFERFORGE_ASYNC=1` 启动。
 
 ### 3.1 请求参数（提交）
 

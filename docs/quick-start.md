@@ -125,14 +125,14 @@ redis-cli ping                             # 返回 PONG 即正常
 ### 3.2 安装依赖
 
 ```bash
-pip install -r requirements-async.txt -r requirements-query.txt
+pip install -r requirements-async.txt
 ```
 
 ### 3.3 启动（两个终端，各一个进程）
 
 ```bash
-# 终端 1：web（两个开关叠加：INFERFORGE_ASYNC=1 注册回调，INFERFORGE_QUERY=1 追加注册轮询）
-INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh
+# 终端 1：web（INFERFORGE_ASYNC=1 一次注册回调 + 轮询全部异步接口）
+INFERFORGE_ASYNC=1 ./start.sh
 
 # 终端 2：worker
 ./start_celery.sh
@@ -158,7 +158,7 @@ redis-cli TTL inferforge:result:<task_id>   # 剩余存活秒数（≤ 3600）
 
 | 现象 | 原因 |
 |------|------|
-| `/predict/query` 返回 404 | web 没带 `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1` 启动 |
+| `/predict/query` 返回 404 | web 没带 `INFERFORGE_ASYNC=1` 启动 |
 | 提交返回 code=3 "failed to submit task" | RabbitMQ 或 Redis 未启动 |
 | 轮询返回 code=3 | Redis 掉线 |
 | 轮询一直 code=5 | worker 未启动（`./start_celery.sh`） |

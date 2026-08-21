@@ -16,8 +16,7 @@
 | | | |
 |:---|:---|:---|
 | 🔍 **Sync Detection** | `POST /predict` — base64 / URL in, drawn image + JSON out | `scripts/test_predict.py` |
-| ⚡ **Async Callback** | Celery + RabbitMQ — submit a task, result POSTed to your URL | `INFERFORGE_ASYNC=1 ./start.sh` |
-| 🔄 **Async Query** | Celery + RabbitMQ + Redis — submit a task, poll for the result | `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh` |
+| ⚡ **Async Detection** | Celery + RabbitMQ + Redis — push (callback) or poll (query), per-request choice | `INFERFORGE_ASYNC=1 ./start.sh` |
 | 🧱 **Layered Template** | apis / tasks / engines / utils — replace one layer, keep the rest | [architecture](docs/architecture.md) |
 | 📦 **Business Codes** | `{code, message, data}` envelope — HTTP always 200 | [status-codes](docs/status-codes.md) |
 | 🚦 **Health Probes** | `GET /health` + `/health/ready` — liveness/readiness for K8s & LBs | [api](docs/api.md) |
@@ -51,24 +50,26 @@ pytest tests/ -v
 
 ### Async
 
-Server-side callback via Celery + RabbitMQ:
+One async deployment shape — Celery + RabbitMQ + Redis. `INFERFORGE_ASYNC=1` registers both apis; callback or query is a per-request choice:
 
 ```bash
 pip install -r requirements-async.txt
-INFERFORGE_ASYNC=1 ./start.sh                                                   # start web with the async api
+INFERFORGE_ASYNC=1 ./start.sh                                                   # start web with the async apis
 ./start_celery.sh                                                               # start the worker
-python3 scripts/callback_receiver.py                                            # start the callback receiver (saves to outputs/callbacks/)
+```
+
+Push style — server POSTs the result to your `callback_url`:
+
+```bash
+python3 scripts/callback_receiver.py                                            # receiver (saves to outputs/callbacks/)
 python3 scripts/test_predict_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                                   # result is POSTed back
 ```
 
-Client polling via Celery + RabbitMQ + Redis (result cached in Redis, poll until ready):
+Pull style — submit a task, poll until the result is ready (result cached in Redis):
 
 ```bash
-pip install -r requirements-async.txt -r requirements-query.txt
 redis-server &                                                                  # start redis (result store)
-INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh                                # start web with the async apis
-./start_celery.sh                                                               # start the worker
 python3 scripts/test_predict_query.py --image assets/bus.jpg                    # submit + poll until done
 ```
 

@@ -109,12 +109,11 @@ app -> apis -> tasks -> engines
 | 场景 | 额外安装 | 额外服务 | 环境变量 | 可用接口 |
 |------|---------|---------|---------|---------|
 | 纯同步 | 无 | 无 | 无 | `/predict` |
-| 同步 + 异步回调 | `requirements-async.txt` | RabbitMQ（无需 Redis） | `INFERFORGE_ASYNC=1` | `/predict` + `/predict/callback` |
-| 同步 + 回调 + 查询 | `requirements-async.txt` + `requirements-query.txt` | RabbitMQ + Redis | `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1` | `/predict` + `/predict/callback` + `/predict/query` |
+| 同步 + 异步（全量） | `requirements-async.txt` | RabbitMQ + Redis | `INFERFORGE_ASYNC=1` | `/predict` + `/predict/callback` + `/predict/query` |
 
 实现机制：
 
-- `app.py` 按 `INFERFORGE_ASYNC=1`（回调）/ `INFERFORGE_QUERY=1`（查询，叠加在前者之上）注册异步 blueprint——两个开关正交，显式声明部署形态；开了开关但缺依赖时打印告警并跳过，同步接口照常
+- `app.py` 按 `INFERFORGE_ASYNC=1` 一次性注册全部异步 blueprint——异步是一种整体部署形态（celery + RabbitMQ + Redis），callback 与 query 是按请求的选择而非部署选择；`INFERFORGE_QUERY=1` 作为废弃别名保留（打印 deprecated 告警）。开了开关但缺依赖时打印告警并整体跳过异步模式，同步接口照常
 - 任务模块用 `shared_task` 注册，避免与 celery_app 循环导入
 - `celery_app.py` 显式导入任务模块（不用惰性 autodiscover），并保证项目根目录在 sys.path 中（celery CLI 会临时移除 cwd）
 

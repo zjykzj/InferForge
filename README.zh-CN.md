@@ -16,8 +16,7 @@
 | | | |
 |:---|:---|:---|
 | 🔍 **同步检测** | `POST /predict` —— base64 / URL 输入，返回绘图 + JSON 结果 | `scripts/test_predict.py` |
-| ⚡ **异步回调** | Celery + RabbitMQ —— 提交任务，结果 POST 到你的回调地址 | `INFERFORGE_ASYNC=1 ./start.sh` |
-| 🔄 **异步查询** | Celery + RabbitMQ + Redis —— 提交任务，主动轮询拉取结果 | `INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh` |
+| ⚡ **异步检测** | Celery + RabbitMQ + Redis —— 回调推送或主动轮询，按请求选择 | `INFERFORGE_ASYNC=1 ./start.sh` |
 | 🧱 **分层模板** | apis / tasks / engines / utils —— 换一层不动其余 | [architecture](docs/architecture.md) |
 | 📦 **业务状态码** | `{code, message, data}` 信封 —— HTTP 永远 200 | [status-codes](docs/status-codes.md) |
 | 🚦 **健康探针** | `GET /health` + `/health/ready` —— 供 K8s / 负载均衡存活与就绪检查 | [api](docs/api.md) |
@@ -51,24 +50,26 @@ pytest tests/ -v
 
 ### 异步
 
-Celery + RabbitMQ 服务端回调：
+异步只有一种部署形态 —— Celery + RabbitMQ + Redis。`INFERFORGE_ASYNC=1` 一次注册全部异步接口，回调还是轮询按请求选择：
 
 ```bash
 pip install -r requirements-async.txt
 INFERFORGE_ASYNC=1 ./start.sh                                                   # 启动 web（启用异步接口）
 ./start_celery.sh                                                               # 启动 worker
+```
+
+推送式 —— 服务端把结果 POST 到你的 `callback_url`：
+
+```bash
 python3 scripts/callback_receiver.py                                            # 启动回调接收器（结果保存到 outputs/callbacks/）
 python3 scripts/test_predict_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                                   # 结果完成后 POST 回调
 ```
 
-Celery + RabbitMQ + Redis 客户端轮询（结果缓存到 Redis，轮询直至就绪）：
+拉取式 —— 提交任务，轮询直到结果就绪（结果缓存到 Redis）：
 
 ```bash
-pip install -r requirements-async.txt -r requirements-query.txt
 redis-server &                                                                  # 启动 redis（结果存储）
-INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh                                # 启动 web（启用异步接口）
-./start_celery.sh                                                               # 启动 worker
 python3 scripts/test_predict_query.py --image assets/bus.jpg                    # 提交 + 轮询直到完成
 ```
 

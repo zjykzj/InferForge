@@ -59,7 +59,7 @@ client ◀──GET result── Redis
 
 - **shared_task 显式注册**（弃 autodiscover）：任务模块用 `shared_task` 绑定，celery_app.py 末尾显式 import——避免循环导入，注册时机确定
 - **celery_app.py 无条件 sys.path insert**：celery CLI 会临时把 cwd 加入 sys.path 又移除，去重守卫会被骗过——实测踩过的坑
-- **双开关显式声明部署形态**：`INFERFORGE_ASYNC=1` 启用回调接口、`INFERFORGE_QUERY=1` 在其上追加轮询接口——两个布尔开关正交，而非"装了什么自动用什么"；开关开着但缺依赖时告警跳过
+- **单开关显式声明部署形态**：`INFERFORGE_ASYNC=1` 一次性启用全部异步接口（回调 + 轮询），而非"装了什么自动用什么"——异步是一种整体形态（celery + RabbitMQ + Redis），callback 与 query 是按请求的选择；开关开着但缺依赖时告警跳过
 - **回调"恰好一次"语义**：检测业务错误（code=1/2/3）不重试、直接回调失败信封；只有回调 POST 本身的网络故障才指数退避重试 3 次
 - **进程组日志分离**：worker 写 `logs/celery.log`，轮转交给系统 logrotate（copytruncate），多进程写同一文件无竞态（详见 [logging.md](logging.md)）
 
@@ -93,8 +93,8 @@ client ◀──GET result── Redis
 |------|--------|------|---------|
 | `INFERFORGE_MODEL_PATH` | `models/yolov8n.onnx` | 模型文件路径 | `tasks/detection.py` |
 | `INFERFORGE_WORKERS` | `2` | web worker 进程数 | `gunicorn.conf.py` |
-| `INFERFORGE_ASYNC` | 未设置（禁用） | 回调接口开关（`1`/`true`/`yes` 启用） | `app.py` |
-| `INFERFORGE_QUERY` | 未设置（禁用） | 轮询接口开关（需叠加 `INFERFORGE_ASYNC=1`，`1`/`true`/`yes` 启用） | `app.py` |
+| `INFERFORGE_ASYNC` | 未设置（禁用） | 异步接口总开关（回调 + 轮询一起注册，`1`/`true`/`yes` 启用） | `app.py` |
+| `INFERFORGE_QUERY` | 未设置 | 废弃别名（等同 `INFERFORGE_ASYNC=1`，启动时打印 deprecated 告警） | `app.py` |
 | `CELERY_BROKER_URL` | `amqp://guest:guest@localhost:5672//` | 消息队列地址 | `celery_app.py` |
 | `INFERFORGE_REDIS_URL` | `redis://localhost:6379/0` | 轮询结果存储地址 | `utils/redis_store.py` |
 | `INFERFORGE_RESULT_TTL` | `3600` | 结果保存秒数（过期后轮询 code=4） | `utils/redis_store.py` |

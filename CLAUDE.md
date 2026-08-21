@@ -27,8 +27,7 @@ Authoritative details live in [docs/architecture.md](docs/architecture.md); the 
 ```bash
 pytest tests/ -v                                    # smoke tests (no model file needed)
 ./start.sh                                          # run service (requires models/yolov8n.onnx)
-INFERFORGE_ASYNC=1 ./start.sh                       # run service with the async callback api
-INFERFORGE_ASYNC=1 INFERFORGE_QUERY=1 ./start.sh    # run service with callback + query api
+INFERFORGE_ASYNC=1 ./start.sh                       # run service with the async apis (callback + query)
 ./start_celery.sh                                   # run async worker (requires RabbitMQ + celery)
 python3 scripts/test_predict.py --image assets/bus.jpg          # test the sync API
 python3 scripts/test_predict_callback.py --image assets/bus.jpg \  # test the async callback API
@@ -45,7 +44,7 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 - Python 3.9 compatibility: no `X | None` syntax; use `Optional` from typing.
 - New business codes must be registered in **both** `utils/response.py` docstring and `docs/status-codes.md`.
 - Gitignored: `models/*.onnx`, `logs/`, `outputs/`, `result*.jpg`/`result*.json`, `archive/` (old design docs — leave untouched).
-- Celery is optional: async blueprints register behind explicit env switches in `app.py` — `INFERFORGE_ASYNC=1` for the callback api, `INFERFORGE_QUERY=1` (on top of it) for the query api (missing deps log a warning and skip only the affected api). Async task modules use `shared_task` (never import celery_app from tasks — circular import). `celery_app.py` must keep its unconditional sys.path insert — the celery CLI temporarily removes cwd from sys.path.
+- Celery/redis are optional: async is one deployment shape behind `INFERFORGE_ASYNC=1` — it registers both async apis (callback + query; requires celery + rabbitmq + redis). `INFERFORGE_QUERY=1` is a deprecated alias (logs a warning). Missing deps log a warning and skip the whole async mode. Async task modules use `shared_task` (never import celery_app from tasks — circular import). `celery_app.py` must keep its unconditional sys.path insert — the celery CLI temporarily removes cwd from sys.path.
 - Callback fires exactly once: detection business errors (code 1/2/3) are NOT retried — only network failures on the callback POST retry (3 attempts, exponential backoff). Keep it that way.
 - Log rotation belongs to system logrotate (copytruncate, `deploy/logrotate.conf`) — do not reintroduce in-app rotation handlers (multi-process rotation races).
 - Docs language: `docs/` in Chinese, READMEs bilingual. Docs describe current implementation only — no version planning.
@@ -72,10 +71,10 @@ Version bump locations for this project:
 
 | # | File | Field |
 |---|------|-------|
-| 1 | `VERSION` | `0.2.0` single line |
-| 2 | `CHANGELOG.md` | `## [0.2.0] - YYYY-MM-DD` section header |
+| 1 | `VERSION` | `0.3.0` single line |
+| 2 | `CHANGELOG.md` | `## [0.3.0] - YYYY-MM-DD` section header |
 
-Verify with: `grep -n "0.2.0" VERSION CHANGELOG.md`
+Verify with: `grep -n "0.3.0" VERSION CHANGELOG.md`
 
 Repository URL for the `/release` skill:
 

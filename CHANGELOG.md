@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Health probe endpoints: GET /health (liveness, always 200) and GET /health/ready (readiness, 503 + code 6 until the predictor is loaded) — the only endpoints that carry meaning in the HTTP status, for orchestrator probes
+
+### Changed
+
+- Async is one deployment shape: INFERFORGE_ASYNC=1 registers both async apis (callback + query, requires celery + rabbitmq + redis) — callback vs query is now a per-request choice, not a deployment choice (breaking)
+- INFERFORGE_QUERY=1 kept as a deprecated alias with a startup warning; requirements-query.txt removed, redis merged into requirements-async.txt (breaking)
+
 ## [0.3.0] - 2026-08-15
 
 ### Added

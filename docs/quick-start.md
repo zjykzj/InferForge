@@ -1,6 +1,6 @@
 # 快速开始（Quick Start）
 
-> 从零跑起 InferForge 的操作手册，覆盖同步/异步（回调 + 轮询）部署场景。概念不熟？先读 [concepts.md](concepts.md)。最后更新：2026-08-15
+> 从零跑起 InferForge 的操作手册，覆盖同步/异步（回调 + 轮询）/容器化部署场景。概念不熟？先读 [concepts.md](concepts.md)。最后更新：2026-08-21
 
 ## 1. 场景一：同步接口（Flask + Gunicorn）
 
@@ -163,3 +163,49 @@ redis-cli TTL inferforge:result:<task_id>   # 剩余存活秒数（≤ 3600）
 | 轮询返回 code=3 | Redis 掉线 |
 | 轮询一直 code=5 | worker 未启动（`./start_celery.sh`） |
 | 轮询返回 code=4 | task_id 错误，或结果已过期（默认 3600s，`INFERFORGE_RESULT_TTL` 可调） |
+
+## 4. 场景四：Docker Compose 一键全栈
+
+不想在本机装 Python / RabbitMQ / Redis？直接容器化起全栈（web + worker + RabbitMQ + Redis）：
+
+### 4.1 准备模型
+
+```bash
+cp /path/to/yolov8n.onnx models/   # 模型通过 bind mount 挂进容器，不进镜像
+```
+
+### 4.2 一键启动
+
+```bash
+docker compose up -d
+curl http://localhost:8000/health     # 存活探针（就绪探针 /health/ready 按进程各自报告）
+```
+
+四个容器：`web`（gunicorn，`INFERFORGE_ASYNC=1` 默认开启异步）、`worker`（celery）、`rabbitmq`、`redis`。容器间通过服务名互连，broker/redis 地址由 compose 自动改写为 `rabbitmq` / `redis`，无需手工配置。
+
+### 4.3 使用
+
+端口全部映射到宿主机，客户端脚本与本地部署完全一致：
+
+```bash
+python3 scripts/test_predict.py --image assets/bus.jpg                    # 同步
+python3 scripts/test_predict_callback.py --image assets/bus.jpg \
+  --callback-url http://localhost:9000/result                             # 回调
+python3 scripts/test_predict_query.py --image assets/bus.jpg              # 轮询
+```
+
+RabbitMQ 管理界面：http://localhost:15672（guest/guest）。
+
+### 4.4 管理
+
+```bash
+docker compose logs -f web       # 看容器日志（logs/ 同时 bind mount 到宿主机）
+docker compose down              # 停止全部容器（保留队列与 Redis 数据）
+docker compose down -v           # 连数据卷一起删除（清空队列与结果）
+```
+
+### 4.5 注意
+
+- web 容器启动时检查 `models/yolov8n.onnx` 是否存在（与本地 `start.sh` 行为一致），缺失会直接退出并提示
+- web 与 worker 共用同一个镜像（`inferforge:latest`），worker 同样挂载 `models/`——异步推理在 worker 进程里执行
+- 容器内 web/worker 日志同时落 `logs/`（bind mount 到宿主机，系统 logrotate 照常轮转）

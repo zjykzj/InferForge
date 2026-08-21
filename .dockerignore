@@ -1,0 +1,27 @@
+.git
+.claude
+.pytest_cache
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# the model is bind-mounted at runtime, never baked into the image
+models/*
+logs/
+outputs/
+archive/
+result*.jpg
+result*.json
+
+# not needed at runtime
+docs/
+tests/
+assets/
+scripts/
+deploy/
+README.md
+README.zh-CN.md
+CHANGELOG.md
+VERSION

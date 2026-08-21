@@ -20,6 +20,7 @@
 | 🧱 **分层模板** | apis / tasks / engines / utils —— 换一层不动其余 | [architecture](docs/architecture.md) |
 | 📦 **业务状态码** | `{code, message, data}` 信封 —— HTTP 永远 200 | [status-codes](docs/status-codes.md) |
 | 🚦 **健康探针** | `GET /health` + `/health/ready` —— 供 K8s / 负载均衡存活与就绪检查 | [api](docs/api.md) |
+| 🐳 **Docker Compose** | 一条命令起全栈 —— web + worker + RabbitMQ + Redis | `docker compose up -d` |
 | 🔗 **请求追踪** | request_id + task_id 贯穿 web 与 worker 日志 | [logging](docs/logging.md) |
 | ✅ **冒烟测试** | 30+ 个测试，无需模型文件 | `pytest tests/ -v` |
 
@@ -72,6 +73,18 @@ python3 scripts/test_predict_callback.py --image assets/bus.jpg \
 redis-server &                                                                  # 启动 redis（结果存储）
 python3 scripts/test_predict_query.py --image assets/bus.jpg                    # 提交 + 轮询直到完成
 ```
+
+### Docker
+
+容器化一键起全栈 —— web + worker + RabbitMQ + Redis，本机零安装：
+
+```bash
+cp /path/to/yolov8n.onnx models/    # 模型 bind mount 进容器，不进镜像
+docker compose up -d
+curl http://localhost:8000/health   # 存活探针
+```
+
+RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compose down` 停止全部容器（加 `-v` 连数据卷一起删除）。详见 [quick-start](docs/quick-start.md) §4。
 
 ## 文档
 

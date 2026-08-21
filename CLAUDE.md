@@ -29,6 +29,7 @@ pytest tests/ -v                                    # smoke tests (no model file
 ./start.sh                                          # run service (requires models/yolov8n.onnx)
 INFERFORGE_ASYNC=1 ./start.sh                       # run service with the async apis (callback + query)
 ./start_celery.sh                                   # run async worker (requires RabbitMQ + celery)
+docker compose up -d                                # full stack in containers (needs models/yolov8n.onnx)
 python3 scripts/test_predict.py --image assets/bus.jpg          # test the sync API
 python3 scripts/test_predict_callback.py --image assets/bus.jpg \  # test the async callback API
   --callback-url http://localhost:9000/result
@@ -47,6 +48,7 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 - Celery/redis are optional: async is one deployment shape behind `INFERFORGE_ASYNC=1` — it registers both async apis (callback + query; requires celery + rabbitmq + redis). `INFERFORGE_QUERY=1` is a deprecated alias (logs a warning). Missing deps log a warning and skip the whole async mode. Async task modules use `shared_task` (never import celery_app from tasks — circular import). `celery_app.py` must keep its unconditional sys.path insert — the celery CLI temporarily removes cwd from sys.path.
 - Callback fires exactly once: detection business errors (code 1/2/3) are NOT retried — only network failures on the callback POST retry (3 attempts, exponential backoff). Keep it that way.
 - Log rotation belongs to system logrotate (copytruncate, `deploy/logrotate.conf`) — do not reintroduce in-app rotation handlers (multi-process rotation races).
+- The compose stack bind-mounts `./models` and `./logs` — put yolov8n.onnx in `models/` first; the Docker image never bakes the model. In-container broker/redis urls are overridden in `docker-compose.yml` (the localhost defaults won't work).
 - Docs language: `docs/` in Chinese, READMEs bilingual. Docs describe current implementation only — no version planning.
 
 ## Git Operations

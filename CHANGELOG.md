@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Health probe endpoints: GET /health (liveness, always 200) and GET /health/ready (readiness, 503 + code 6 until the predictor is loaded) — the only endpoints that carry meaning in the HTTP status, for orchestrator probes
+- Docker Compose full stack: Dockerfile + docker-compose.yml (web + worker + RabbitMQ + Redis) — one-command containerized startup; the model is bind-mounted from ./models, never baked into the image
 
 ### Changed
 

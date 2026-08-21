@@ -1,0 +1,81 @@
+# One-command full stack: web (gunicorn) + worker (celery) + RabbitMQ + Redis.
+#
+#   docker compose up -d
+#
+# Prerequisite: models/yolov8n.onnx on the host — the model is bind-mounted,
+# never baked into the image (start.sh fails fast with a clear error if
+# missing). Services reach each other by service name, so the broker and
+# redis urls are overridden to the compose network.
+#
+#   curl http://localhost:8000/health        # web liveness
+#   http://localhost:15672                   # rabbitmq management ui (guest/guest)
+#   docker compose down                      # stop the stack (-v also drops queue/redis data)
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"       # amqp (host access, optional)
+      - "15672:15672"     # management ui
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"       # host access via redis-cli (optional)
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    image: inferforge:latest
+    environment:
+      INFERFORGE_ASYNC: "1"
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      INFERFORGE_REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  worker:
+    build: .
+    image: inferforge:latest
+    command: celery -A celery_app worker --loglevel=info
+    environment:
+      CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
+      INFERFORGE_REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  rabbitmq_data:
+  redis_data:

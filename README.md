@@ -20,6 +20,7 @@
 | 🧱 **Layered Template** | apis / tasks / engines / utils — replace one layer, keep the rest | [architecture](docs/architecture.md) |
 | 📦 **Business Codes** | `{code, message, data}` envelope — HTTP always 200 | [status-codes](docs/status-codes.md) |
 | 🚦 **Health Probes** | `GET /health` + `/health/ready` — liveness/readiness for K8s & LBs | [api](docs/api.md) |
+| 🐳 **Docker Compose** | one command full stack — web + worker + RabbitMQ + Redis | `docker compose up -d` |
 | 🔗 **Request Tracing** | request_id + task_id across web and worker logs | [logging](docs/logging.md) |
 | ✅ **Smoke Tests** | 30+ tests, no model file needed | `pytest tests/ -v` |
 
@@ -72,6 +73,18 @@ Pull style — submit a task, poll until the result is ready (result cached in R
 redis-server &                                                                  # start redis (result store)
 python3 scripts/test_predict_query.py --image assets/bus.jpg                    # submit + poll until done
 ```
+
+### Docker
+
+Full stack in containers — web + worker + RabbitMQ + Redis, no local installs:
+
+```bash
+cp /path/to/yolov8n.onnx models/    # bind-mounted into the containers, never baked into the image
+docker compose up -d
+curl http://localhost:8000/health   # liveness probe
+```
+
+RabbitMQ management UI at http://localhost:15672 (guest/guest). `docker compose down` stops the stack (`-v` also drops queue/redis data). See [quick-start](docs/quick-start.md) §4 for details.
 
 ## Documentation
 

@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-22
+
 ### Added
 
 - Metrics: GET /metrics (Prometheus text, not the envelope — documented format exception) — http requests/duration by route template, business-code distribution, inference phase timings, predictor gauge, celery task counters; multiprocess aggregation via PROMETHEUS_MULTIPROC_DIR (start.sh / start_celery.sh / compose)

@@ -1,6 +1,6 @@
 # 概念入门（Concepts）
 
-> 给没接触过 Web 服务、消息队列、Redis 的读者：以「一次推理请求的旅程」为主线，建立心智模型。读完全文，你会理解 InferForge 为什么是现在这套架构。最后更新：2026-08-21
+> 给没接触过 Web 服务、消息队列、Redis 的读者：以「一次推理请求的旅程」为主线，建立心智模型。读完全文，你会理解 InferForge 为什么是现在这套架构。最后更新：2026-08-22
 
 **建议阅读顺序**：本文（概念）→ [quick-start.md](quick-start.md)（跑起来）→ [architecture.md](architecture.md) / [api.md](api.md) / [stack.md](stack.md)（深入实现）。
 
@@ -33,7 +33,18 @@
 
 补充：接口端点写的是**同步函数**（`def`），FastAPI 会把它们放进线程池执行——推理是 CPU 密集的阻塞操作，线程池正好适配；单进程也能同时服务多个请求。
 
-### 1.3 多进程意味着什么（第 5 节的伏笔）
+### 1.3 Pydantic：参数的"安检员"
+
+FastAPI 讲路由，gunicorn/uvicorn 讲收发，那"请求里的参数靠不靠谱"由谁管？——**Pydantic**。
+
+- **是什么**：用 Python 类型声明描述"请求应该长什么样"。写一个继承 `BaseModel` 的类，声明字段和类型（`image: str | None`），再用 `@model_validator` 写规则（比如"image 和 url 必须恰好提供一个"）
+- **怎么工作**：请求进来先"过安检"——合格，函数里拿到的是干净的对象，不用再写 if-else；不合格，请求根本进不了处理函数，直接变成 `code=1` 信封返回（见 [status-codes.md](status-codes.md)）
+- **为什么和 FastAPI 天生一对**：同一份类型声明同时驱动三件事——① 参数校验 ② 自动生成接口文档（`/docs`）③ 编辑器的类型提示。Flask 时代这三件事各自手写、互相脱节
+- **本项目对应**：模型在 `apis/schemas.py`（`PredictRequest` / `CallbackRequest` / `QueryRequest`），校验失败经 `utils.response.validation_error_handler` 折叠进 200 + `code=1`。注意分层：**结构**校验（形状、类型、二选一）在 api 层，**语义**校验（base64 内容、图片下载）在任务层
+
+一句话：校验从"手写 if-else"变成"声明一次、自动执行"。
+
+### 1.4 多进程意味着什么（第 5 节的伏笔）
 
 web 进程、celery worker 进程、Redis 服务是**互相独立的进程**（甚至不同机器），**内存不共享**。一个进程算出来的东西，另一个进程拿不到——这是第 5 节 Redis 登场的根本原因。
 
@@ -111,7 +122,7 @@ worker 完成后把结果放进一个**共享的"快递柜"**（Redis），发�
 
 ### 5.1 为什么轮询需要一个"快递柜"
 
-回到 1.3 的伏笔：web 进程提交任务、celery worker 执行任务、发起方来查询——三者是**不同进程**，内存不共享。worker 算完的结果放哪？
+回到 1.4 的伏笔：web 进程提交任务、celery worker 执行任务、发起方来查询——三者是**不同进程**，内存不共享。worker 算完的结果放哪？
 
 - 放 web 进程内存？worker 是另一个进程，写不进去
 - 放文件？多进程同时读写有竞态，性能差

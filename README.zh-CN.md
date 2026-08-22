@@ -89,7 +89,7 @@ RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compos
 
 ## 文档
 
-[docs/](docs/) —— concepts · quick-start · architecture · stack · api · deployment · status-codes · logging · testing · security
+[docs/](docs/) —— concepts · quick-start · architecture · api · deployment · stack · fastapi-migration · status-codes · logging · testing · security
 
 ## 致谢
 

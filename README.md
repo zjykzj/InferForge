@@ -89,7 +89,7 @@ RabbitMQ management UI at http://localhost:15672 (guest/guest). `docker compose 
 
 ## Documentation
 
-[docs/](docs/) — concepts · quick-start · architecture · stack · api · deployment · status-codes · logging · testing · security
+[docs/](docs/) — concepts · quick-start · architecture · api · deployment · stack · fastapi-migration · status-codes · logging · testing · security
 
 ## Acknowledgments
 

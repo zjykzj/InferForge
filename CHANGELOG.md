@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Request-body guard: Content-Length 20MB ceiling in app.py middleware (200 + code=1 envelope, matches the image download limit)
 - Docs: stack.md §1.4 documents the gunicorn-vs-uvicorn decision (differences + when to choose each)
 - Docs: deployment.md — canary rollout (nginx traffic split, web grayscale + worker full rollout) and long-term test/prod coexistence (two fully isolated stacks)
+- Docs: fastapi-migration.md (Flask → FastAPI comparison and migration impact); docs index reorganized into engineering / tech-stack / standards categories; concepts.md gains a Pydantic primer
 
 ## [0.4.0] - 2026-08-21
 

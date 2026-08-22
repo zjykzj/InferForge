@@ -21,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - Docs: READMEs gain an About section stating the template-not-framework positioning
 - Docs: READMEs restructured — Features table dropped (OpenAPI pointer moved into Quick Start), Documentation grouped by category, Acknowledgments condensed to one line per category
 - Docs: architecture.md §1 names the architecture style — unidirectional layering + dependency inversion at the engine boundary (composition root / shared kernel / clean-architecture mapping)
+- Deploy: deploy/nginx-canary.conf — canary traffic split reference (weight ramp + `X-Canary: 1` header pin, proxy headers, 20MB body match, long-inference read timeout); deploy/README.md marks deploy/ as the reference-artifact area; deployment.md gains §0 (environments / canary / traffic split primer) and §2.3 snippet corrected (weights only split within one upstream group) and points to the file
 
 ## [0.4.0] - 2026-08-21
 

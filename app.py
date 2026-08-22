@@ -23,7 +23,7 @@ from fastapi.exceptions import RequestValidationError
 from apis.health import health_router
 from apis.metrics import metrics_router
 from apis.predict import predict_router
-from utils import auth, metrics, request_id, response
+from utils import auth, metrics, rate_limit, request_id, response
 from utils.logger import setup_logging
 
 logger = logging.getLogger("app")
@@ -90,11 +90,13 @@ def create_app() -> FastAPI:
     )
     # Middleware order: the LAST added runs FIRST (outermost). RequestId
     # outermost so every response — content-length envelope, 401 auth
-    # rejection, validation envelope, 503 readiness, 404s — carries
-    # X-Request-ID. Metrics innermost: only routed requests are counted,
-    # short-circuits above it surface in responses_total{code} instead.
-    # Auth off unless INFERFORGE_API_KEY is set (401 + code=7, utils/auth.py).
+    # rejection, 429 rate limit, validation envelope, 503 readiness, 404s —
+    # carries X-Request-ID. Metrics innermost: only routed requests are
+    # counted, short-circuits above it surface in responses_total{code}
+    # instead. Auth off unless INFERFORGE_API_KEY is set (401 + code=7);
+    # rate limit off unless INFERFORGE_RATE_LIMIT is set (429 + code=8).
     app.add_middleware(metrics.MetricsMiddleware)
+    app.add_middleware(rate_limit.RateLimitMiddleware)
     app.add_middleware(auth.AuthMiddleware)
     app.add_middleware(ContentLengthLimitMiddleware)
     app.add_middleware(request_id.RequestIdMiddleware)

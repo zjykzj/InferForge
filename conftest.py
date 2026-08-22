@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
 from apis.metrics import metrics_router
-from utils import auth, metrics, request_id, response
+from utils import auth, metrics, rate_limit, request_id, response
 
 
 @pytest.fixture()
@@ -23,6 +23,7 @@ def app_factory():
         app = FastAPI()
         # Same order as create_app: LAST added = outermost.
         app.add_middleware(metrics.MetricsMiddleware)
+        app.add_middleware(rate_limit.RateLimitMiddleware)
         app.add_middleware(auth.AuthMiddleware)
         app.add_middleware(request_id.RequestIdMiddleware)
         app.add_exception_handler(RequestValidationError, response.validation_error_handler)

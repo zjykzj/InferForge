@@ -9,11 +9,13 @@ HTTP status is always 200; business status is carried by `code`:
     5     task pending (query api: submitted, not finished yet)
     6     service not ready (health/ready: predictor not loaded)
     7     unauthorized (auth middleware: missing / wrong X-API-Key)
+    8     rate limit exceeded (rate_limit middleware: over INFERFORGE_RATE_LIMIT)
 
 The exceptions to "always 200" are infrastructure endpoints: /health/ready
 returns HTTP 503 alongside code 6 so that orchestrator probes can read the
-status code directly, and the auth middleware returns HTTP 401 alongside
-code 7 so that gateways see the rejection (see apis.health, utils.auth and
+status code directly, the auth middleware returns HTTP 401 alongside code 7
+so that gateways see the rejection, and the rate limiter returns HTTP 429
+alongside code 8 (see apis.health, utils.auth, utils.rate_limit and
 docs/status-codes.md).
 
 Pydantic validation failures (RequestValidationError) are also folded into
@@ -34,9 +36,11 @@ def success(data: Any = None) -> JSONResponse:
     return JSONResponse({"code": 0, "message": "success", "data": data})
 
 
-def error(message: str, code: int = 1, http_status: int = 200) -> JSONResponse:
+def error(message: str, code: int = 1, http_status: int = 200,
+          headers: dict | None = None) -> JSONResponse:
     metrics.record_response(code)
-    return JSONResponse({"code": code, "message": message, "data": None}, status_code=http_status)
+    return JSONResponse({"code": code, "message": message, "data": None},
+                        status_code=http_status, headers=headers)
 
 
 def _format_validation_errors(exc: RequestValidationError) -> str:

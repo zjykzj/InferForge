@@ -23,7 +23,7 @@ from fastapi.exceptions import RequestValidationError
 from apis.health import health_router
 from apis.metrics import metrics_router
 from apis.predict import predict_router
-from utils import metrics, request_id, response
+from utils import auth, metrics, request_id, response
 from utils.logger import setup_logging
 
 logger = logging.getLogger("app")
@@ -88,14 +88,16 @@ def create_app() -> FastAPI:
         version=_read_version(),
         description="Inference serving template — {code, message, data} envelope, HTTP always 200.",
     )
-    # Middleware order: the LAST added runs FIRST (outermost). RequestId must
-    # be outermost so every response — content-length envelope, validation
-    # envelope, 503 readiness, 404s — carries X-Request-ID.
+    # Middleware order: the LAST added runs FIRST (outermost). RequestId
+    # outermost so every response — content-length envelope, 401 auth
+    # rejection, validation envelope, 503 readiness, 404s — carries
+    # X-Request-ID. Metrics innermost: only routed requests are counted,
+    # short-circuits above it surface in responses_total{code} instead.
+    # Auth off unless INFERFORGE_API_KEY is set (401 + code=7, utils/auth.py).
+    app.add_middleware(metrics.MetricsMiddleware)
+    app.add_middleware(auth.AuthMiddleware)
     app.add_middleware(ContentLengthLimitMiddleware)
     app.add_middleware(request_id.RequestIdMiddleware)
-    # Innermost middleware: counts/times every routed request (the content-
-    # length guard above short-circuits before it, which is fine).
-    app.add_middleware(metrics.MetricsMiddleware)
     # Replace FastAPI's default 422 handler: validation failures become
     # 200 + code=1 envelopes (the always-200 contract, docs/status-codes.md).
     app.add_exception_handler(RequestValidationError, response.validation_error_handler)

@@ -9,12 +9,19 @@ Usage:
 """
 import argparse
 import base64
+import os
 import sys
 import time
 
 import requests
 
 DEFAULT_HOST = "http://localhost:8000"
+
+
+def _auth_headers():
+    """Attach X-API-Key when INFERFORGE_API_KEY is set (see utils/auth.py)."""
+    key = os.environ.get("INFERFORGE_API_KEY")
+    return {"X-API-Key": key} if key else None
 
 
 def parse_args():
@@ -41,7 +48,7 @@ def main():
 
     t0 = time.perf_counter()
     try:
-        resp = requests.post(args.host.rstrip("/") + "/predict", json=payload, timeout=args.timeout)
+        resp = requests.post(args.host.rstrip("/") + "/predict", json=payload, headers=_auth_headers(), timeout=args.timeout)
     except requests.ConnectionError:
         print("[ERROR] cannot reach %s — is the service running? (./start.sh)" % args.host)
         sys.exit(2)

@@ -8,10 +8,13 @@ HTTP status is always 200; business status is carried by `code`:
     4     task not found (query api: never submitted or result expired)
     5     task pending (query api: submitted, not finished yet)
     6     service not ready (health/ready: predictor not loaded)
+    7     unauthorized (auth middleware: missing / wrong X-API-Key)
 
-The single exception to "always 200" is infrastructure probes: /health/ready
+The exceptions to "always 200" are infrastructure endpoints: /health/ready
 returns HTTP 503 alongside code 6 so that orchestrator probes can read the
-status code directly (see apis.health and docs/status-codes.md).
+status code directly, and the auth middleware returns HTTP 401 alongside
+code 7 so that gateways see the rejection (see apis.health, utils.auth and
+docs/status-codes.md).
 
 Pydantic validation failures (RequestValidationError) are also folded into
 the envelope by validation_error_handler — code=1, HTTP 200. Register it in

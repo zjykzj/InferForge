@@ -2,19 +2,33 @@
 
 > 🔨 From kernel to service — InferForge forges any model (CV → LLM → Agent) into production.
 >
-> Web API · task orchestration · engine abstraction · logging & tracing · tests. A template, not a framework: download, adapt, deploy.
+> Out of the box: sync + async APIs · health probes · OpenAPI docs · Prometheus metrics. Optional (off by default): API-key auth & rate limiting. A template, not a framework: download, adapt, deploy.
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.12%2B-blue.svg" alt="Python 3.12+"></a>
   <a href="https://github.com/zjykzj/InferForge/actions/workflows/ci.yml"><img src="https://github.com/zjykzj/InferForge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/zjykzj/InferForge/releases"><img src="https://img.shields.io/github/v/release/zjykzj/InferForge" alt="Release"></a>
-  <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
+  <a href="https://deepwiki.com/zjykzj/InferForge"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
 ## About
 
 InferForge is a serving shell above inference backends: web APIs, logging, exception handling and unified response formats out of the box — a model becomes a deployable service in days. But the business layer above inference is too diverse to generalize, so this is deliberately a **template, not a framework**: fork it, own the code, and define your own tasks and APIs. The layered architecture keeps every layer replaceable independently — see [forking-contract](docs/forking-contract.md) for what to edit and what to keep.
+
+## Project Layout
+
+```
+InferForge/
+├── apis/          # FastAPI routers + Pydantic schemas — interface layer
+├── tasks/         # task orchestration; each task owns its predictors
+├── engines/       # BasePredictor contract + YOLOv8n reference implementation
+├── utils/         # cross-cutting: envelope, logging, metrics, auth, rate limit
+├── deploy/        # reference artifacts: logrotate, nginx canary, monitoring stack
+├── docs/          # full documentation set (Chinese, indexed by category)
+├── scripts/       # API test clients + callback receiver
+└── tests/         # smoke tests — model-free, CI-run
+```
 
 ## Quick Start
 

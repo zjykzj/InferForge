@@ -2,19 +2,33 @@
 
 > 🔨 从推理内核到部署——InferForge 把任何模型（CV → LLM → Agent）锻造成生产服务。
 >
-> Web 接口 · 任务编排 · 引擎抽象 · 日志与链路追踪 · 测试。模板而非框架：下载、改造、部署。
+> 开箱即用：同步/异步接口 · 健康探针 · OpenAPI 文档 · Prometheus 指标。可选（默认关闭）：API-key 鉴权与限流。模板而非框架：下载、改造、部署。
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
   <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.12%2B-blue.svg" alt="Python 3.12+"></a>
   <a href="https://github.com/zjykzj/InferForge/actions/workflows/ci.yml"><img src="https://github.com/zjykzj/InferForge/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/zjykzj/InferForge/releases"><img src="https://img.shields.io/github/v/release/zjykzj/InferForge" alt="Release"></a>
-  <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
+  <a href="https://deepwiki.com/zjykzj/InferForge"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
 </p>
 
 ## 关于
 
 InferForge 是推理后端之上的服务外壳：开箱即得生产配套——Web 接口、日志处理、异常处理、统一响应格式——模型几天内就能变成可部署的服务。但推理之上的业务层千差万别、无法一概而论，因此本项目刻意做成**模板而非框架**：fork 之后代码归你所有，任务与接口由你定义。分层架构保证每一层可独立替换——哪些可以改、哪些别乱动，见 [forking-contract](docs/forking-contract.md)。
+
+## 项目结构
+
+```
+InferForge/
+├── apis/          # FastAPI 路由 + Pydantic 模型 —— 接口层
+├── tasks/         # 任务编排；每个任务持有自己的预测器
+├── engines/       # BasePredictor contract + YOLOv8n 参考实现
+├── utils/         # 横切机制：envelope、日志、指标、鉴权、限流
+├── deploy/        # 参考工件：logrotate、nginx 灰度、监控栈
+├── docs/          # 完整文档集（中文，按分类索引）
+├── scripts/       # 接口测试脚本 + 回调接收器
+└── tests/         # 冒烟测试——无模型依赖，CI 自动执行
+```
 
 ## 快速开始
 

@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - CI: GitHub Actions workflow (.github/workflows/ci.yml) — smoke tests + compile check + docs link check on push/PR; READMEs gain a CI badge
 - Docs: READMEs About section condensed to three sentences (same four points: what / why a template / layered replaceability / forking contract pointer)
 - Docs: READMEs Acknowledgments condensed to name-only links (per-library responsibilities live in stack.md)
+- Docs: READMEs gain a hero capability strip (replacing the stale component list) and a Project Layout tree
 
 ### Changed
 

@@ -210,7 +210,7 @@ curl http://localhost:8000/metrics
 
 指标清单、multiprocess 聚合与监控栈接入见 [metrics.md](metrics.md)。
 
-## 6. 鉴权（可选，默认关闭）
+## 6. 访问控制：鉴权与限流（可选，默认关闭）
 
 设置 `INFERFORGE_API_KEY` 后，除豁免路径外所有接口要求 `X-API-Key` header：
 
@@ -228,6 +228,19 @@ python3 scripts/test_predict.py --image assets/bus.jpg    # 脚本自动读取 I
 - **豁免路径**：`/health`、`/health/ready`、`/metrics`、`/docs`、`/openapi.json` 匿名可访问
 - 不设置 `INFERFORGE_API_KEY` = 功能完全关闭，无任何行为差异
 - 单 key 模型，无用户体系；多用户 / SSO 场景走网关层（见 [security.md](security.md)）
+
+### 限流（固定窗口）
+
+设置 `INFERFORGE_RATE_LIMIT=N` 后，每个调用方每分钟最多 N 个请求：
+
+```bash
+INFERFORGE_RATE_LIMIT=60 ./start.sh
+```
+
+- 计数维度：鉴权开启时按 `X-API-Key` 分桶，否则按客户端 IP
+- 超限响应：**HTTP 429 + `{"code": 8}` + `Retry-After` 头**（协议层例外，见 [status-codes.md](status-codes.md)）
+- 已知近似：计数在进程内存，gunicorn 多 worker 下有效配额约为 N × worker 数——单机部署可接受；严格配额接 Redis 共享计数（见 [security.md](security.md)）
+- 豁免路径同鉴权：探针、文档与指标端点不限流
 
 ## 7. 参数设计规范（推理接口的通用模式）
 

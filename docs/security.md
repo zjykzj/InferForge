@@ -12,7 +12,7 @@
 | 内存消耗（`image` 参数） | base64 解码前无大小上限——超大 base64 会耗尽内存 | ✅ 部分防护：Content-Length 20MB 守卫（`app.py` 中间件，超限返回 code=1 envelope；chunked 无 Content-Length 的请求可绕过） |
 | 图片下载 | 已有 20MB 上限 + 10s 超时 | ✅ 已防护 |
 | 认证 | 接口无认证——任何可达服务的人都可调用 | ✅ 已防护：API-key 中间件（设置 `INFERFORGE_API_KEY` 后启用，401 + code=7；探针/文档/指标端点豁免） |
-| 限流 | 无速率限制——恶意或失控的调用方可持续打满推理资源 | 无防护 |
+| 限流 | 无速率限制——恶意或失控的调用方可持续打满推理资源 | ✅ 已防护：固定窗口限流（设置 `INFERFORGE_RATE_LIMIT` 后启用，429 + code=8 + Retry-After；计数在进程内存，多 worker 下为近似值——严格限流需共享存储如 Redis） |
 | `/metrics` 暴露 | 指标不含业务数据，但暴露接口名与流量形态（路由模板、业务码分布） | 低风险；公网部署建议网关层限制访问（与 `/docs` 同理） |
 
 ## 2. 部署建议
@@ -23,6 +23,6 @@
   - `callback_url` 校验：域名白名单，或至少拒绝内网地址
   - 请求体大小上限：已有 `app.py` 的 Content-Length 20MB 守卫（默认开启，与图片下载上限一致；如需覆盖 chunked 请求，可在网关层限制 `client_max_body_size`）
   - 认证：接口层已内置——设置 `INFERFORGE_API_KEY` 即启用（默认关闭）；多用户 / SSO 场景仍走网关层
-  - 限流：网关层（Nginx）或接口层
+  - 限流：接口层已内置——设置 `INFERFORGE_RATE_LIMIT` 即启用（默认关闭）；多 worker 部署要求严格配额时接 Redis 共享计数或走网关层
   - `/docs` 与 `/openapi.json` 无认证暴露接口文档——公网部署时建议网关层屏蔽或加认证
   - `/metrics` 同理——网关层限制访问（如只允许 Prometheus 的来源 IP）

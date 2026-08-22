@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - Deploy: deploy/docker-compose.monitoring.yml + prometheus.yml — optional Prometheus + Grafana stack (reference artifact, merged with the main compose)
 - Docs: metrics.md — metric list, multiprocess mode, monitoring stack usage; api.md gains the /metrics endpoint section
 - Auth: optional API-key auth (off unless INFERFORGE_API_KEY is set) — X-API-Key header, constant-time compare, 401 + code=7 envelope (documented protocol exception); probes/docs/metrics paths exempt; test scripts read the env automatically
+- Rate limit: optional fixed window (off unless INFERFORGE_RATE_LIMIT=N is set) — 429 + code=8 + Retry-After; buckets keyed by X-API-Key when auth is on, client IP otherwise; per-process memory (multi-worker limits approximate by design, documented)
 
 ### Changed
 

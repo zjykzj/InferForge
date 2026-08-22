@@ -47,6 +47,8 @@ services:
       PROMETHEUS_MULTIPROC_DIR: /app/logs/metrics
       # optional: API-key auth on all non-exempt paths (401 + code=7)
       # INFERFORGE_API_KEY: your-secret-key
+      # optional: fixed-window rate limit, N requests/minute (429 + code=8)
+      # INFERFORGE_RATE_LIMIT: "60"
     volumes:
       - ./models:/app/models
       - ./logs:/app/logs

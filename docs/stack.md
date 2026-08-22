@@ -123,4 +123,5 @@ client ◀──GET result── Redis
 | `INFERFORGE_REDIS_URL` | `redis://localhost:6379/0` | 轮询结果存储地址 | `utils/redis_store.py` |
 | `INFERFORGE_RESULT_TTL` | `3600` | 结果保存秒数（过期后轮询 code=4） | `utils/redis_store.py` |
 | `INFERFORGE_API_KEY` | 未设置（关闭） | API key 鉴权：设置后非豁免路径要求 `X-API-Key` header（401 + code=7） | `utils/auth.py` |
+| `INFERFORGE_RATE_LIMIT` | 未设置（关闭） | 固定窗口限流：每调用方每分钟请求上限（429 + code=8；多 worker 为近似值） | `utils/rate_limit.py` |
 | `PROMETHEUS_MULTIPROC_DIR` | 未设置（单进程注册表） | 指标多进程聚合目录（web 与 worker 必须一致） | `utils/metrics.py` |

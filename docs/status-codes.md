@@ -36,6 +36,7 @@
 | `5` | task pending | 查询任务处理中：已提交、worker 尚未写入结果 |
 | `6` | service not ready | 就绪检查未通过：predictor 尚未加载（`GET /health/ready` 冷启动期间） |
 | `7` | unauthorized | 鉴权失败：缺失或错误的 `X-API-Key`（`INFERFORGE_API_KEY` 设置后启用，见 §2 鉴权例外） |
+| `8` | rate limit exceeded | 超限：超过 `INFERFORGE_RATE_LIMIT` 设定的每分钟配额（见 §2 限流例外） |
 
 扩展原则：
 
@@ -57,6 +58,10 @@
 ### 例外：鉴权拒绝（HTTP 401）
 
 鉴权失败（`utils/auth.py`）返回 **401 + code=7**：状态码给网关/防火墙看（它们天然认 401 并计入拦截统计），body 保持 envelope 形状（`{"code": 7, "message": "unauthorized"}`）。与就绪探针同理——协议层例外，业务接口保持永远 200。未设置 `INFERFORGE_API_KEY` 时鉴权整体关闭，此例外不存在。
+
+### 例外：限流拒绝（HTTP 429）
+
+超过 `INFERFORGE_RATE_LIMIT` 时（`utils/rate_limit.py`）返回 **429 + code=8 + `Retry-After` 头**：状态码让客户端库与网关自动识别"可稍后重试"，`Retry-After` 给出窗口重置秒数，body 保持 envelope 形状。未设置 `INFERFORGE_RATE_LIMIT` 时限流整体关闭，此例外不存在。
 
 ### 例外：指标端点
 

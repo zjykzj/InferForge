@@ -13,7 +13,7 @@
   * [stack.md](stack.md)：技术栈说明——FastAPI/Uvicorn/Gunicorn、Celery/RabbitMQ 与 Redis 的选型理由、配置点与关键决策（全景）
   * [fastapi-migration.md](fastapi-migration.md)：Flask → FastAPI——两个框架对比、迁移理由与影响面（专题）
 * 规范文档
-  * [status-codes.md](status-codes.md)：业务状态码——`{code, message, data}` 规范、方案比较
+  * [status-codes.md](status-codes.md)：业务状态码——`{code, message, data}` envelope 规范、方案比较
   * [logging.md](logging.md)：日志模块——分级纪律、trace_id、生产实践指南
   * [testing.md](testing.md)：测试策略——测试分层、冒烟测试详解、后续计划
   * [security.md](security.md)：安全边界——已知风险点、已有防护与部署建议

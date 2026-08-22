@@ -16,7 +16,7 @@
 
 ## 2. 为什么迁移（本项目视角）
 
-- **校验从手写变成声明**：Flask 时代"image/url 恰好提供一个、字段类型、长度上限"散在各端点的 if-else 里，容易漏、改一处要全查；FastAPI 一个 `PredictRequest` 模型声明全部规则（见 [concepts.md](concepts.md) §1.3），校验失败经 `validation_error_handler` 折叠进 200 + `code=1` 信封——客户端看到的信封格式与业务错误完全一致，422 永不泄漏
+- **校验从手写变成声明**：Flask 时代"image/url 恰好提供一个、字段类型、长度上限"散在各端点的 if-else 里，容易漏、改一处要全查；FastAPI 一个 `PredictRequest` 模型声明全部规则（见 [concepts.md](concepts.md) §1.3），校验失败经 `validation_error_handler` 折叠进 200 + `code=1` envelope——客户端看到的 envelope 格式与业务错误完全一致，422 永不泄漏
 - **文档从手写变成自动生成**：Flask 时代接口文档靠手写维护，容易和实现脱节；FastAPI 从 Pydantic 模型自动生成 `/docs`，版本号读 `VERSION` 文件，文档和实现永远同步
 - **请求上下文更明确**：`flask.g` 的"请求级全局变量"换成 ContextVar + 纯 ASGI 中间件（`utils/request_id.py`），设置/复位边界清晰，不依赖框架的请求上下文
 - **为异步扩展留路**：未来形态（LLM / Agent）单次推理可能几十秒，ASGI 原生异步让接口层有演进空间（当前端点仍是 sync `def`，推理路径不加 async，见 §4）
@@ -29,13 +29,13 @@
 |----|------|
 | `app.py` + `apis/` | 接口层重写：router 装配、Pydantic 请求模型、异常处理器注册 |
 | `gunicorn.conf.py` | 一行：`worker_class = uvicorn.workers.UvicornWorker`——进程管理、logrotate、优雅停机全部不变 |
-| `utils/` | 三个横切机制：响应信封（`response.py`）、日志（`logger.py`）、request_id（`request_id.py`） |
+| `utils/` | 三个横切机制：response envelope（`response.py`）、日志（`logger.py`）、request_id（`request_id.py`） |
 | 运行环境 | Python floor 提到 3.12（`X \| None` 等新语法） |
 
 **没动的**：
 
 - `tasks/`、`engines/` **零改动**——这正是分层架构的回报：换 Web 框架只动接口层（见 [architecture.md](architecture.md) §3 替换原则，本次迁移即为实证）
-- `{code, message, data}` 信封契约不变——存量客户端无感
+- `{code, message, data}` envelope 契约不变——存量客户端无感
 - 部署形态不变：gunicorn 进程管理、系统 logrotate、Celery/RabbitMQ/Redis 异步形态原样
 
 ## 4. 迁移后确立的关键约定
@@ -50,4 +50,4 @@
 - 技术选型全景（FastAPI/Uvicorn/Gunicorn 分工与选择）：[stack.md](stack.md)
 - 零基础概念（FastAPI/ASGI/Gunicorn/Pydantic）：[concepts.md](concepts.md)
 - 分层架构与替换原则：[architecture.md](architecture.md)
-- `code=1` 信封语义：[status-codes.md](status-codes.md)
+- `code=1` envelope 语义：[status-codes.md](status-codes.md)

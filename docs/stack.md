@@ -6,7 +6,7 @@
 
 ### 1.1 选型理由
 
-- **FastAPI**：Pydantic 声明式参数校验（结构校验失败折叠进 `code=1` 信封，见 [status-codes.md](status-codes.md)）、自动 OpenAPI 文档（`/docs`、`/openapi.json`）、类型提示驱动
+- **FastAPI**：Pydantic 声明式参数校验（结构校验失败折叠进 `code=1` envelope，见 [status-codes.md](status-codes.md)）、自动 OpenAPI 文档（`/docs`、`/openapi.json`）、类型提示驱动
 - **同步 `def` 端点 + 线程池**：FastAPI 把普通 `def` 端点放进 anyio 线程池执行——推理是 CPU 密集阻塞式，线程池模型天然适配（ONNX Runtime 在 C++ 侧释放 GIL，多请求可并行），协程异步在推理路径上无收益
 - **Gunicorn（进程管理）+ Uvicorn（ASGI 实现）**：Gunicorn 负责多进程、优雅停机、HUP 平滑重启、access/error 日志落盘；`uvicorn.workers.UvicornWorker` 让每个 gunicorn worker 进程内跑一个 ASGI 事件循环
 - 同步接口的完整链路在 web 进程内完成，无外部依赖
@@ -53,7 +53,7 @@
 ### 2.1 选型理由
 
 - **RabbitMQ 当 broker**：完整 AMQP——消息确认、持久化队列，worker 中途崩溃任务不丢；Celery 官方首选
-- **结果交付两种形态并存**：回调形态 worker 直推 callback_url、不落 Redis；轮询形态（`/predict/query`）worker 把结果信封写入 Redis（TTL 暂存），客户端轮询拉取（详见 §3）
+- **结果交付两种形态并存**：回调形态 worker 直推 callback_url、不落 Redis；轮询形态（`/predict/query`）worker 把 result envelope 写入 Redis（TTL 暂存），客户端轮询拉取（详见 §3）
 - **Celery**：Python 生态事实标准的任务队列框架，与分层架构自然衔接
 
 ### 2.2 拓扑
@@ -83,7 +83,7 @@ client ◀──GET result── Redis
 - **shared_task 显式注册**（弃 autodiscover）：任务模块用 `shared_task` 绑定，celery_app.py 末尾显式 import——避免循环导入，注册时机确定
 - **celery_app.py 无条件 sys.path insert**：celery CLI 会临时把 cwd 加入 sys.path 又移除，去重守卫会被骗过——实测踩过的坑
 - **单开关显式声明部署形态**：`INFERFORGE_ASYNC=1` 一次性启用全部异步接口（回调 + 轮询），而非"装了什么自动用什么"——异步是一种整体形态（celery + RabbitMQ + Redis），callback 与 query 是按请求的选择；开关开着但缺依赖时告警跳过
-- **回调"恰好一次"语义**：检测业务错误（code=1/2/3）不重试、直接回调失败信封；只有回调 POST 本身的网络故障才指数退避重试 3 次
+- **回调"恰好一次"语义**：检测业务错误（code=1/2/3）不重试、直接回调 failure envelope；只有回调 POST 本身的网络故障才指数退避重试 3 次
 - **RabbitMQ 4.x 兼容策略**：4.3 起默认拒绝临时非排他队列（`transient_nonexcl_queues` 废弃特性），celery 两处用到——控制回复队列（mingle/inspect/revoke）用 `control_queue_durable=True` 改为持久化（官方推荐方向，kombu 后续版本将默认如此）；gossip 队列无配置可改，直接 `--without-gossip` 关闭（本项目不需要 worker 时钟同步与撤销传播）。若需 gossip 或 `-E` 事件（如 flower 监控），两个选择：RabbitMQ 侧放行（`deprecated_features.permit.transient_nonexcl_queues = true`，官方声明为临时方案），或使用 RabbitMQ 3.x
 - **进程组日志分离**：worker 写 `logs/celery.log`，轮转交给系统 logrotate（copytruncate），多进程写同一文件无竞态（详见 [logging.md](logging.md)）
 
@@ -92,7 +92,7 @@ client ◀──GET result── Redis
 ### 3.1 选型理由
 
 - **手动 redis-py 存储而非 celery result backend**：结果由任务代码显式写入、接口代码显式读取，celery 配置零改动（`task_ignore_result=True` 保持）；result backend 方案会改变全局任务语义、序列化由 celery 接管，与"回调直推"形态混杂
-- **TTL 回收**：结果信封 + pending 占位统一带过期时间，无人工清理；key 前缀 `inferforge:result` 命名空间隔离
+- **TTL 回收**：result envelope + pending 占位统一带过期时间，无人工清理；key 前缀 `inferforge:result` 命名空间隔离
 - **不要求高可用**：Redis 掉线时提交/轮询返回 code=3（可感知故障），结果丢失范围被 TTL 限界
 
 ### 3.2 配置点（`utils/redis_store.py`）
@@ -107,7 +107,7 @@ client ◀──GET result── Redis
 
 ### 3.3 关键决策
 
-- **pending 占位区分 code=4/5**：提交时写 `"pending"`（`SET NX`），轮询时"key 不存在 → code=4、值为 pending → code=5、值为信封 → 原样返回"——三种状态无歧义
+- **pending 占位区分 code=4/5**：提交时写 `"pending"`（`SET NX`），轮询时"key 不存在 → code=4、值为 pending → code=5、值为 envelope → 原样返回"——三种状态无歧义
 - **NX 防竞态**：worker 若抢先写完结果，web 侧的 pending 写入不得覆盖（`SET NX` 保证先写者胜）
 - **故障语义**：提交/轮询时 Redis 不可用 → code=3；worker 写结果失败 → 任务报错不重试（日志可见，静默吞异常等于丢结果）
 

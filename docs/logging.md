@@ -31,7 +31,7 @@
 | 双通道 | console 文本（INFO+，给人看）/ 文件 JSON（DEBUG+，给机器采集） |
 | 统一格式 | `时间 \| 级别 \| 模块名 \| request_id \| task_id \| 消息` |
 | 全链路埋点 | apis（请求/成败）→ tasks（总耗时、检测数）→ engines（预处理/推理/后处理分段耗时）→ utils（解码耗时） |
-| trace_id | ASGI 中间件 + ContextVar 在请求入口生成 12 位 hex，贯穿该请求所有日志行；响应头 `X-Request-ID` 回传给调用方（覆盖一切响应，含 503 就绪与校验信封） |
+| trace_id | ASGI 中间件 + ContextVar 在请求入口生成 12 位 hex，贯穿该请求所有日志行；响应头 `X-Request-ID` 回传给调用方（覆盖一切响应，含 503 就绪与 validation envelope） |
 | task_id | worker 内关联任务实例：celery 任务 ID，任务执行期间自动附带；异步任务的 request_id 随任务参数传入 |
 | 轮转与保留 | 系统 logrotate 按天 copytruncate，保留 7 份（见 deploy/logrotate.conf） |
 | 异常带堆栈 | `logger.exception()` → 文件 JSON 的 `exc_info` 字段 |

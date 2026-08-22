@@ -38,7 +38,7 @@
 FastAPI 讲路由，gunicorn/uvicorn 讲收发，那"请求里的参数靠不靠谱"由谁管？——**Pydantic**。
 
 - **是什么**：用 Python 类型声明描述"请求应该长什么样"。写一个继承 `BaseModel` 的类，声明字段和类型（`image: str | None`），再用 `@model_validator` 写规则（比如"image 和 url 必须恰好提供一个"）
-- **怎么工作**：请求进来先"过安检"——合格，函数里拿到的是干净的对象，不用再写 if-else；不合格，请求根本进不了处理函数，直接变成 `code=1` 信封返回（见 [status-codes.md](status-codes.md)）
+- **怎么工作**：请求进来先"过安检"——合格，函数里拿到的是干净的对象，不用再写 if-else；不合格，请求根本进不了处理函数，直接变成 `code=1` envelope 返回（见 [status-codes.md](status-codes.md)）
 - **为什么和 FastAPI 天生一对**：同一份类型声明同时驱动三件事——① 参数校验 ② 自动生成接口文档（`/docs`）③ 编辑器的类型提示。Flask 时代这三件事各自手写、互相脱节
 - **本项目对应**：模型在 `apis/schemas.py`（`PredictRequest` / `CallbackRequest` / `QueryRequest`），校验失败经 `utils.response.validation_error_handler` 折叠进 200 + `code=1`。注意分层：**结构**校验（形状、类型、二选一）在 api 层，**语义**校验（base64 内容、图片下载）在任务层
 
@@ -131,22 +131,22 @@ worker 完成后把结果放进一个**共享的"快递柜"**（Redis），发�
 ### 5.2 Redis 是什么
 
 - **内存键值数据库**：像一个大字典，`key → value`，操作是微秒级
-- **内存** → 极快，但重启即失 → 只适合放"可丢失的临时数据"（结果信封丢了无非再算一次）
+- **内存** → 极快，但重启即失 → 只适合放"可丢失的临时数据"（result envelope 丢了无非再算一次）
 - **TTL**：每条数据可设过期时间，到期自动删除 → 天然适合"结果只保留 1 小时"
 
 ### 5.3 为什么不用 MySQL
 
-- MySQL 数据在硬盘，慢一个数量级；且结果信封是临时数据，不需要永久保存
+- MySQL 数据在硬盘，慢一个数量级；且 result envelope 是临时数据，不需要永久保存
 - Redis 的 TTL 自动回收，零清理成本
 
 ### 5.4 快递柜的工作流程
 
 ```
 提交  web 写 "pending" 占位（SET NX 防覆盖）→ 返回 task_id
-执行  worker 算完，把结果信封覆写进柜子（TTL 刷新）
+执行  worker 算完，把 result envelope 覆写进柜子（TTL 刷新）
 查询  发起方 GET：
         "pending"          → code 5  还在做，继续等
-        结果信封 JSON       → code 0  拿走（信封原样返回）
+        result envelope JSON       → code 0  拿走（envelope 原样返回）
         柜子里没有          → code 4  没这单或已过期
 ```
 
@@ -163,7 +163,7 @@ worker 完成后把结果放进一个**共享的"快递柜"**（Redis），发�
 | 生产者 | `apis/predict_callback.py` / `apis/predict_query.py` 里的 `.delay()` |
 | 消费者 | `tasks/detection_callback.py` / `tasks/detection_query.py` |
 | 快递柜 | Redis + `utils/redis_store.py`（`INFERFORGE_REDIS_URL`） |
-| 结果信封 | `{code, message, data}`（见 [status-codes.md](status-codes.md)） |
+| result envelope | `{code, message, data}`（见 [status-codes.md](status-codes.md)） |
 | 链路追踪 | `utils/request_id.py`（见 [logging.md](logging.md)） |
 
 ## 7. 延伸阅读

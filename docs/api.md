@@ -79,7 +79,7 @@ curl -d '{}' ...                                        # → code=1 缺参数
 curl -d '{"image":"x","url":"http://a/b.jpg"}' ...      # → code=1 双参数
 curl -d '{"image":"!!not-base64!!"}' ...                # → code=1 非法图片
 curl -d '{"url":"http://localhost:9/x.jpg"}' ...        # → code=2 下载失败
-curl -d '{bad json' ...                                 # → code=1 非法 JSON（Pydantic 校验折叠进信封，HTTP 仍 200）
+curl -d '{bad json' ...                                 # → code=1 非法 JSON（Pydantic 校验折叠进 envelope，HTTP 仍 200）
 ```
 
 ## 2. 异步回调接口：POST /predict/callback
@@ -100,7 +100,7 @@ curl -d '{bad json' ...                                 # → code=1 非法 JSON
 // 提交响应（立即返回）
 {"code": 0, "data": {"task_id": "76898f32-c64d-..."}}
 
-// 回调 payload（服务端 → callback_url，与业务信封一致）
+// 回调 payload（服务端 → callback_url，与 business envelope 一致）
 {"code": 0, "message": "success", "data": {"image": "<base64>", "detections": [...]}}
 {"code": 1, "message": "...", "data": null}    // 检测业务失败（图片非法等）
 {"code": 2, "message": "...", "data": null}    // 图片下载失败
@@ -118,7 +118,7 @@ curl -X POST http://localhost:8000/predict/callback \
 
 ## 3. 异步轮询接口：POST /predict/query + GET /predict/query/&lt;task_id&gt;
 
-提交检测任务后立即返回 `task_id`，worker 把结果信封写入 Redis，调用方**主动轮询**拉取结果。需要 Celery + RabbitMQ + Redis，且 web 以 `INFERFORGE_ASYNC=1` 启动。
+提交检测任务后立即返回 `task_id`，worker 把 result envelope 写入 Redis，调用方**主动轮询**拉取结果。需要 Celery + RabbitMQ + Redis，且 web 以 `INFERFORGE_ASYNC=1` 启动。
 
 ### 3.1 请求参数（提交）
 
@@ -148,7 +148,7 @@ curl -X POST http://localhost:8000/predict/callback \
 
 ### 3.4 语义
 
-- 轮询**幂等**：结果信封写入 Redis 后原样返回，多次轮询结果一致，无重试副作用
+- 轮询**幂等**：result envelope 写入 Redis 后原样返回，多次轮询结果一致，无重试副作用
 - 结果带 TTL（默认 3600s，`INFERFORGE_RESULT_TTL` 可调）：过期后轮询返回 code=4；code=4 同时覆盖「从未提交 / 已过期 / 结果写入失败」三种情形
 - 无回调重试概念：worker 只写 Redis 不联系调用方；Redis 写入失败时任务报错（`logs/celery.log` 可见）
 

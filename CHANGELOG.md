@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Docs: terminology sweep — 信封 replaced with envelope across all docs (response envelope / result envelope / envelope 契约); status-codes.md §1 defines the term on first mention
+
 ## [0.5.0] - 2026-08-22
 
 ### Changed

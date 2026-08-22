@@ -55,5 +55,5 @@ class BasePredictor(ABC):
 | 冒烟测试 | `pytest tests/ -v` | 全绿（测试用 `FakePredictor` 注入，不需要模型、不联网——见 [testing.md](testing.md)） |
 | 真实推理 | `python3 scripts/test_predict.py --image assets/bus.jpg` | `code=0`，`detections` 非空，坐标落在图片尺寸内 |
 | 就绪探针 | 重启服务后先 `GET /health/ready` 再发一次推理请求 | 推理前 `503 + code=6`，懒加载完成后 `code=0` |
-| 错误路径 | 把模型文件移走/改名后请求 | 加载失败走 `code=3` 信封（api 层的通用异常兜底），服务不崩 |
+| 错误路径 | 把模型文件移走/改名后请求 | 加载失败走 `code=3` envelope（api 层的通用异常兜底），服务不崩 |
 | 预/后处理 | 与官方实现对比一张已知图片 | 检测数量/坐标一致（精度一致性，进入 [testing.md](testing.md) 的"成长"阶段后做） |

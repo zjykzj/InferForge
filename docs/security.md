@@ -9,7 +9,7 @@
 | SSRF（`url` 参数） | 服务端会下载任意 URL——可被用来探测内网服务（如 `http://localhost` 管理端口、私网地址） | 无防护 |
 | SSRF（`callback_url` 参数） | worker 会向任意 callback_url 发起 POST——同样的内网探测面 | 无防护 |
 | 轮询接口 | 持有 task_id 即可读取该任务结果；task_id 为随机 UUID，不可猜测，风险低 | 无防护 |
-| 内存消耗（`image` 参数） | base64 解码前无大小上限——超大 base64 会耗尽内存 | ✅ 部分防护：Content-Length 20MB 守卫（`app.py` 中间件，超限返回 code=1 信封；chunked 无 Content-Length 的请求可绕过） |
+| 内存消耗（`image` 参数） | base64 解码前无大小上限——超大 base64 会耗尽内存 | ✅ 部分防护：Content-Length 20MB 守卫（`app.py` 中间件，超限返回 code=1 envelope；chunked 无 Content-Length 的请求可绕过） |
 | 图片下载 | 已有 20MB 上限 + 10s 超时 | ✅ 已防护 |
 | 认证 / 限流 | 接口无认证、无限流——任何可达服务的人都可调用 | 无防护 |
 

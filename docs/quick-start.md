@@ -151,7 +151,7 @@ python3 scripts/test_predict_query.py --image assets/bus.jpg --save result.jpg  
 预期：提交返回 `task_id` → 轮询打印若干次 `code: 5`（处理中）→ 最终 `code: 0` + 检测列表。结果暂存期间可直接查看：
 
 ```bash
-redis-cli GET inferforge:result:<task_id>   # 结果信封 JSON
+redis-cli GET inferforge:result:<task_id>   # result envelope JSON
 redis-cli TTL inferforge:result:<task_id>   # 剩余存活秒数（≤ 3600）
 ```
 

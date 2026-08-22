@@ -1,6 +1,6 @@
 # 业务状态码规范（Business Status Codes）
 
-> 记录 InferForge 接口层统一响应格式的规范、使用方式与方案比较。最后更新：2026-08-21
+> 记录 InferForge 接口层统一响应格式的规范、使用方式与方案比较。最后更新：2026-08-22
 
 ## 1. 响应格式规范
 
@@ -19,6 +19,8 @@
 | `code` | int | 业务状态码，`0` 成功，非 `0` 失败 |
 | `message` | string | 面向调用方的人类可读说明 |
 | `data` | any | 成功时返回业务载荷；失败时为 `null` |
+
+这个外壳在 API 设计里有专门的名字——**response envelope（响应信封）**：业务数据（`data`）包在固定的元信息结构（`code` / `message`）里，就像信装在信封中。客户端永远从同一个位置读状态和正文，不需要理解 HTTP 状态码或异常结构。本文档与其他文档里的「envelope」均指代这个 `{code, message, data}` 结构。
 
 当前约定：**HTTP 状态码永远返回 200**，业务成败完全由 `code` 表达（取舍分析见 §4）。唯一例外是健康检查端点（见 §2「例外：健康检查端点」）。
 
@@ -72,7 +74,7 @@ return response.error("task is still processing", code=5)
 return response.error("model not loaded", code=6, http_status=503)  # 仅健康检查端点
 ```
 
-参数结构校验（Pydantic 模型）失败时同样走 code=1：FastAPI 抛出的 `RequestValidationError` 由 `utils.response.validation_error_handler` 统一折叠为 `200 + code=1` 信封——框架默认的 422 永不泄漏。
+参数结构校验（Pydantic 模型）失败时同样走 code=1：FastAPI 抛出的 `RequestValidationError` 由 `utils.response.validation_error_handler` 统一折叠为 `200 + code=1` envelope——框架默认的 422 永不泄漏。
 
 分层约束：**任务层 / 算法层不接触响应格式**——它们抛异常或返回数据，由 apis 层统一捕获并包装，保持各层可替换。
 

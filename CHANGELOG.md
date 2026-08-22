@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Docs: terminology sweep — 信封 replaced with envelope across all docs (response envelope / result envelope / envelope 契约); status-codes.md §1 defines the term on first mention
+- Docs: terminology sweep II — contract / fallback / watchdog / double-checked locking / sticky / hot reload replace their Chinese renderings (契约 / 兜底 / 看门狗 / 双重检查锁 / 粘性 / 热重载); the forking-contract doc title keeps 分叉契约（Forking Contract）
 
 ## [0.5.0] - 2026-08-22
 

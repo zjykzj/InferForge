@@ -14,11 +14,11 @@
 |------|------|------|
 | **绿区：业务区（你拥有）** | `apis/`（路由、Pydantic 模型、响应组装）、`tasks/`（业务编排、任务逻辑）、新增的 `engines/<name>.py`、`requirements*.txt`、`scripts/` | 随便改。这是模板留给你的"主战场"，上游不会替你维护它们 |
 | **黄区：横切机制（可改，但有合并成本）** | `utils/`（envelope、日志、request_id、图片转换）、`app.py` 装配顺序、`celery_app.py`、`gunicorn.conf.py`、部署脚本与 Docker 文件 | 通常不用动。要动（比如 envelope 加字段、日志改格式）先读对应文档，改后合并上游时需逐处三方合并 |
-| **红区：模板的 API（改前先想清楚）** | `engines/base.py`（`BasePredictor` 契约）、`{code, message, data}` envelope 与 [status-codes.md](status-codes.md) 状态码表、分层依赖方向（`app -> apis -> tasks -> engines`） | 这些是"模板其余部分成立的公理"。你在红区的改动会让上游更新无法干净合并，也让你无法使用上游后续的文档与组件——如确需调整，优先向上游提 issue/PR |
+| **红区：模板的 API（改前先想清楚）** | `engines/base.py`（`BasePredictor` contract）、`{code, message, data}` envelope 与 [status-codes.md](status-codes.md) 状态码表、分层依赖方向（`app -> apis -> tasks -> engines`） | 这些是"模板其余部分成立的公理"。你在红区的改动会让上游更新无法干净合并，也让你无法使用上游后续的文档与组件——如确需调整，优先向上游提 issue/PR |
 
-**为什么红区这么划**：`BasePredictor` 是算法插槽，envelope 是客户端契约，依赖方向是架构公理。模板的全部价值（换引擎只动一层、422 不泄漏、request_id 全链路）都建立在这三者上；下游改它们 = 亲手拆掉模板的承重墙。绿区/黄区随便动，红区动了要清醒。
+**为什么红区这么划**：`BasePredictor` 是算法插槽，envelope 是 client contract，依赖方向是架构公理。模板的全部价值（换引擎只动一层、422 不泄漏、request_id 全链路）都建立在这三者上；下游改它们 = 亲手拆掉模板的承重墙。绿区/黄区随便动，红区动了要清醒。
 
-**三色之外还有第四类：`deploy/` 参考工件**——示例配置（logrotate、nginx 灰度分流等），拷走即用、自由修改，不参与核心契约；上游更新它们不影响你的 fork，你改它们也不影响合并上游。
+**三色之外还有第四类：`deploy/` 参考工件**——示例配置（logrotate、nginx 灰度分流等），拷走即用、自由修改，不参与 core contract；上游更新它们不影响你的 fork，你改它们也不影响合并上游。
 
 ## 3. 日常开发对照（常见场景）
 
@@ -42,6 +42,6 @@
 |---------|------|
 | 绿区冲突 | **你的优先**——那是你的业务 |
 | 黄区冲突 | 逐处判断：横切机制的**改进**（缺陷修复、通用能力）优先采用上游；你加的业务字段/码保留自己的 |
-| 红区冲突 | 不应该发生——发生了说明你或上游破坏了契约，去提 issue/PR 对齐 |
+| 红区冲突 | 不应该发生——发生了说明你或上游破坏了 contract，去提 issue/PR 对齐 |
 
 **能干净合并的前提**：分层把变更关在单一层内（见 [architecture.md](architecture.md) §3 替换原则）——上游换 Web 框架不动 `tasks/`/`engines/`，你换算法不动 `utils/`。双方都守层，冲突就少。

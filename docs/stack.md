@@ -18,14 +18,14 @@
 | `bind` | `0.0.0.0:8000` | 监听地址 |
 | `workers` | 2（可用 `INFERFORGE_WORKERS` 覆盖） | web worker 进程数 |
 | `worker_class` | `uvicorn.workers.UvicornWorker` | ASGI worker；gunicorn 管进程，uvicorn 跑事件循环 |
-| `timeout` / `graceful_timeout` | 60s / 10s | 事件循环存活看门狗 / 优雅退出（语义见 §1.3） |
+| `timeout` / `graceful_timeout` | 60s / 10s | 事件循环存活 watchdog / 优雅退出（语义见 §1.3） |
 | `preload_app` | `True` | fork 前加载 app 模块（imports、日志配置、router 注册），worker 启动快 |
 
 ### 1.3 关键决策
 
 - **preload_app=True 但不预热模型**：fork 前创建的 onnxruntime session 跨 fork 使用存在线程池相关风险，因此模型由任务层懒加载（每个 worker 首次请求时加载一次、之后常驻）——放弃"多 worker 共享一份权重"，换取 fork 安全
 - **只配 2 个 worker，并发靠线程池**：推理是 CPU 密集，worker 数超过核数无收益；容量扩展靠横向加副本，不靠堆 worker。每个 worker 内的 anyio 线程池（默认 40 线程）承载并发请求，ONNX 推理释放 GIL 时可真并行
-- **timeout 语义变化**：UvicornWorker 下 `timeout=60` 是**事件循环存活看门狗**而非单请求截止时间——长推理（如大模型）不会被 60s 误杀；任务级超时由 celery 的 `task_time_limit` 负责
+- **timeout 语义变化**：UvicornWorker 下 `timeout=60` 是**事件循环存活 watchdog**而非单请求截止时间——长推理（如大模型）不会被 60s 误杀；任务级超时由 celery 的 `task_time_limit` 负责
 - **日志分工**：access/error 日志归 gunicorn（`logs/gunicorn_*.log`，uvicorn 日志重定向到此处），业务日志归 `utils/logger.py`（`logs/app.log`）
 
 ### 1.4 Gunicorn vs 直接 Uvicorn：如何选择
@@ -37,9 +37,9 @@
 | 进程管理 | 成熟：fork、HUP 平滑重启（滚动重载不掉请求）、优雅停机（在途请求跑完） | 基础：`--workers` 多进程可用，但无 HUP 平滑重载，worker 管理能力弱 |
 | 日志 | access/error 落盘文件，接系统 logrotate | 默认打 stdout，落盘与轮转需自行处理 |
 | 预加载 | `preload_app=True` fork 前加载 app | 无 |
-| 超时守护 | 事件循环存活看门狗（worker 假死可杀） | 无 |
+| 超时守护 | 事件循环存活 watchdog（worker 假死可杀） | 无 |
 | 部署拓扑 | 单机多 worker（VM/裸机，自管进程） | 一容器一进程，多副本靠编排器（K8s/Docker） |
-| 开发调试 | — | `python3 app.py` 即起，热重载 |
+| 开发调试 | — | `python3 app.py` 即起，hot reload |
 
 选择标准不是 worker 数量，而是**进程归谁管**：
 

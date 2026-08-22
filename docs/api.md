@@ -33,7 +33,7 @@
 - `bbox`：像素坐标 `[x1, y1, x2, y2]`（左上角 + 右下角）
 - `confidence`：保留 4 位小数
 - 响应头 `X-Request-ID`：本次请求的 trace id，报障时提供
-- 自动文档：`GET /docs`（Swagger UI 交互式调试）、`GET /openapi.json`（机器可读契约）
+- 自动文档：`GET /docs`（Swagger UI 交互式调试）、`GET /openapi.json`（机器可读 contract）
 
 业务状态码见 [status-codes.md](status-codes.md)。
 

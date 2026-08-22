@@ -21,9 +21,9 @@
 |------|--------|---------|
 | 日常开发、新功能验证 | 测试环境（与生产长期共存） | 长期 |
 | 发新版到生产，想小范围先验证 | 灰度环境 + 灰度分流 | 短期（收敛到一个版本） |
-| 新旧版本不兼容（envelope 契约破坏） | 灰度不适用，只能停服切换或蓝绿 | — |
+| 新旧版本不兼容（envelope contract 破坏） | 灰度不适用，只能停服切换或蓝绿 | — |
 
-灰度成立的前提是**新旧可互操作**——本项目的 envelope 契约跨版本稳定，web/worker 两层才能独立灰度（§2.1 详述）。
+灰度成立的前提是**新旧可互操作**——本项目的 envelope contract 跨版本稳定，web/worker 两层才能独立灰度（§2.1 详述）。
 
 ## 1. 两种形态的本质区别
 
@@ -31,7 +31,7 @@
 |------|-------------------|-------------------|
 | 目的 | 验证新版本 → 收敛到一个版本 | 长期并存：测试环境做开发验证，生产环境对外服务 |
 | 入口 | **同一个地址**，nginx 按规则分流到新旧后端 | **不同地址**（域名或端口） |
-| RabbitMQ / Redis | 共享（envelope 契约兼容） | **完全隔离**（独立实例，或不同 vhost / 不同 DB index） |
+| RabbitMQ / Redis | 共享（envelope contract 兼容） | **完全隔离**（独立实例，或不同 vhost / 不同 DB index） |
 | 日志 | 可混（request_id 归因） | 各自独立 |
 | 生命周期 | 短期：10% → 30% → 100%，验证完下线旧版本 | 长期 |
 | 版本 | 新旧相邻版本 | 各自独立演进（测试环境可超前） |
@@ -40,9 +40,9 @@
 
 ### 2.1 为什么「web 流量灰度 + worker 先全量」可行
 
-envelope 契约（`{code, message, data}` + detections 结构）是跨版本稳定契约：新旧 web 都能消费同一套 worker 的结果，新旧 worker 的结果新旧 web 都能解析。这让两层可以**独立发布**。
+envelope contract（`{code, message, data}` + detections 结构）是跨版本 stable contract：新旧 web 都能消费同一套 worker 的结果，新旧 worker 的结果新旧 web 都能解析。这让两层可以**独立发布**。
 
-worker 层不适合按比例灰度——celery worker 从共享队列消费，任务"谁抢到算谁的"，天然无法按比例路由。因此 worker 采用先全量（envelope 兼容兜底），web 层做流量灰度。
+worker 层不适合按比例灰度——celery worker 从共享队列消费，任务"谁抢到算谁的"，天然无法按比例路由。因此 worker 采用先全量（envelope 兼容 fallback），web 层做流量灰度。
 
 ### 2.2 拓扑
 
@@ -71,7 +71,7 @@ upstream inferforge_web {
 
 - **权重**（随机分流，适合无差别放量）
 - **header**（`X-Canary: 1` 强制走灰度，供测试固定验证）
-- **粘性**（同一调用方始终同版本，避免新旧行为交替出现）
+- **sticky**（同一调用方始终同版本，避免新旧行为交替出现）
 
 完整可拷贝的参考配置（权重切流 + header 定点切换、代理头、20MB body 上限、长推理超时）：[../deploy/nginx-canary.conf](../deploy/nginx-canary.conf)。
 
@@ -145,6 +145,6 @@ docker compose -p inferforge-prod up -d    # 生产栈
 | 支撑 ✅ | 限制 ⚠️ |
 |---|---|
 | `/health` + `/health/ready` 逐实例探活（新实例冷启动自动绕开） | 无 Prometheus 指标——灰度效果对比靠日志与业务码 |
-| envelope 契约稳定 → web/worker 两层独立发布 | worker 与 web 共用同一队列——模型灰度只能先全量（无按队列路由） |
+| envelope contract 稳定 → web/worker 两层独立发布 | worker 与 web 共用同一队列——模型灰度只能先全量（无按队列路由） |
 | 环境变量配置化（MODEL_PATH/BROKER/URL/WORKERS）→ 多实例易起 | 无流量染色标记——灰度流量靠 request_id 事后归因 |
 | request_id 全链路 → 同流量两侧日志可对比 | 多实例 env 管理靠手工，无配置中心 |

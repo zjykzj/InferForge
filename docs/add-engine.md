@@ -1,6 +1,6 @@
 # 新增推理引擎指南（Add Engine）
 
-> 引擎层是模板的"算法插槽"：接一种新的推理后端（ONNXRuntime 新模型 / TensorRT / Triton 等）只需实现 `BasePredictor` 契约，上层零改动。本文说明契约逐项、参照实现、接入步骤与验证清单。零基础读者建议先读 [concepts.md](concepts.md)，分层规则见 [architecture.md](architecture.md)。最后更新：2026-08-22
+> 引擎层是模板的"算法插槽"：接一种新的推理后端（ONNXRuntime 新模型 / TensorRT / Triton 等）只需实现 `BasePredictor` contract，上层零改动。本文说明 contract 逐项、参照实现、接入步骤与验证清单。零基础读者建议先读 [concepts.md](concepts.md)，分层规则见 [architecture.md](architecture.md)。最后更新：2026-08-22
 
 ## 1. 引擎层的定位
 
@@ -8,7 +8,7 @@
 - 换算法只动 `engines/`（+ 对应 task 的持有关系）——见 [architecture.md](architecture.md) §3 替换原则
 - 一个引擎 = 一个 `BasePredictor` 实现；**task 层拥有预测器**（懒加载、常驻内存），api 层永远看不到它
 
-## 2. 契约逐项说明（`engines/base.py`）
+## 2. contract 逐项说明（`engines/base.py`）
 
 ```python
 @dataclass
@@ -22,7 +22,7 @@ class BasePredictor(ABC):
     def predict(self, image: np.ndarray) -> DetectionResult: ...
 ```
 
-| 契约项 | 约定 |
+| contract 项 | 约定 |
 |--------|------|
 | `predict` 输入 | BGR、uint8、`(H, W, 3)` 的 numpy 数组（`utils/image.py` 统一产出此格式） |
 | 返回值坐标 | 必须映射回**原图像素空间**——letterbox/resize 的反变换是引擎自己的事，task 层拿到结果直接画图、序列化 |
@@ -43,10 +43,10 @@ class BasePredictor(ABC):
 
 | 后端 | 接入本质 | 注意点 |
 |------|---------|--------|
-| **TensorRT**（本地推理） | 与 onnxruntime 同构：`load()` 里建 engine/context，`predict()` 里跑 inference | 输入输出张量约定不变，契约照旧；engine 文件同理放 `models/` |
+| **TensorRT**（本地推理） | 与 onnxruntime 同构：`load()` 里建 engine/context，`predict()` 里跑 inference | 输入输出张量约定不变，contract 照旧；engine 文件同理放 `models/` |
 | **Triton**（远程推理服务） | 把"引擎"变成 **gRPC/HTTP 客户端**：`load()` 检查 Triton server 就绪，`predict()` 发推理请求 | ① 耗时假设变了：网络 RTT + 远端排队，任务级超时和日志耗时口径要相应调整 ② `request_id` 建议随请求透传给 Triton，链路才不断 ③ 本机不再吃模型内存，`/health/ready` 的"已加载"语义变成"client 已建连 + server 就绪" |
 
-两者都只需改 `engines/`（+ task），上层零改动——这就是契约的价值。
+两者都只需改 `engines/`（+ task），上层零改动——这就是 contract 的价值。
 
 ## 5. 验证清单（接入正确与否）
 
@@ -55,5 +55,5 @@ class BasePredictor(ABC):
 | 冒烟测试 | `pytest tests/ -v` | 全绿（测试用 `FakePredictor` 注入，不需要模型、不联网——见 [testing.md](testing.md)） |
 | 真实推理 | `python3 scripts/test_predict.py --image assets/bus.jpg` | `code=0`，`detections` 非空，坐标落在图片尺寸内 |
 | 就绪探针 | 重启服务后先 `GET /health/ready` 再发一次推理请求 | 推理前 `503 + code=6`，懒加载完成后 `code=0` |
-| 错误路径 | 把模型文件移走/改名后请求 | 加载失败走 `code=3` envelope（api 层的通用异常兜底），服务不崩 |
+| 错误路径 | 把模型文件移走/改名后请求 | 加载失败走 `code=3` envelope（api 层的通用异常 fallback），服务不崩 |
 | 预/后处理 | 与官方实现对比一张已知图片 | 检测数量/坐标一致（精度一致性，进入 [testing.md](testing.md) 的"成长"阶段后做） |

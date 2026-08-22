@@ -35,7 +35,7 @@
 **没动的**：
 
 - `tasks/`、`engines/` **零改动**——这正是分层架构的回报：换 Web 框架只动接口层（见 [architecture.md](architecture.md) §3 替换原则，本次迁移即为实证）
-- `{code, message, data}` envelope 契约不变——存量客户端无感
+- `{code, message, data}` envelope contract 不变——存量客户端无感
 - 部署形态不变：gunicorn 进程管理、系统 logrotate、Celery/RabbitMQ/Redis 异步形态原样
 
 ## 4. 迁移后确立的关键约定

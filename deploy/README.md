@@ -1,6 +1,6 @@
 # deploy/ — Reference artifacts（参考工件）
 
-本目录是**参考工件库，不属于模板核心契约**：每个文件是一份带使用说明的参考配置，练手产出与生产参考并存，按需拷贝、自由修改。上游更新这些文件不影响你的业务代码（见 [forking-contract](../docs/forking-contract.md)）。
+本目录是**参考工件库，不属于模板 core contract**：每个文件是一份带使用说明的参考配置，练手产出与生产参考并存，按需拷贝、自由修改。上游更新这些文件不影响你的业务代码（见 [forking-contract](../docs/forking-contract.md)）。
 
 | 文件 | 用途 | 相关文档 |
 |------|------|---------|

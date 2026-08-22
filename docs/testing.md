@@ -52,7 +52,7 @@ HTTP 请求 → FastAPI 路由（Pydantic 结构校验 → code=1 envelope）→
 
 | 要点 | 实现 |
 |------|------|
-| 不依赖模型文件 | `FakePredictor` 实现 `BasePredictor` 契约，`monkeypatch` 替换 `get_predictor` |
+| 不依赖模型文件 | `FakePredictor` 实现 `BasePredictor` contract，`monkeypatch` 替换 `get_predictor` |
 | 不联网 | URL 分支通过参数校验用例间接覆盖，不发起真实请求 |
 | 毫秒级 | 6 个用例 < 0.5s，适合 CI 每次提交跑 |
 | 用例直述行为 | 见下表 |

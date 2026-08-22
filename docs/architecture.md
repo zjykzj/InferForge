@@ -10,7 +10,7 @@
 |----|------|------|-----------|
 | 接口层 | `apis/` + `app.py` | FastAPI、Pydantic、requests | 校验参数 → 转发任务层 → 包装响应（业务状态码） |
 | 任务层 | `tasks/` + `celery_app.py` | threading、celery | 任务编排；每个任务持有自己的预测器；异步任务经 RabbitMQ 执行 |
-| 引擎层 | `engines/` | onnxruntime、OpenCV、NumPy | 推理引擎契约 + YOLOv8n 实现 |
+| 引擎层 | `engines/` | onnxruntime、OpenCV、NumPy | 推理引擎 contract + YOLOv8n 实现 |
 | 横切层 | `utils/` | logging、cv2、requests、base64、uuid、contextvars | 日志、图片转换、响应格式、request_id（各层共用） |
 
 ## 2. 各层职责与实现
@@ -42,24 +42,24 @@
 
 **逻辑**：
 
-- 一个任务一个文件；每个任务**持有自己的预测器**（懒加载单例 + 双重检查锁），API 层看不到预测器
+- 一个任务一个文件；每个任务**持有自己的预测器**（懒加载单例 + double-checked locking），API 层看不到预测器
 - 模型路径可用环境变量 `INFERFORGE_MODEL_PATH` 覆盖
 - 编排步骤：解析输入图 → 调用预测器 → 组装 detections 列表 → 绘图 → 编码输出
 
 | 库 | 用途 |
 |----|------|
-| threading | 预测器懒加载的双重检查锁 |
+| threading | 预测器懒加载的 double-checked locking |
 | celery | 异步任务：经 RabbitMQ 投递、worker 执行 |
 
 **文件**：`tasks/detection.py`（同步编排）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）
 
 ### 2.3 引擎层（`engines/`）
 
-**职责**：算法无关的推理引擎契约与实现——全工程唯一稳定的抽象所在。
+**职责**：算法无关的推理引擎 contract 与实现——全工程唯一稳定的抽象所在。
 
 **逻辑**：
 
-- `BasePredictor` 定义契约：`load(model_path)` / `predict(image) -> DetectionResult`；接口层和任务层只认识它
+- `BasePredictor` 定义 contract：`load(model_path)` / `predict(image) -> DetectionResult`；接口层和任务层只认识它
 - `YoloPredictor` 实现：letterbox 预处理 → ONNX 推理 → decode `(1,84,8400)` → NumPy NMS → OpenCV 绘图
 - onnxruntime **延迟导入**（仅 `load()` 内 import），测试无需真实模型
 - 前后处理为**自研实现**（参考公开论文/文档），不依赖 ultralytics 库——ultralytics 为 AGPL-3.0 协议，直接使用会传染本项目协议
@@ -176,7 +176,7 @@ app -> apis -> tasks -> engines
 | FastAPI | 接口层 | router 路由、同步端点线程池、OpenAPI 文档 |
 | Pydantic | 接口层 | 请求体结构校验（校验失败折叠为 code=1 envelope） |
 | requests | 接口层 / 横切层 | URL 下载图片、下载异常类型 |
-| threading | 任务层 | 预测器懒加载双重检查锁 |
+| threading | 任务层 | 预测器懒加载 double-checked locking |
 | celery | 任务层 | 异步任务投递与执行 |
 | onnxruntime | 引擎层 | ONNX 模型推理（延迟导入） |
 | OpenCV | 引擎层 / 横切层 | 图像处理：缩放、绘图、编解码 |

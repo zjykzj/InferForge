@@ -6,5 +6,6 @@
 |------|------|---------|
 | [logrotate.conf](logrotate.conf) | 日志轮转：gunicorn / 业务日志落盘后的系统级轮转（copytruncate，无多进程竞态） | [logging](../docs/logging.md) |
 | [nginx-canary.conf](nginx-canary.conf) | 灰度发布流量分流：权重切流 + `X-Canary: 1` 定点切换 | [deployment](../docs/deployment.md) §2 |
+| [docker-compose.monitoring.yml](docker-compose.monitoring.yml) + [prometheus.yml](prometheus.yml) | 可选监控栈（Prometheus + Grafana）：抓取 `/metrics` 并画图，与主 compose 合并使用 | [metrics](../docs/metrics.md) |
 
 使用方式：拷到你的部署环境，按文件顶部注释替换占位，`nginx -t` / `logrotate -d` 验证后上线。它们是**示例，不是成品**——TLS、域名、端口替换成你自己的。

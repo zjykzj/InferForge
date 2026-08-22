@@ -53,6 +53,10 @@
 
 若 `/health/ready` 永远返回 200，就绪探针就失去意义。这是本项目**唯一**使用非 200 HTTP 状态码的地方，业务接口（/predict 系列）不受影响。`utils/response.error()` 为此增加了可选参数 `http_status`（默认 200）。
 
+### 例外：指标端点
+
+`GET /metrics` 是 Prometheus 抓取的协议端点，**不返回 envelope**——直接输出 Prometheus text format（`Content-Type: text/plain`），HTTP 恒 200。Prometheus 只认自己的 exposition 格式，包一层 `{code, message, data}` 反而无法解析。与健康探针的区别：探针是"HTTP 状态码例外"，`/metrics` 是"响应格式例外"。指标内容见 [metrics.md](metrics.md)。
+
 ## 3. 使用方式
 
 ### 3.1 服务端

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Metrics: GET /metrics (Prometheus text, not the envelope — documented format exception) — http requests/duration by route template, business-code distribution, inference phase timings, predictor gauge, celery task counters; multiprocess aggregation via PROMETHEUS_MULTIPROC_DIR (start.sh / start_celery.sh / compose)
+- Deploy: deploy/docker-compose.monitoring.yml + prometheus.yml — optional Prometheus + Grafana stack (reference artifact, merged with the main compose)
+- Docs: metrics.md — metric list, multiprocess mode, monitoring stack usage; api.md gains the /metrics endpoint section
+
 ### Changed
 
 - Docs: terminology sweep — 信封 replaced with envelope across all docs (response envelope / result envelope / envelope 契约); status-codes.md §1 defines the term on first mention

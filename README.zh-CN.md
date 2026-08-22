@@ -83,7 +83,7 @@ RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compos
 
 - **工程文档** — concepts · quick-start · architecture · add-engine · api · deployment
 - **技术栈文档** — stack · fastapi-migration
-- **规范文档** — status-codes · logging · testing · security · forking-contract
+- **规范文档** — status-codes · logging · metrics · testing · security · forking-contract
 
 带逐篇说明的完整索引：[docs/README.md](docs/README.md)。
 

@@ -1,6 +1,6 @@
 # 接口调用文档（API）
 
-> 接口说明与 curl 调用指南。最后更新：2026-08-21
+> 接口说明与 curl 调用指南。最后更新：2026-08-22
 
 ## 1. 当前接口：POST /predict
 
@@ -200,11 +200,21 @@ curl -i http://localhost:8000/health
 curl -i http://localhost:8000/health/ready    # 冷启动期间返回 HTTP/1.1 503
 ```
 
-## 5. 参数设计规范（推理接口的通用模式）
+## 5. 指标暴露接口：GET /metrics
+
+Prometheus 文本格式的指标端点，**不走 `{code, message, data}` envelope**（协议端点例外，见 [status-codes.md](status-codes.md)）：
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+指标清单、multiprocess 聚合与监控栈接入见 [metrics.md](metrics.md)。
+
+## 6. 参数设计规范（推理接口的通用模式）
 
 后续新增推理接口（分类、分割、异步等）遵循同一套参数模式，保证调用方心智一致：
 
-### 5.1 输入载体：三选一
+### 6.1 输入载体：三选一
 
 | 参数 | 形式 | 适用场景 |
 |------|------|---------|
@@ -214,7 +224,7 @@ curl -i http://localhost:8000/health/ready    # 冷启动期间返回 HTTP/1.1 5
 
 规则：同一接口最多提供两种载体（如 image + url），**至少一种、至多一种**，冲突即 code=1。
 
-### 5.2 推理参数（规划）
+### 6.2 推理参数（规划）
 
 可选的阈值/行为覆盖，不传用服务端默认值：
 
@@ -224,7 +234,7 @@ curl -i http://localhost:8000/health/ready    # 冷启动期间返回 HTTP/1.1 5
 | `iou_thres` | float | NMS IoU 阈值（默认 0.45） |
 | `with_image` | bool | 是否返回绘图 base64（默认 true；纯取坐标的调用方省流量） |
 
-### 5.3 异步模式
+### 6.3 异步模式
 
 长耗时推理（大模型/Agent）不适合同步等待，参数模式变为：
 
@@ -235,7 +245,7 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 
 已落地：见 §3 异步轮询接口（POST /predict/query + GET 轮询）。同步/异步并存时，由接口路径区分而非参数区分——调用方一眼可知行为。
 
-## 6. 测试规范引用
+## 7. 测试规范引用
 
 - 响应格式与业务码：[status-codes.md](status-codes.md)
 - 分层与异步数据流：[architecture.md](architecture.md)

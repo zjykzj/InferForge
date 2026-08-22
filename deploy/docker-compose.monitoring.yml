@@ -1,0 +1,41 @@
+# Optional monitoring stack (reference artifact): Prometheus + Grafana.
+#
+# Only needed when you want to scrape /metrics and graph it — the service
+# itself runs fine without any of this (see docs/metrics.md). Prometheus
+# scrapes the web service over the compose network; worker metrics are
+# aggregated through web's /metrics via the shared PROMETHEUS_MULTIPROC_DIR
+# (both containers mount ./logs).
+#
+# Usage (merged with the main stack):
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.monitoring.yml up -d
+#
+#   Prometheus: http://localhost:9090   (Status -> Targets: inferforge should be UP)
+#   Grafana:    http://localhost:3000   (admin / admin; add Prometheus as a data
+#                                        source at http://prometheus:9090)
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.monitoring.yml down
+services:
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+  grafana_data:

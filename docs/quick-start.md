@@ -43,6 +43,9 @@ python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg
 
 # 冒烟测试（无需模型文件、无需服务）
 pytest tests/ -v
+
+# Prometheus 指标（见 docs/metrics.md；不接监控栈时此端点可忽略）
+curl http://localhost:8000/metrics
 ```
 
 预期：打印 `code: 0` 与检测列表；首次请求会触发模型懒加载（多几十毫秒属正常）。

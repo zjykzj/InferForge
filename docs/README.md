@@ -7,6 +7,7 @@
   * [quick-start.md](quick-start.md)：快速开始——同步/异步（回调 + 轮询）场景的完整启动与验证
   * [architecture.md](architecture.md)：分层架构——各层职责、实现逻辑、依赖规则、技术栈
   * [api.md](api.md)：接口调用——/predict、/predict/callback、/predict/query 参数与响应、curl 示例、参数设计规范
+  * [deployment.md](deployment.md)：部署指南——线上灰度发布与测试/生产环境长期共存的完整方案
   * [stack.md](stack.md)：技术栈说明——FastAPI/Uvicorn/Gunicorn、Celery/RabbitMQ 与 Redis 的选型理由、配置点与关键决策
 * 规范文档
   * [status-codes.md](status-codes.md)：业务状态码——`{code, message, data}` 规范、方案比较

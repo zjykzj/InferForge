@@ -1,8 +1,10 @@
 # 架构说明（Architecture）
 
-> InferForge 的分层架构：各层职责、实现逻辑与技术栈。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-21
+> InferForge 的分层架构：各层职责、实现逻辑与技术栈。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-22
 
 ## 1. 分层总览
+
+这套结构可以概括为:**unidirectional layered architecture + 引擎边界的 dependency inversion**。`app.py` 是 composition root（只做装配、不碰业务）；`apis → tasks → engines` 单向依赖，上层只依赖引擎层暴露的 `BasePredictor` 抽象，从不依赖具体算法；`utils/` 是 shared kernel，服务各层但不得反向依赖业务层。对照业界术语：精简版 clean architecture（接口层 ≈ controllers、任务层 ≈ use cases、引擎层 ≈ domain core），刻意不引入 repository、DI container 等重概念。
 
 | 层 | 目录 | 技术 | 一句话职责 |
 |----|------|------|-----------|

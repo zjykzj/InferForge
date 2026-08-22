@@ -6,6 +6,7 @@
   * [concepts.md](concepts.md)：概念入门——Web 服务、任务队列、回调/轮询、Redis 的零基础科普
   * [quick-start.md](quick-start.md)：快速开始——同步/异步（回调 + 轮询）场景的完整启动与验证
   * [architecture.md](architecture.md)：分层架构——各层职责、实现逻辑、依赖规则、技术栈
+  * [add-engine.md](add-engine.md)：新增推理引擎——BasePredictor 契约、接入步骤（含 TensorRT/Triton）与验证清单
   * [api.md](api.md)：接口调用——/predict、/predict/callback、/predict/query 参数与响应、curl 示例、参数设计规范
   * [deployment.md](deployment.md)：部署指南——线上灰度发布与测试/生产环境长期共存的完整方案
 * 技术栈文档
@@ -16,3 +17,4 @@
   * [logging.md](logging.md)：日志模块——分级纪律、trace_id、生产实践指南
   * [testing.md](testing.md)：测试策略——测试分层、冒烟测试详解、后续计划
   * [security.md](security.md)：安全边界——已知风险点、已有防护与部署建议
+  * [forking-contract.md](forking-contract.md)：分叉契约——模板使用方式、可改/慎改区域、合并上游更新的冲突取舍

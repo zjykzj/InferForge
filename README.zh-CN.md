@@ -11,19 +11,9 @@
   <a href="https://conventionalcommits.org"><img src="https://img.shields.io/badge/Conventional%20Commits-1.0.0-yellow.svg" alt="Conventional Commits"></a>
 </p>
 
-## 特性
+## 关于
 
-| | | |
-|:---|:---|:---|
-| 🔍 **同步检测** | `POST /predict` —— base64 / URL 输入，返回绘图 + JSON 结果 | `scripts/test_predict.py` |
-| ⚡ **异步检测** | Celery + RabbitMQ + Redis —— 回调推送或主动轮询，按请求选择 | `INFERFORGE_ASYNC=1 ./start.sh` |
-| 🧱 **分层模板** | apis / tasks / engines / utils —— 换一层不动其余 | [architecture](docs/architecture.md) |
-| 📦 **业务状态码** | `{code, message, data}` 信封 —— HTTP 永远 200 | [status-codes](docs/status-codes.md) |
-| 🚦 **健康探针** | `GET /health` + `/health/ready` —— 供 K8s / 负载均衡存活与就绪检查 | [api](docs/api.md) |
-| 📚 **OpenAPI 文档** | 自动生成 `/docs`（Swagger UI）+ `/openapi.json` | `GET /docs` |
-| 🐳 **Docker Compose** | 一条命令起全栈 —— web + worker + RabbitMQ + Redis | `docker compose up -d` |
-| 🔗 **请求追踪** | request_id + task_id 贯穿 web 与 worker 日志 | [logging](docs/logging.md) |
-| ✅ **冒烟测试** | 30+ 个测试，无需模型文件 | `pytest tests/ -v` |
+InferForge 是推理后端之上的服务外壳：围绕推理内核提供生产服务所需的全部工程能力——Web 接口、日志处理、异常处理、统一响应格式——让一个模型在几天内变成可部署的服务，而不是几周。但推理之上的业务层千差万别（模型不同、任务不同、接口不同），无法一概而论，因此本项目刻意做成**模板而非框架**：fork 之后代码归你所有，任务与接口由你定义；分层架构保证每一层可独立替换——换一个算法（ONNX Runtime、TensorRT、Triton……）只动引擎层。哪些可以改、哪些别乱动，见 [forking-contract](docs/forking-contract.md)。
 
 ## 快速开始
 
@@ -42,6 +32,8 @@ cp /path/to/yolov8n.onnx models/
 # 4. 测试接口
 python3 scripts/test_predict.py --image assets/bus.jpg                              # 本地图片（base64）
 python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg        # 在线 URL
+
+# 5. 自动生成的接口文档（Swagger UI）：http://localhost:8000/docs
 ```
 
 运行冒烟测试：
@@ -89,14 +81,18 @@ RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compos
 
 ## 文档
 
-[docs/](docs/) —— concepts · quick-start · architecture · api · deployment · stack · fastapi-migration · status-codes · logging · testing · security
+- **工程文档** — concepts · quick-start · architecture · add-engine · api · deployment
+- **技术栈文档** — stack · fastapi-migration
+- **规范文档** — status-codes · logging · testing · security · forking-contract
+
+带逐篇说明的完整索引：[docs/README.md](docs/README.md)。
 
 ## 致谢
 
-- **Web 与服务** — [FastAPI](https://fastapi.tiangolo.com/) 路由、Pydantic 校验与 OpenAPI 文档 · [Uvicorn](https://www.uvicorn.org/) ASGI 服务 · [Gunicorn](https://gunicorn.org/) 多进程管理
-- **推理引擎** — [ONNX Runtime](https://onnxruntime.ai/) 前向推理 · [OpenCV](https://opencv.org/) 图像前后处理与绘图 · [NumPy](https://numpy.org/) decode 与 NMS 向量化计算
-- **异步任务** — [Celery](https://docs.celeryq.dev/) 任务定义与投递 · [RabbitMQ](https://www.rabbitmq.com/) 消息中转 · [Redis](https://redis.io/) 结果暂存（TTL 自动回收）
-- **演示模型** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/) 导出为 ONNX
+- **Web 与服务** — [FastAPI](https://fastapi.tiangolo.com/)（路由、Pydantic 校验与 OpenAPI 文档）· [Uvicorn](https://www.uvicorn.org/)（ASGI 服务）· [Gunicorn](https://gunicorn.org/)（多进程管理）
+- **推理引擎** — [ONNX Runtime](https://onnxruntime.ai/)（前向推理）· [OpenCV](https://opencv.org/)（图像前后处理与绘图）· [NumPy](https://numpy.org/)（decode 与 NMS 向量化计算）
+- **异步任务** — [Celery](https://docs.celeryq.dev/)（任务定义与投递）· [RabbitMQ](https://www.rabbitmq.com/)（消息中转）· [Redis](https://redis.io/)（结果暂存，TTL 自动回收）
+- **演示模型** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/)（导出为 ONNX）
 
 ## 开源协议
 

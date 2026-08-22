@@ -17,6 +17,10 @@ All notable changes to this project will be documented in this file.
 - Docs: stack.md §1.4 documents the gunicorn-vs-uvicorn decision (differences + when to choose each)
 - Docs: deployment.md — canary rollout (nginx traffic split, web grayscale + worker full rollout) and long-term test/prod coexistence (two fully isolated stacks)
 - Docs: fastapi-migration.md (Flask → FastAPI comparison and migration impact); docs index reorganized into engineering / tech-stack / standards categories; concepts.md gains a Pydantic primer
+- Docs: add-engine.md (mounting a new inference engine — BasePredictor walkthrough, TensorRT/Triton notes, verification checklist) and forking-contract.md (template usage, editable vs stable areas, upstream merge policy)
+- Docs: READMEs gain an About section stating the template-not-framework positioning
+- Docs: READMEs restructured — Features table dropped (OpenAPI pointer moved into Quick Start), Documentation grouped by category, Acknowledgments condensed to one line per category
+- Docs: architecture.md §1 names the architecture style — unidirectional layering + dependency inversion at the engine boundary (composition root / shared kernel / clean-architecture mapping)
 
 ## [0.4.0] - 2026-08-21
 

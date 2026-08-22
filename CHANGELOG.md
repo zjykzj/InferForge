@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-22
+
 ### Changed
 
 - Web framework migrated from Flask to FastAPI (breaking): ASGI serving via gunicorn + uvicorn.workers.UvicornWorker (one-line change in gunicorn.conf.py — process management, logrotate and graceful shutdown unchanged); Pydantic request models with validation failures folded into the 200 + code=1 envelope (FastAPI's 422 never leaks); request_id moved from flask.g to a ContextVar + pure-ASGI middleware; endpoints are sync `def` (threadpool execution for CPU-bound inference)

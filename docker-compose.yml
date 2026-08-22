@@ -45,6 +45,8 @@ services:
       INFERFORGE_REDIS_URL: redis://redis:6379/0
       # multiprocess metrics: shared with the worker (./logs bind-mount)
       PROMETHEUS_MULTIPROC_DIR: /app/logs/metrics
+      # optional: API-key auth on all non-exempt paths (401 + code=7)
+      # INFERFORGE_API_KEY: your-secret-key
     volumes:
       - ./models:/app/models
       - ./logs:/app/logs

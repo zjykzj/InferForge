@@ -210,11 +210,30 @@ curl http://localhost:8000/metrics
 
 指标清单、multiprocess 聚合与监控栈接入见 [metrics.md](metrics.md)。
 
-## 6. 参数设计规范（推理接口的通用模式）
+## 6. 鉴权（可选，默认关闭）
+
+设置 `INFERFORGE_API_KEY` 后，除豁免路径外所有接口要求 `X-API-Key` header：
+
+```bash
+# 服务端：带密钥启动
+INFERFORGE_API_KEY=your-secret ./start.sh
+
+# 客户端：带 header 调用（payload 同 §1）
+curl -H "X-API-Key: your-secret" -H "Content-Type: application/json" \
+  -d '{"image": "<base64>"}' http://localhost:8000/predict
+python3 scripts/test_predict.py --image assets/bus.jpg    # 脚本自动读取 INFERFORGE_API_KEY
+```
+
+- 鉴权失败：**HTTP 401 + `{"code": 7, "message": "unauthorized"}`**（协议层例外，见 [status-codes.md](status-codes.md)）
+- **豁免路径**：`/health`、`/health/ready`、`/metrics`、`/docs`、`/openapi.json` 匿名可访问
+- 不设置 `INFERFORGE_API_KEY` = 功能完全关闭，无任何行为差异
+- 单 key 模型，无用户体系；多用户 / SSO 场景走网关层（见 [security.md](security.md)）
+
+## 7. 参数设计规范（推理接口的通用模式）
 
 后续新增推理接口（分类、分割、异步等）遵循同一套参数模式，保证调用方心智一致：
 
-### 6.1 输入载体：三选一
+### 7.1 输入载体：三选一
 
 | 参数 | 形式 | 适用场景 |
 |------|------|---------|
@@ -224,7 +243,7 @@ curl http://localhost:8000/metrics
 
 规则：同一接口最多提供两种载体（如 image + url），**至少一种、至多一种**，冲突即 code=1。
 
-### 6.2 推理参数（规划）
+### 7.2 推理参数（规划）
 
 可选的阈值/行为覆盖，不传用服务端默认值：
 
@@ -234,7 +253,7 @@ curl http://localhost:8000/metrics
 | `iou_thres` | float | NMS IoU 阈值（默认 0.45） |
 | `with_image` | bool | 是否返回绘图 base64（默认 true；纯取坐标的调用方省流量） |
 
-### 6.3 异步模式
+### 7.3 异步模式
 
 长耗时推理（大模型/Agent）不适合同步等待，参数模式变为：
 
@@ -245,7 +264,7 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 
 已落地：见 §3 异步轮询接口（POST /predict/query + GET 轮询）。同步/异步并存时，由接口路径区分而非参数区分——调用方一眼可知行为。
 
-## 7. 测试规范引用
+## 8. 测试规范引用
 
 - 响应格式与业务码：[status-codes.md](status-codes.md)
 - 分层与异步数据流：[architecture.md](architecture.md)

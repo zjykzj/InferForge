@@ -1,6 +1,6 @@
 # 技术栈说明（Stack）
 
-> 本项目所用第三方技术：选型理由、配置点与关键决策。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-21
+> 本项目所用第三方技术：选型理由、配置点与关键决策。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-22
 
 ## 1. FastAPI + Uvicorn + Gunicorn（Web 服务）
 
@@ -122,3 +122,5 @@ client ◀──GET result── Redis
 | `CELERY_BROKER_URL` | `amqp://guest:guest@localhost:5672//` | 消息队列地址 | `celery_app.py` |
 | `INFERFORGE_REDIS_URL` | `redis://localhost:6379/0` | 轮询结果存储地址 | `utils/redis_store.py` |
 | `INFERFORGE_RESULT_TTL` | `3600` | 结果保存秒数（过期后轮询 code=4） | `utils/redis_store.py` |
+| `INFERFORGE_API_KEY` | 未设置（关闭） | API key 鉴权：设置后非豁免路径要求 `X-API-Key` header（401 + code=7） | `utils/auth.py` |
+| `PROMETHEUS_MULTIPROC_DIR` | 未设置（单进程注册表） | 指标多进程聚合目录（web 与 worker 必须一致） | `utils/metrics.py` |

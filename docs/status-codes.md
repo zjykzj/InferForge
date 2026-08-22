@@ -35,6 +35,7 @@
 | `4` | task not found | 查询任务结果不存在：从未提交、结果已过期（TTL 回收）或结果写入失败 |
 | `5` | task pending | 查询任务处理中：已提交、worker 尚未写入结果 |
 | `6` | service not ready | 就绪检查未通过：predictor 尚未加载（`GET /health/ready` 冷启动期间） |
+| `7` | unauthorized | 鉴权失败：缺失或错误的 `X-API-Key`（`INFERFORGE_API_KEY` 设置后启用，见 §2 鉴权例外） |
 
 扩展原则：
 
@@ -51,7 +52,11 @@
 | `/health`（存活） | `200` + `{"code": 0, "data": {"status": "ok"}}` | 进程存活则永远就绪，无失败态 |
 | `/health/ready`（就绪） | `200` + `{"code": 0, "data": {"status": "ready"}}` | `503` + `{"code": 6, "message": "model not loaded"}` |
 
-若 `/health/ready` 永远返回 200，就绪探针就失去意义。这是本项目**唯一**使用非 200 HTTP 状态码的地方，业务接口（/predict 系列）不受影响。`utils/response.error()` 为此增加了可选参数 `http_status`（默认 200）。
+若 `/health/ready` 永远返回 200，就绪探针就失去意义。业务接口（/predict 系列）不受影响。`utils/response.error()` 为此增加了可选参数 `http_status`（默认 200）。
+
+### 例外：鉴权拒绝（HTTP 401）
+
+鉴权失败（`utils/auth.py`）返回 **401 + code=7**：状态码给网关/防火墙看（它们天然认 401 并计入拦截统计），body 保持 envelope 形状（`{"code": 7, "message": "unauthorized"}`）。与就绪探针同理——协议层例外，业务接口保持永远 200。未设置 `INFERFORGE_API_KEY` 时鉴权整体关闭，此例外不存在。
 
 ### 例外：指标端点
 

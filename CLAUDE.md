@@ -9,7 +9,7 @@ Layers:
 - `apis/` + `app.py` — interface layer: FastAPI routers (sync + optional async), Pydantic input validation, unified responses
 - `tasks/` + `celery_app.py` — task layer: orchestration; each task owns its predictors (lazy loading); celery tasks run via RabbitMQ
 - `engines/` — engine layer: `BasePredictor` contract + YOLOv8n implementation
-- `utils/` — cross-cutting: logging, image conversion, response format, request_id
+- `utils/` — cross-cutting: logging, image conversion, response format, request_id, metrics, auth, rate limit
 
 ## Architecture Constraints
 
@@ -43,7 +43,7 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 
 - onnxruntime is imported **inside** `YoloPredictor.load()` on purpose — tests must stay model-free. Do not move it to module level.
 - Tests inject `FakePredictor` by monkeypatching `tasks.detection.get_predictor`; never load a real model or hit the network in tests.
-- Test apps are built via the `conftest.app_factory` fixture (RequestIdMiddleware + MetricsMiddleware + validation handler + metrics router, one router per test) or `create_app()` — never register the validation handler twice.
+- Test apps are built via the `conftest.app_factory` fixture (request-id + auth + rate-limit + metrics middleware, validation handler, metrics router — mirrors `create_app()`'s wiring, one router per test) or `create_app()` — never register the validation handler twice.
 - Python floor is 3.12 (conda env `py312`); `X | None` syntax is allowed.
 - API endpoints are plain `def` (FastAPI threadpool) — the inference path is CPU-bound blocking; never async/await around predictor calls. Don't spawn raw `threading.Thread` in endpoints (request_id ContextVar propagates via anyio's threadpool only).
 - request_id flows via `utils.request_id.RequestIdMiddleware` (ContextVar + X-Request-ID header on every response); workers fall back to the request_id in task kwargs.
@@ -58,7 +58,7 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 - Callback fires exactly once: detection business errors (code 1/2/3) are NOT retried — only network failures on the callback POST retry (3 attempts, exponential backoff). Keep it that way.
 - Log rotation belongs to system logrotate (copytruncate, `deploy/logrotate.conf`) — do not reintroduce in-app rotation handlers (multi-process rotation races).
 - The compose stack bind-mounts `./models` and `./logs` — put yolov8n.onnx in `models/` first; the Docker image never bakes the model. In-container broker/redis urls are overridden in `docker-compose.yml` (the localhost defaults won't work).
-- Docs language: `docs/` in Chinese, READMEs bilingual. Docs describe current implementation only — no version planning.
+- Docs language: `docs/` in Chinese, READMEs bilingual. Docs describe current implementation only — no version planning. Professional terms stay in English (envelope, contract, composition root, …) — don't coin Chinese translations; established terms (线程池、灰度、幂等) stay Chinese.
 
 ## Git Operations
 

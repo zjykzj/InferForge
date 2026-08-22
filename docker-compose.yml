@@ -43,6 +43,8 @@ services:
       INFERFORGE_ASYNC: "1"
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       INFERFORGE_REDIS_URL: redis://redis:6379/0
+      # multiprocess metrics: shared with the worker (./logs bind-mount)
+      PROMETHEUS_MULTIPROC_DIR: /app/logs/metrics
     volumes:
       - ./models:/app/models
       - ./logs:/app/logs
@@ -69,6 +71,8 @@ services:
     environment:
       CELERY_BROKER_URL: amqp://guest:guest@rabbitmq:5672//
       INFERFORGE_REDIS_URL: redis://redis:6379/0
+      # same multiprocess metrics dir as the web service (aggregated there)
+      PROMETHEUS_MULTIPROC_DIR: /app/logs/metrics
     volumes:
       - ./models:/app/models
       - ./logs:/app/logs

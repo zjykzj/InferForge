@@ -13,6 +13,7 @@ from typing import Optional
 from engines.base import BasePredictor
 from engines.yolo import COCO_CLASS_NAMES, YoloPredictor, draw_detections
 from utils import image as image_utils
+from utils import metrics
 
 logger = logging.getLogger("tasks.detection")
 
@@ -34,6 +35,7 @@ def get_predictor() -> BasePredictor:
                 predictor = YoloPredictor()
                 predictor.load(MODEL_PATH)
                 _predictor = predictor
+                metrics.mark_predictor_loaded()
     return _predictor
 
 

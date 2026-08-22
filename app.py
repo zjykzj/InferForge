@@ -21,8 +21,9 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
 from apis.health import health_router
+from apis.metrics import metrics_router
 from apis.predict import predict_router
-from utils import request_id, response
+from utils import metrics, request_id, response
 from utils.logger import setup_logging
 
 logger = logging.getLogger("app")
@@ -92,11 +93,15 @@ def create_app() -> FastAPI:
     # envelope, 503 readiness, 404s — carries X-Request-ID.
     app.add_middleware(ContentLengthLimitMiddleware)
     app.add_middleware(request_id.RequestIdMiddleware)
+    # Innermost middleware: counts/times every routed request (the content-
+    # length guard above short-circuits before it, which is fine).
+    app.add_middleware(metrics.MetricsMiddleware)
     # Replace FastAPI's default 422 handler: validation failures become
     # 200 + code=1 envelopes (the always-200 contract, docs/status-codes.md).
     app.add_exception_handler(RequestValidationError, response.validation_error_handler)
 
     app.include_router(health_router)
+    app.include_router(metrics_router)
     app.include_router(predict_router)
 
     if _async_enabled():

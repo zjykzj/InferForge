@@ -4,6 +4,10 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# Same multiprocess metrics dir as start.sh: worker metrics are aggregated
+# and scraped through the web /metrics endpoint (utils/metrics.py).
+export PROMETHEUS_MULTIPROC_DIR="${PROMETHEUS_MULTIPROC_DIR:-$PWD/logs/metrics}"
+
 # --without-gossip: gossip declares a transient non-exclusive queue, which
 # RabbitMQ >= 4.3 rejects by default (deprecated feature). The project uses
 # none of gossip's features (worker clock sync / revocation propagation);

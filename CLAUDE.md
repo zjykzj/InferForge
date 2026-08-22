@@ -43,10 +43,12 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 
 - onnxruntime is imported **inside** `YoloPredictor.load()` on purpose — tests must stay model-free. Do not move it to module level.
 - Tests inject `FakePredictor` by monkeypatching `tasks.detection.get_predictor`; never load a real model or hit the network in tests.
-- Test apps are built via the `conftest.app_factory` fixture (RequestIdMiddleware + validation handler, one router per test) or `create_app()` — never register the validation handler twice.
+- Test apps are built via the `conftest.app_factory` fixture (RequestIdMiddleware + MetricsMiddleware + validation handler + metrics router, one router per test) or `create_app()` — never register the validation handler twice.
 - Python floor is 3.12 (conda env `py312`); `X | None` syntax is allowed.
 - API endpoints are plain `def` (FastAPI threadpool) — the inference path is CPU-bound blocking; never async/await around predictor calls. Don't spawn raw `threading.Thread` in endpoints (request_id ContextVar propagates via anyio's threadpool only).
 - request_id flows via `utils.request_id.RequestIdMiddleware` (ContextVar + X-Request-ID header on every response); workers fall back to the request_id in task kwargs.
+- Metrics live in `utils/metrics.py` (cross-cutting). `/metrics` returns raw Prometheus text — NOT the envelope (format exception, see docs/status-codes.md). `MetricsMiddleware` reads `scope['route']` lazily in the response phase (routing fills it after middleware entry).
+- `PROMETHEUS_MULTIPROC_DIR` must be set before the app imports (start.sh / start_celery.sh / compose do this); web and worker must point at the **same** directory — worker metrics are scraped through web's `/metrics`. Unset (dev `python3 app.py`) → default in-process registry.
 - New business codes must be registered in **both** `utils/response.py` docstring and `docs/status-codes.md`.
 - Gitignored: `models/*.onnx`, `logs/`, `outputs/`, `result*.jpg`/`result*.json`, `archive/` (old design docs — leave untouched).
 - Celery/redis are optional: async is one deployment shape behind `INFERFORGE_ASYNC=1` — it registers both async apis (callback + query; requires celery + rabbitmq + redis). `INFERFORGE_QUERY=1` is a deprecated alias (logs a warning). Missing deps log a warning and skip the whole async mode. Async task modules use `shared_task` (never import celery_app from tasks — circular import). `celery_app.py` must keep its unconditional sys.path insert — the celery CLI temporarily removes cwd from sys.path.

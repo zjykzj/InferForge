@@ -23,12 +23,16 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from utils import metrics
+
 
 def success(data: Any = None) -> JSONResponse:
+    metrics.record_response(0)
     return JSONResponse({"code": 0, "message": "success", "data": data})
 
 
 def error(message: str, code: int = 1, http_status: int = 200) -> JSONResponse:
+    metrics.record_response(code)
     return JSONResponse({"code": code, "message": message, "data": None}, status_code=http_status)
 
 

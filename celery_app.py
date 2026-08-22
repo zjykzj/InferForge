@@ -6,6 +6,7 @@ Two entry points, two processes:
 """
 import os
 import sys
+import time
 
 # Make the project root importable regardless of the worker's working directory.
 # Unconditional insert: the celery CLI temporarily adds and then removes cwd from
@@ -14,7 +15,8 @@ _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _PROJECT_ROOT)
 
 from celery import Celery  # noqa: E402
-from celery.signals import setup_logging  # noqa: E402
+from celery.signals import setup_logging, task_failure, task_postrun, task_prerun  # noqa: E402
+from utils import metrics  # noqa: E402
 
 celery_app = Celery("inferforge")
 
@@ -46,3 +48,25 @@ def _configure_logging(**kwargs):
     from utils.logger import setup_logging
 
     setup_logging(log_file="celery.log")
+
+
+# Worker-side metrics: counted in the worker process and scraped through the
+# web /metrics endpoint via the shared PROMETHEUS_MULTIPROC_DIR.
+def _task_elapsed(task) -> float | None:
+    started = getattr(task.request, "metrics_started", None)
+    return time.perf_counter() - started if started else None
+
+
+@task_prerun.connect
+def _on_task_prerun(task_id, task, **kwargs):
+    task.request.metrics_started = time.perf_counter()
+
+
+@task_postrun.connect
+def _on_task_postrun(task_id, task, **kwargs):
+    metrics.record_celery_task(task.name, "success", _task_elapsed(task))
+
+
+@task_failure.connect
+def _on_task_failure(task_id, task, **kwargs):
+    metrics.record_celery_task(task.name, "failure", _task_elapsed(task))

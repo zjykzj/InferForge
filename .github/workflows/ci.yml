@@ -1,0 +1,52 @@
+# CI: smoke tests + compile check + docs link check.
+#
+# Tests are model-free and network-free by design (engines/yolo.py imports
+# onnxruntime lazily inside load(); tests inject FakePredictor), so this
+# workflow needs no model artifacts and no broker/redis services.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-async.txt
+
+      - name: Smoke tests
+        run: pytest tests/ -v
+
+      - name: Compile check
+        run: python -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py conftest.py celery_app.py
+
+      - name: Docs link check
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=0
+          for f in docs/*.md deploy/*.md README.md README.zh-CN.md; do
+            # grep exits 1 when a file has no .md links — never fatal here
+            links=$(grep -o ']([^)#]*\.md)' "$f" | sed 's/](//;s/)//' || true)
+            while read -r link; do
+              [ -z "$link" ] && continue
+              case "$link" in http*) continue;; esac
+              if [ ! -f "$(dirname "$f")/$link" ]; then
+                echo "BROKEN link in $f: $link"
+                status=1
+              fi
+            done <<< "$links"
+          done
+          [ "$status" -eq 0 ] && echo "docs links ok"
+          exit "$status"

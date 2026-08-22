@@ -44,7 +44,10 @@ class AuthMiddleware:
             if name == b"x-api-key":
                 provided = value.decode("latin-1")
                 break
-        if provided is not None and hmac.compare_digest(provided, self.api_key):
+        # compare as bytes: compare_digest on str only supports ASCII keys
+        if provided is not None and hmac.compare_digest(
+            provided.encode("utf-8"), self.api_key.encode("utf-8")
+        ):
             await self.app(scope, receive, send)
             return
 

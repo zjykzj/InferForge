@@ -10,7 +10,7 @@
 | `inferforge_http_request_duration_seconds` | Histogram | method, route | 端到端请求延迟 |
 | `inferforge_responses_total` | Counter | code | envelope 业务码分布（0–6） |
 | `inferforge_predict_phase_seconds` | Histogram | phase | 推理三段耗时（pre / infer / post） |
-| `inferforge_predictor_loaded` | Gauge | — | 本进程 predictor 是否已加载（0/1，与 `/health/ready` 对应） |
+| `inferforge_predictor_loaded` | Gauge | —（multiprocess 模式下自动带 `pid` 标签） | 本进程 predictor 是否已加载（0/1，与 `/health/ready` 对应） |
 | `inferforge_celery_tasks_total` | Counter | task, state | worker 任务执行数与状态（success / failure） |
 | `inferforge_celery_task_duration_seconds` | Histogram | task | worker 任务耗时 |
 

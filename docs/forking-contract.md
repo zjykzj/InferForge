@@ -13,7 +13,7 @@
 | 区域 | 文件 | 规则 |
 |------|------|------|
 | **绿区：业务区（你拥有）** | `apis/`（路由、Pydantic 模型、响应组装）、`tasks/`（业务编排、任务逻辑）、新增的 `engines/<name>.py`、`requirements*.txt`、`scripts/` | 随便改。这是模板留给你的"主战场"，上游不会替你维护它们 |
-| **黄区：横切机制（可改，但有合并成本）** | `utils/`（envelope、日志、request_id、图片转换）、`app.py` 装配顺序、`celery_app.py`、`gunicorn.conf.py`、部署脚本与 Docker 文件 | 通常不用动。要动（比如 envelope 加字段、日志改格式）先读对应文档，改后合并上游时需逐处三方合并 |
+| **黄区：横切机制（可改，但有合并成本）** | `utils/`（envelope、日志、request_id、图片转换、metrics、auth、rate limit）、`app.py` 装配顺序、`celery_app.py`、`gunicorn.conf.py`、部署脚本与 Docker 文件 | 通常不用动。要动（比如 envelope 加字段、日志改格式）先读对应文档，改后合并上游时需逐处三方合并 |
 | **红区：模板的 API（改前先想清楚）** | `engines/base.py`（`BasePredictor` contract）、`{code, message, data}` envelope 与 [status-codes.md](status-codes.md) 状态码表、分层依赖方向（`app -> apis -> tasks -> engines`） | 这些是"模板其余部分成立的公理"。你在红区的改动会让上游更新无法干净合并，也让你无法使用上游后续的文档与组件——如确需调整，优先向上游提 issue/PR |
 
 **为什么红区这么划**：`BasePredictor` 是算法插槽，envelope 是 client contract，依赖方向是架构公理。模板的全部价值（换引擎只动一层、422 不泄漏、request_id 全链路）都建立在这三者上；下游改它们 = 亲手拆掉模板的承重墙。绿区/黄区随便动，红区动了要清醒。

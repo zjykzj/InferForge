@@ -14,7 +14,7 @@
 
 ## About
 
-InferForge is a serving shell above inference backends: it provides everything a production service needs around the inference kernel — web APIs, logging, exception handling, unified response formats — so a model becomes a deployable service in days, not weeks. But the business layer above inference is too diverse to generalize (different models, tasks and interfaces), so this project is deliberately a **template, not a framework**: fork it, own the code, and define your own tasks and APIs; the layered architecture keeps each layer replaceable independently — swap an algorithm (ONNX Runtime, TensorRT, Triton, …) and only the engine layer changes. See [forking-contract](docs/forking-contract.md) for what to edit and what to keep.
+InferForge is a serving shell above inference backends: web APIs, logging, exception handling and unified response formats out of the box — a model becomes a deployable service in days. But the business layer above inference is too diverse to generalize, so this is deliberately a **template, not a framework**: fork it, own the code, and define your own tasks and APIs. The layered architecture keeps every layer replaceable independently — see [forking-contract](docs/forking-contract.md) for what to edit and what to keep.
 
 ## Quick Start
 
@@ -35,6 +35,7 @@ python3 scripts/test_predict.py --image assets/bus.jpg                          
 python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg        # remote url
 
 # 5. Auto-generated API docs (Swagger UI): http://localhost:8000/docs
+# 6. Prometheus metrics: http://localhost:8000/metrics (optional — see docs/metrics.md)
 ```
 
 Run the smoke tests:
@@ -80,6 +81,8 @@ curl http://localhost:8000/health   # liveness probe
 
 RabbitMQ management UI at http://localhost:15672 (guest/guest). `docker compose down` stops the stack (`-v` also drops queue/redis data). See [quick-start](docs/quick-start.md) §4 for details.
 
+Optional monitoring stack (Prometheus + Grafana): `docker compose -f docker-compose.yml -f deploy/docker-compose.monitoring.yml up -d` — see [metrics](docs/metrics.md).
+
 ## Documentation
 
 - **Engineering** — concepts · quick-start · architecture · add-engine · api · deployment
@@ -90,10 +93,10 @@ Full index with one-line descriptions: [docs/README.md](docs/README.md).
 
 ## Acknowledgments
 
-- **Web & serving** — [FastAPI](https://fastapi.tiangolo.com/) (routing, Pydantic validation, OpenAPI docs) · [Uvicorn](https://www.uvicorn.org/) (ASGI server) · [Gunicorn](https://gunicorn.org/) (multi-process management)
-- **Inference** — [ONNX Runtime](https://onnxruntime.ai/) (forward pass) · [OpenCV](https://opencv.org/) (image pre/post-processing) · [NumPy](https://numpy.org/) (vectorized decode and NMS)
-- **Async tasks** — [Celery](https://docs.celeryq.dev/) (task submission and execution) · [RabbitMQ](https://www.rabbitmq.com/) (message brokering) · [Redis](https://redis.io/) (TTL-managed result storage)
-- **Demo model** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/) (exported to ONNX)
+- **Web & serving** — [FastAPI](https://fastapi.tiangolo.com/) · [Uvicorn](https://www.uvicorn.org/) · [Gunicorn](https://gunicorn.org/)
+- **Inference** — [ONNX Runtime](https://onnxruntime.ai/) · [OpenCV](https://opencv.org/) · [NumPy](https://numpy.org/)
+- **Async tasks** — [Celery](https://docs.celeryq.dev/) · [RabbitMQ](https://www.rabbitmq.com/) · [Redis](https://redis.io/)
+- **Demo model** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/)
 
 ## License
 

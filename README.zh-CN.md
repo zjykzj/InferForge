@@ -14,7 +14,7 @@
 
 ## 关于
 
-InferForge 是推理后端之上的服务外壳：围绕推理内核提供生产服务所需的全部工程能力——Web 接口、日志处理、异常处理、统一响应格式——让一个模型在几天内变成可部署的服务，而不是几周。但推理之上的业务层千差万别（模型不同、任务不同、接口不同），无法一概而论，因此本项目刻意做成**模板而非框架**：fork 之后代码归你所有，任务与接口由你定义；分层架构保证每一层可独立替换——换一个算法（ONNX Runtime、TensorRT、Triton……）只动引擎层。哪些可以改、哪些别乱动，见 [forking-contract](docs/forking-contract.md)。
+InferForge 是推理后端之上的服务外壳：开箱即得生产配套——Web 接口、日志处理、异常处理、统一响应格式——模型几天内就能变成可部署的服务。但推理之上的业务层千差万别、无法一概而论，因此本项目刻意做成**模板而非框架**：fork 之后代码归你所有，任务与接口由你定义。分层架构保证每一层可独立替换——哪些可以改、哪些别乱动，见 [forking-contract](docs/forking-contract.md)。
 
 ## 快速开始
 
@@ -35,6 +35,7 @@ python3 scripts/test_predict.py --image assets/bus.jpg                          
 python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg        # 在线 URL
 
 # 5. 自动生成的接口文档（Swagger UI）：http://localhost:8000/docs
+# 6. Prometheus 指标：http://localhost:8000/metrics（可选，见 docs/metrics.md）
 ```
 
 运行冒烟测试：
@@ -80,6 +81,8 @@ curl http://localhost:8000/health   # 存活探针
 
 RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compose down` 停止全部容器（加 `-v` 连数据卷一起删除）。详见 [quick-start](docs/quick-start.md) §4。
 
+可选监控栈（Prometheus + Grafana）：`docker compose -f docker-compose.yml -f deploy/docker-compose.monitoring.yml up -d` —— 见 [metrics](docs/metrics.md)。
+
 ## 文档
 
 - **工程文档** — concepts · quick-start · architecture · add-engine · api · deployment
@@ -90,10 +93,10 @@ RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compos
 
 ## 致谢
 
-- **Web 与服务** — [FastAPI](https://fastapi.tiangolo.com/)（路由、Pydantic 校验与 OpenAPI 文档）· [Uvicorn](https://www.uvicorn.org/)（ASGI 服务）· [Gunicorn](https://gunicorn.org/)（多进程管理）
-- **推理引擎** — [ONNX Runtime](https://onnxruntime.ai/)（前向推理）· [OpenCV](https://opencv.org/)（图像前后处理与绘图）· [NumPy](https://numpy.org/)（decode 与 NMS 向量化计算）
-- **异步任务** — [Celery](https://docs.celeryq.dev/)（任务定义与投递）· [RabbitMQ](https://www.rabbitmq.com/)（消息中转）· [Redis](https://redis.io/)（结果暂存，TTL 自动回收）
-- **演示模型** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/)（导出为 ONNX）
+- **Web 与服务** — [FastAPI](https://fastapi.tiangolo.com/) · [Uvicorn](https://www.uvicorn.org/) · [Gunicorn](https://gunicorn.org/)
+- **推理引擎** — [ONNX Runtime](https://onnxruntime.ai/) · [OpenCV](https://opencv.org/) · [NumPy](https://numpy.org/)
+- **异步任务** — [Celery](https://docs.celeryq.dev/) · [RabbitMQ](https://www.rabbitmq.com/) · [Redis](https://redis.io/)
+- **演示模型** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/)
 
 ## 开源协议
 

@@ -69,6 +69,7 @@ def test_submit_returns_task_id(client, fake_delay):
     assert fake_delay[0][0] == ("http://cb.local/result",)
     assert "image_b64" in fake_delay[0][1]
     assert len(fake_delay[0][1]["request_id"]) == 12
+    assert isinstance(fake_delay[0][1]["submitted_at"], float)  # queue-wait transport metadata
 
 
 def test_submit_requires_callback_url(client):

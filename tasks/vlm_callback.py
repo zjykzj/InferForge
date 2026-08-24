@@ -17,11 +17,14 @@ logger = logging.getLogger("tasks.vlm_callback")
 
 
 @shared_task(name="tasks.vlm_callback", bind=True)
-def vlm_callback_task(self, callback_url, image_b64=None, image_url=None, request_id="-"):
+def vlm_callback_task(self, callback_url, image_b64=None, image_url=None, request_id="-",
+                      submitted_at=None):
     """Run the remote VLM call and POST the result (success or failure) to callback_url.
 
     request_id travels with the task so worker logs can be correlated with
     the submitting request (injected into log lines by utils.logger).
+    submitted_at is transport metadata for the queue-wait metric
+    (celery_app task_prerun) — never read by the task body.
     """
     logger.info("vlm callback task started: callback=%s has_image=%s has_url=%s",
                 callback_url, bool(image_b64), bool(image_url))

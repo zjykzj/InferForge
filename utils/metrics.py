@@ -75,6 +75,24 @@ celery_task_duration_seconds = Histogram(
     "Celery task run duration in seconds, by task name.",
     ("task",),
 )
+# Explicit buckets below: prometheus defaults cap at 10s, but remote calls
+# run up to LLM_TIMEOUT=60s x 3 SDK retries (~180s) and queue wait is bounded
+# by celery's task_time_limit=300s.
+vlm_remote_call_seconds = Histogram(
+    "inferforge_vlm_remote_call_seconds",
+    "Remote LLM (OpenAI-compatible) call duration in seconds, incl. SDK retries.",
+    buckets=(0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 20.0, 30.0, 60.0, 120.0, 180.0),
+)
+vlm_remote_errors_total = Counter(
+    "inferforge_vlm_remote_errors_total",
+    "Remote LLM calls that failed with an OpenAIError after SDK retries.",
+)
+celery_queue_wait_seconds = Histogram(
+    "inferforge_celery_queue_wait_seconds",
+    "Time a task waited in the broker queue before the worker picked it up, by task name.",
+    ("task",),
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0),
+)
 
 CONTENT_TYPE = CONTENT_TYPE_LATEST  # re-export: the /metrics endpoint's media_type
 
@@ -118,6 +136,37 @@ def record_celery_task(name: str, state: str, seconds=None) -> None:
     celery_tasks_total.labels(name, state).inc()
     if seconds is not None:
         celery_task_duration_seconds.labels(name).observe(seconds)
+
+
+def observe_vlm_remote_call(seconds: float) -> None:
+    """Record one remote LLM call duration (called by tasks.vlm)."""
+    vlm_remote_call_seconds.observe(seconds)
+
+
+def count_vlm_remote_error() -> None:
+    """Count one failed remote LLM call (called by tasks.vlm on OpenAIError)."""
+    vlm_remote_errors_total.inc()
+
+
+def observe_queue_wait(task: str, seconds: float) -> None:
+    """Record broker queue wait for one celery task (called by celery_app task_prerun)."""
+    celery_queue_wait_seconds.labels(task).observe(seconds)
+
+
+def record_queue_wait(task_name: str, task_kwargs: dict | None) -> None:
+    """Extract submitted_at from task kwargs and observe the broker queue wait.
+
+    submitted_at is a wall-clock timestamp stamped by the api layer at
+    submission (crosses the web->worker process boundary via the task
+    message). Same-host (or NTP-synced) clock assumption; negative deltas
+    from clock skew are clamped to 0. Lives here (not in celery_app) so the
+    computation is testable without importing celery_app — importing it in
+    tests would split celery's thread-local current_app across TestClient
+    threads and break task monkeypatching.
+    """
+    submitted_at = (task_kwargs or {}).get("submitted_at")
+    if submitted_at is not None:
+        observe_queue_wait(task_name, max(0.0, time.time() - submitted_at))
 
 
 class MetricsMiddleware:

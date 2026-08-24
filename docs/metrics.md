@@ -1,6 +1,6 @@
 # 指标规范（Metrics）
 
-> InferForge 的 Prometheus 指标：有哪些、怎么抓取、什么时候需要监控栈。指标与日志的分工：日志回答"发生了什么"（单请求现场），指标回答"量是多少"（趋势与告警）。最后更新：2026-08-22
+> InferForge 的 Prometheus 指标：有哪些、怎么抓取、什么时候需要监控栈。指标与日志的分工：日志回答"发生了什么"（单请求现场），指标回答"量是多少"（趋势与告警）。最后更新：2026-08-24
 
 ## 1. 指标清单
 
@@ -8,13 +8,16 @@
 |------|------|------|------|
 | `inferforge_http_requests_total` | Counter | method, route | 各接口请求量（route 是路径模板，如 `/predict/query/{task_id}`） |
 | `inferforge_http_request_duration_seconds` | Histogram | method, route | 端到端请求延迟 |
-| `inferforge_responses_total` | Counter | code | envelope 业务码分布（0–6） |
+| `inferforge_responses_total` | Counter | code | envelope 业务码分布（0–9） |
 | `inferforge_predict_phase_seconds` | Histogram | phase | 推理三段耗时（pre / infer / post） |
 | `inferforge_predictor_loaded` | Gauge | —（multiprocess 模式下自动带 `pid` 标签） | 本进程 predictor 是否已加载（0/1，与 `/health/ready` 对应） |
 | `inferforge_celery_tasks_total` | Counter | task, state | worker 任务执行数与状态（success / failure） |
 | `inferforge_celery_task_duration_seconds` | Histogram | task | worker 任务耗时 |
+| `inferforge_vlm_remote_call_seconds` | Histogram | — | 远程 LLM 调用耗时（含 SDK 重试；无标签防基数爆炸，显式桶到 180s） |
+| `inferforge_vlm_remote_errors_total` | Counter | — | 远程 LLM 调用失败数（SDK 重试后仍 OpenAIError） |
+| `inferforge_celery_queue_wait_seconds` | Histogram | task | 任务在 broker 队列中的等待时长（显式桶到 300s） |
 
-埋点位置：请求计数在 `MetricsMiddleware`（`utils/metrics.py`）、业务码计数在 `utils/response.py`（envelope 的唯一出口）、推理耗时在 `engines/yolo.py`、worker 计数在 `celery_app.py` 的 celery signals。
+埋点位置：请求计数在 `MetricsMiddleware`（`utils/metrics.py`）、业务码计数在 `utils/response.py`（envelope 的唯一出口）、推理耗时在 `engines/yolo.py`、worker 计数在 `celery_app.py` 的 celery signals、远程调用延迟/错误在 `tasks/vlm.py`、队列等待在 `utils/metrics.py` 的 `record_queue_wait`（`celery_app.py` 的 `task_prerun` 调用——4 个 apis 提交任务时携带 `submitted_at` 墙钟时间戳，同机/NTP 假设，负值钳为 0）。
 
 ## 2. 暴露端点：GET /metrics
 

@@ -6,6 +6,7 @@ provided callback_url. Registered only when INFERFORGE_ASYNC=1 and
 INFERFORGE_LLM=1 (see app.py).
 """
 import logging
+import time
 
 from fastapi import APIRouter, Request
 
@@ -34,6 +35,7 @@ def predict_vlm_callback(request: Request, payload: CallbackRequest):
             image_b64=image_b64,
             image_url=image_url,
             request_id=request_id.get_request_id(),
+            submitted_at=time.time(),  # wall clock: queue-wait metric (celery_app task_prerun)
         )
     except Exception:  # broker unreachable, serialization failure, ...
         logger.exception("failed to submit vlm callback task")

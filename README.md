@@ -114,7 +114,7 @@ Optional monitoring stack (Prometheus + Grafana): `docker compose -f docker-comp
 
 ## Documentation
 
-- **Engineering** — concepts · quick-start · architecture · add-engine · api · deployment
+- **Engineering** — concepts · quick-start · architecture · add-engine · api · deployment · benchmark
 - **Tech stack** — stack · fastapi-migration
 - **Standards** — status-codes · logging · metrics · testing · security · forking-contract
 

@@ -68,6 +68,12 @@ def _task_elapsed(task) -> float | None:
 @task_prerun.connect
 def _on_task_prerun(task_id, task, **kwargs):
     task.request.metrics_started = time.perf_counter()
+    # Queue wait = now - the api layer's submission timestamp (wall clock,
+    # crosses the web->worker process boundary via the task message).
+    # task_received is NOT used: it fires when the worker FETCHES the task
+    # (after the broker queue time), so it cannot measure queue wait.
+    # task.request is a celery Context, not a dict — .kwargs.get, not .get.
+    metrics.record_queue_wait(task.name, getattr(task.request, "kwargs", None))
 
 
 @task_postrun.connect

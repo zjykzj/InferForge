@@ -17,11 +17,13 @@ logger = logging.getLogger("tasks.detection_query")
 
 
 @shared_task(name="tasks.detection_query", bind=True)
-def detect_query_task(self, image_b64=None, image_url=None, request_id="-"):
+def detect_query_task(self, image_b64=None, image_url=None, request_id="-", submitted_at=None):
     """Run detection and store the result envelope in Redis under the task id.
 
     request_id travels with the task so worker logs can be correlated with
     the submitting request (injected into log lines by utils.logger).
+    submitted_at is transport metadata for the queue-wait metric
+    (celery_app task_prerun) — never read by the task body.
     """
     logger.info("query task started: has_image=%s has_url=%s",
                 bool(image_b64), bool(image_url))

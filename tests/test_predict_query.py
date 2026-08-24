@@ -105,6 +105,7 @@ def test_submit_returns_task_id(client, fake_delay, fake_redis):
     # delay called with the image kwarg + request_id
     assert "image_b64" in fake_delay[0][1]
     assert len(fake_delay[0][1]["request_id"]) == 12
+    assert isinstance(fake_delay[0][1]["submitted_at"], float)  # queue-wait transport metadata
     # pending marker written after submission
     assert fake_redis["values"]["fake-task-id"] == redis_store.PENDING_VALUE
 

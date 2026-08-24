@@ -12,13 +12,17 @@ stays 1 — that knob is about one task at a time per child process).
 
 Failure semantics: LLMUpstreamError -> code 9 (business error, never retried
 by the callback), LLMConfigError -> code 3, image errors reuse code 1/2 via
-utils.image.
+utils.image. Remote-call latency/errors are recorded in
+inferforge_vlm_remote_call_seconds / inferforge_vlm_remote_errors_total
+(utils.metrics); token usage is logged per call.
 """
 import logging
 import os
+import time
 from typing import Optional, Tuple
 
 from utils import image as image_utils
+from utils import metrics
 
 logger = logging.getLogger("tasks.vlm")
 
@@ -94,6 +98,7 @@ def _call_remote_llm(image_data_url: str, prompt: str) -> Tuple[str, str]:
         raise LLMConfigError(
             "openai SDK is not installed in the worker — install requirements-async.txt"
         ) from None
+    started = time.perf_counter()
     try:
         resp = _get_client().chat.completions.create(
             model=model,
@@ -101,8 +106,18 @@ def _call_remote_llm(image_data_url: str, prompt: str) -> Tuple[str, str]:
             max_tokens=LLM_MAX_TOKENS,
         )
     except OpenAIError as exc:
-        logger.warning("upstream llm call failed: %s", exc)
+        metrics.count_vlm_remote_error()
+        logger.warning("upstream llm call failed after %.1fs: %s",
+                       time.perf_counter() - started, exc)
         raise LLMUpstreamError(str(exc)) from exc
+    metrics.observe_vlm_remote_call(time.perf_counter() - started)
+    usage = getattr(resp, "usage", None)  # test fakes have no usage attribute
+    if usage is not None:
+        logger.info("llm usage: model=%s prompt_tokens=%s completion_tokens=%s total_tokens=%s",
+                    model,
+                    getattr(usage, "prompt_tokens", None),
+                    getattr(usage, "completion_tokens", None),
+                    getattr(usage, "total_tokens", None))
     content = resp.choices[0].message.content
     if not isinstance(content, str) or not content:
         raise LLMUpstreamError("empty response content from upstream")

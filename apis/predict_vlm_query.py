@@ -8,6 +8,7 @@ INFERFORGE_LLM=1 (see app.py).
 """
 import json
 import logging
+import time
 
 from fastapi import APIRouter, Request
 
@@ -34,6 +35,7 @@ def submit_vlm_query(request: Request, payload: QueryRequest):
             image_b64=image_b64,
             image_url=image_url,
             request_id=request_id.get_request_id(),
+            submitted_at=time.time(),  # wall clock: queue-wait metric (celery_app task_prerun)
         )
         redis_store.set_pending(task.id)  # NX: never clobbers an already-written result
     except Exception:  # broker unreachable, redis down, serialization failure, ...

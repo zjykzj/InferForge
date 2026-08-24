@@ -4,6 +4,7 @@ Submit a detection task; when it finishes the server POSTs the result
 (success or failure envelope) to the provided callback_url.
 """
 import logging
+import time
 
 from fastapi import APIRouter, Request
 
@@ -32,6 +33,7 @@ def predict_callback(request: Request, payload: CallbackRequest):
             image_b64=image_b64,
             image_url=image_url,
             request_id=request_id.get_request_id(),
+            submitted_at=time.time(),  # wall clock: queue-wait metric (celery_app task_prerun)
         )
     except Exception:  # broker unreachable, serialization failure, ...
         logger.exception("failed to submit callback task")

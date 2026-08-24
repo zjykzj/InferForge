@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
 - VLM: INFERFORGE_LLM=1 switch (requires INFERFORGE_ASYNC=1, warns and skips otherwise); worker env INFERFORGE_LLM_MODEL / INFERFORGE_LLM_API_KEY (required) + INFERFORGE_LLM_BASE_URL (optional); vlm workers are I/O-bound (`-c N`, prefetch_multiplier stays 1)
 - VLM: test scripts (scripts/test_vlm_callback.py, scripts/test_vlm_query.py) and smoke tests (tests/test_vlm.py, test_predict_vlm_callback.py, test_predict_vlm_query.py); compose gains commented INFERFORGE_LLM_* env examples; docs updated (api.md §8, architecture.md, deployment.md, status-codes.md)
 - Config: .env support — app.py and celery_app.py load the project-root .env at import time (python-dotenv, override=False so shell/compose env wins); .env.example template shipped (.env already gitignored)
+- Metrics: VLM remote-call latency histogram + remote-error counter + per-task broker queue-wait histogram (submitted_at wall-clock transport kwarg from the 4 submit apis, observed in celery_app task_prerun via utils.metrics.record_queue_wait; same-host assumption, negatives clamped); VLM token usage logged per call; docs/metrics.md synced
+- Tooling: scripts/benchmark.py (detect / vlm-direct / vlm-http fixed-concurrency load generator, P50/P95/P99, RPS, outcome distribution, JSON output) + scripts/mock_llm.py (stdlib OpenAI-compatible /v1/chat/completions fake)
+- Docs: benchmark.md — detection + VLM baselines (queue-wait pending a broker environment); indexed in docs/README.md and READMEs
 
 ### Changed
 

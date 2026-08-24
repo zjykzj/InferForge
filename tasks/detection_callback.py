@@ -39,11 +39,14 @@ def post_callback(callback_url, payload):
 
 
 @shared_task(name="tasks.detection_callback", bind=True)
-def detect_callback_task(self, callback_url, image_b64=None, image_url=None, request_id="-"):
+def detect_callback_task(self, callback_url, image_b64=None, image_url=None, request_id="-",
+                         submitted_at=None):
     """Run detection and POST the result (success or failure) to callback_url.
 
     request_id travels with the task so worker logs can be correlated with
     the submitting request (injected into log lines by utils.logger).
+    submitted_at is transport metadata for the queue-wait metric
+    (celery_app task_prerun) — never read by the task body.
     """
     logger.info("callback task started: callback=%s has_image=%s has_url=%s",
                 callback_url, bool(image_b64), bool(image_url))

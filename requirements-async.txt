@@ -1,6 +1,13 @@
 celery>=5.3,<6.0
 redis>=4.0,<6.0
 # VLM tasks (worker-only): imported lazily inside tasks/vlm.py so the web
-# process never needs it. <3.0 excludes 3.0.0 (2026-08-12), which dropped
-# httpx/certifi and breaks TLS in containers.
-openai>=1.40,<3.0
+# process never needs it. openai 3.x is required by pydantic-ai 2.x (the
+# vlm API surface used here is verified against 3.3.x by the test suite).
+openai>=3.0,<4.0
+# Agent tasks (worker-only): imported lazily inside tasks/agent.py. Use the
+# slim package with only the openai + retries extras — the full pydantic-ai
+# pulls unrelated provider SDKs (anthropic/google/mcp) and logfire. V2
+# naming differs from V1 (output_type / instructions / BinaryContent /
+# OpenAIChatModel) and V2 has NO built-in HTTP retries — the retries extra
+# (tenacity + httpx2 transport) supplies them, configured in _build_agent().
+pydantic-ai-slim[openai,retries]>=2.33,<3.0

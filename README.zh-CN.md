@@ -98,6 +98,18 @@ python3 scripts/test_vlm_query.py --image assets/bus.jpg                        
 
 配置也可以写进 `.env` 文件（`cp .env.example .env` 后填写——shell 已导出的环境变量优先）。
 
+Agent（Pydantic AI 编排示例——检测工具 + LLM 属性判断，仅异步形态）—— 在异步基础上再加 `INFERFORGE_AGENT=1`，worker 侧复用 `INFERFORGE_LLM_*` 配置并需要本地模型：
+
+```bash
+INFERFORGE_AGENT=1 INFERFORGE_ASYNC=1 ./start.sh                                  # 启动 web（注册 /predict/agent/*）
+INFERFORGE_LLM_MODEL=your-model \
+INFERFORGE_LLM_API_KEY=your-key \
+./start_celery.sh                                                               # 启动 worker（Agent 在这里运行）
+python3 scripts/test_predict_query.py --image assets/zidane.jpg                 # 提交 + 轮询发型统计结果
+```
+
+示例统计图中人物有头发/无头发的人数（zidane.jpg → 2 人 1:1）；换属性字段 + 指令 + 工具即可换成任意属性任务。详见 [agent](docs/agent.md)。
+
 ### Docker
 
 容器化一键起全栈 —— web + worker + RabbitMQ + Redis，本机零安装：

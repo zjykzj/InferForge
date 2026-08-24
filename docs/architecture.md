@@ -32,7 +32,7 @@
 | Pydantic | 请求体结构校验（schemas.py） |
 | requests | URL 下载图片、下载异常类型判断 |
 
-**文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/predict.py`（同步）、`apis/health.py`（健康探针）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；由 `INFERFORGE_ASYNC=1` 开关启用）、`apis/predict_vlm_callback.py`、`apis/predict_vlm_query.py`（VLM 异步，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` 同时启用）
+**文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/predict.py`（同步）、`apis/health.py`（健康探针）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；由 `INFERFORGE_ASYNC=1` 开关启用）、`apis/predict_vlm_callback.py`、`apis/predict_vlm_query.py`（VLM 异步，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` 同时启用）、`apis/predict_agent_callback.py`、`apis/predict_agent_query.py`（Agent 异步，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_AGENT=1` 同时启用）
 
 **健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问 predictor 是否已加载（`tasks/detection.predictor_loaded()`，接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §4）。
 
@@ -51,7 +51,7 @@
 | threading | 预测器懒加载的 double-checked locking |
 | celery | 异步任务：经 RabbitMQ 投递、worker 执行 |
 
-**文件**：`tasks/detection.py`（同步编排）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）、`tasks/vlm.py`（VLM 编排：图片校验 → JPEG data URL → 远程 LLM chat completions；openai 惰性导入 + 懒加载 client 单例；LLMUpstreamError → code 9 语义）、`tasks/vlm_callback.py`（复用 detection_callback 共享的 post_callback）、`tasks/vlm_query.py`
+**文件**：`tasks/detection.py`（同步编排）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）、`tasks/vlm.py`（VLM 编排：图片校验 → JPEG data URL → 远程 LLM chat completions；openai 惰性导入 + 懒加载 client 单例；LLMUpstreamError → code 9 语义）、`tasks/vlm_callback.py`（复用 detection_callback 共享的 post_callback）、`tasks/vlm_query.py`、`tasks/agent.py`（Agent 编排：Pydantic AI Agent + 检测引擎工具——detect_persons 定位个体、LLM 逐人判断属性；惰性导入 + 每次任务新建 client）、`tasks/agent_callback.py`、`tasks/agent_query.py`
 
 ### 2.3 引擎层（`engines/`）
 
@@ -115,11 +115,13 @@ app -> apis -> tasks -> engines
 | 纯同步 | 无 | 无 | 无 | `/predict` |
 | 同步 + 异步（全量） | `requirements-async.txt` | RabbitMQ + Redis | `INFERFORGE_ASYNC=1` | `/predict` + `/predict/callback` + `/predict/query` |
 | 同步 + 异步 + VLM | `requirements-async.txt`（含 openai） | RabbitMQ + Redis + 远程 LLM 端点 | `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` | 前述接口 + `/predict/vlm/callback` + `/predict/vlm/query` |
+| 同步 + 异步 + Agent | `requirements-async.txt`（含 pydantic-ai） | RabbitMQ + Redis + 远程 LLM 端点 + 本地模型 | `INFERFORGE_ASYNC=1` + `INFERFORGE_AGENT=1` | 前述接口 + `/predict/agent/callback` + `/predict/agent/query` |
 
 实现机制：
 
 - `app.py` 按 `INFERFORGE_ASYNC=1` 一次性注册全部异步 router——异步是一种整体部署形态（celery + RabbitMQ + Redis），callback 与 query 是按请求的选择而非部署选择；`INFERFORGE_QUERY=1` 作为废弃别名保留（打印 deprecated 告警）。开了开关但缺依赖时打印告警并整体跳过异步模式，同步接口照常
 - VLM 是异步形态上的可选能力：`INFERFORGE_LLM=1` 需与 `INFERFORGE_ASYNC=1` 同时开启才注册 vlm router；仅 LLM=1 时打印告警并跳过。VLM 没有同步版本——远程调用秒级到几十秒，同步长连接易超时且客户端重试会重复计费
+- Agent 同理：`INFERFORGE_AGENT=1` 需与 `INFERFORGE_ASYNC=1` 同时开启；Agent 任务额外依赖本地检测模型（工具用）
 - 任务模块用 `shared_task` 注册，避免与 celery_app 循环导入
 - `celery_app.py` 显式导入任务模块（不用惰性 autodiscover），并保证项目根目录在 sys.path 中（celery CLI 会临时移除 cwd）
 
@@ -192,6 +194,28 @@ app -> apis -> tasks -> engines
 - code=9 与 exactly-once：上游 LLM 失败与 1/2/3 同为业务错误——回调恰好触发一次，业务逻辑绝不重跑；只有回调 POST 传输重试
 - 远程调用的基础设施重试在 SDK 层（`max_retries=2`），worker 内不手写重试循环——与"检测业务错误不重试"的边界一致
 
+### 异步 Agent 流程（POST /predict/agent/callback + /predict/agent/query）
+
+与 VLM 链路同构，差异在 worker 内的编排（见 [agent.md](agent.md)）：
+
+```
+ 1. apis/predict_agent_*.py  校验参数 → delay() 提交任务（callback / query 与检测完全一致）
+ 2. RabbitMQ                  任务排队
+ 3. Celery worker             消费任务 → run_hair_count（tasks/agent.py）
+ 4. worker                    图片解码校验（code 1/2 阶梯，付费前）→ JPEG bytes
+ 5. worker                    _build_agent()：OpenAIChatModel + 传输重试 transport（429/5xx/连接 ×3）
+ 6. worker                    agent.run_sync([指令, BinaryContent(jpeg)], deps=解码图)
+ 7. LLM → 工具 detect_persons  本地检测引擎定位每个 person（过滤类别 → index + bbox）
+ 8. LLM                       依据全图 + bbox 逐人判断 has_hair → HairCountResult（Pydantic 校验）
+ 9. worker                    成功 → code=0 envelope（data = 结构化结果 dict）
+                              AgentRunError → code=9；ToolFailed → code=3
+10. 交付与检测一致              callback：POST 到 callback_url（code 9 属业务错误不重试，仅 POST 网络重试）
+                              query：envelope 写入 Redis，客户端轮询原样返回
+```
+
+- pydantic-ai 每次任务新建 agent/client（`run_sync` 自建事件循环，client 不可跨任务复用）；缺 SDK 时返回点名变量的 code 3（与 openai 规则一致）
+- 传输重试在 Pydantic AI transport 层配置（V2 无内置 HTTP 重试），语义对齐 VLM 的 SDK `max_retries=2`
+
 ## 5. 技术栈总览
 
 | 库 | 所属层 | 用途 |
@@ -202,6 +226,7 @@ app -> apis -> tasks -> engines
 | threading | 任务层 | 预测器懒加载 double-checked locking |
 | celery | 任务层 | 异步任务投递与执行 |
 | openai | 任务层（VLM） | 远程 LLM 调用（OpenAI-compatible chat completions；函数体内惰性导入） |
+| pydantic-ai | 任务层（Agent） | LLM Agent 编排（OpenAIChatModel + 工具 + 结构化输出；函数体内惰性导入） |
 | onnxruntime | 引擎层 | ONNX 模型推理（延迟导入） |
 | OpenCV | 引擎层 / 横切层 | 图像处理：缩放、绘图、编解码 |
 | NumPy | 引擎层 / 横切层 | 向量化计算、数组处理 |

@@ -100,7 +100,7 @@ def test_config_error_names_missing_model(monkeypatch):
     monkeypatch.setenv("INFERFORGE_LLM_API_KEY", "k")
     monkeypatch.setattr(vlm, "_client", None)
     with pytest.raises(vlm.LLMConfigError) as exc:
-        vlm._get_config()
+        vlm.get_llm_config()
     assert "INFERFORGE_LLM_MODEL" in str(exc.value)
 
 
@@ -109,7 +109,7 @@ def test_config_error_names_missing_api_key(monkeypatch):
     monkeypatch.delenv("INFERFORGE_LLM_API_KEY", raising=False)
     monkeypatch.setattr(vlm, "_client", None)
     with pytest.raises(vlm.LLMConfigError) as exc:
-        vlm._get_config()
+        vlm.get_llm_config()
     assert "INFERFORGE_LLM_API_KEY" in str(exc.value)
 
 
@@ -117,7 +117,7 @@ def test_config_reads_all_vars(monkeypatch):
     monkeypatch.setenv("INFERFORGE_LLM_MODEL", "m")
     monkeypatch.setenv("INFERFORGE_LLM_API_KEY", "k")
     monkeypatch.setenv("INFERFORGE_LLM_BASE_URL", "https://x/v1")
-    assert vlm._get_config() == ("m", "k", "https://x/v1")
+    assert vlm.get_llm_config() == ("m", "k", "https://x/v1")
 
 
 @pytest.mark.skipif(

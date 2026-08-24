@@ -48,7 +48,7 @@ class LLMConfigError(RuntimeError):
 _client = None
 
 
-def _get_config() -> Tuple[str, str, Optional[str]]:
+def get_llm_config() -> Tuple[str, str, Optional[str]]:
     """Read (model, api_key, base_url) from the env; raise LLMConfigError if a required var is missing.
 
     Read lazily (not at import time) so tests can monkeypatch.setenv and reset
@@ -68,7 +68,7 @@ def _get_client():
     """Lazily create the openai client singleton (worker-only dep, imported in-function)."""
     global _client
     if _client is None:
-        model, api_key, base_url = _get_config()  # validate before importing openai
+        model, api_key, base_url = get_llm_config()  # validate before importing openai
         from openai import OpenAI
 
         _client = OpenAI(
@@ -91,7 +91,7 @@ def _build_messages(image_data_url: str, prompt: str) -> list:
 
 def _call_remote_llm(image_data_url: str, prompt: str) -> Tuple[str, str]:
     """One remote chat completion; SDK errors become LLMUpstreamError. Returns (answer, model)."""
-    model, _, _ = _get_config()  # validate config BEFORE importing openai (clear code 3 first)
+    model, _, _ = get_llm_config()  # validate config BEFORE importing openai (clear code 3 first)
     try:
         from openai import OpenAIError
     except ImportError:

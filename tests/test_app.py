@@ -23,6 +23,7 @@ def no_async_switch(monkeypatch):
     monkeypatch.delenv("INFERFORGE_ASYNC", raising=False)
     monkeypatch.delenv("INFERFORGE_QUERY", raising=False)
     monkeypatch.delenv("INFERFORGE_LLM", raising=False)
+    monkeypatch.delenv("INFERFORGE_AGENT", raising=False)
     # create_app() reads these at construction; a dev .env (loaded by app.py)
     # could otherwise leak into test apps built via create_app()
     monkeypatch.delenv("INFERFORGE_API_KEY", raising=False)
@@ -94,6 +95,35 @@ def test_async_alone_leaves_vlm_out(no_async_switch, monkeypatch):
     assert "/predict/callback" in routes
     assert "/predict/vlm/callback" not in routes
     assert "/predict/vlm/query" not in routes
+
+
+# --- agent switch (INFERFORGE_AGENT=1, needs INFERFORGE_ASYNC=1 too) ---
+
+
+def test_agent_disabled_without_async(no_async_switch, monkeypatch):
+    monkeypatch.setenv("INFERFORGE_AGENT", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/agent/callback" not in routes
+    assert "/predict/agent/query" not in routes
+
+
+def test_agent_enabled_registers_both_apis(no_async_switch, monkeypatch):
+    pytest.importorskip("redis")  # full async mode needs redis installed
+    monkeypatch.setenv("INFERFORGE_ASYNC", "1")
+    monkeypatch.setenv("INFERFORGE_AGENT", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/callback" in routes
+    assert "/predict/agent/callback" in routes
+    assert "/predict/agent/query" in routes
+
+
+def test_async_alone_leaves_agent_out(no_async_switch, monkeypatch):
+    pytest.importorskip("redis")
+    monkeypatch.setenv("INFERFORGE_ASYNC", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/callback" in routes
+    assert "/predict/agent/callback" not in routes
+    assert "/predict/agent/query" not in routes
 
 
 # --- request-body ceiling ---

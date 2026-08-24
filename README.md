@@ -139,7 +139,7 @@ Full index with one-line descriptions: [docs/README.md](docs/README.md).
 - **Web & serving** — [FastAPI](https://fastapi.tiangolo.com/) · [Uvicorn](https://www.uvicorn.org/) · [Gunicorn](https://gunicorn.org/)
 - **Inference** — [ONNX Runtime](https://onnxruntime.ai/) · [OpenCV](https://opencv.org/) · [NumPy](https://numpy.org/)
 - **Async tasks** — [Celery](https://docs.celeryq.dev/) · [RabbitMQ](https://www.rabbitmq.com/) · [Redis](https://redis.io/)
-- **LLM clients** — [OpenAI SDK](https://github.com/openai/openai-python)
+- **LLM & agents** — [OpenAI SDK](https://github.com/openai/openai-python) · [Pydantic AI](https://ai.pydantic.dev/)
 - **Demo model** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/)
 
 ## License

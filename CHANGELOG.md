@@ -18,6 +18,8 @@ All notable changes to this project will be documented in this file.
 - Tooling: scripts/benchmark.py (detect / vlm-direct / vlm-http fixed-concurrency load generator, P50/P95/P99, RPS, outcome distribution, JSON output) + scripts/mock_llm.py (stdlib OpenAI-compatible /v1/chat/completions fake)
 - Tooling: scripts/run_detection.py / run_vlm.py / run_agent.py — direct task-layer inference examples (call tasks.* orchestration without the web service, demonstrating the layer's web-independence)
 - Docs: benchmark.md — detection + VLM baselines (queue-wait pending a broker environment); indexed in docs/README.md and READMEs
+- Docs: stack.md §4 — OpenAI SDK + Pydantic AI (LLM & agents): selection rationale (OpenAI-compatible endpoints, slim package, worker-only), config points (timeouts / SDK + transport retries / client lifetime) and key decisions (lazy import + code 3, code 9 never retried, query-only, I/O-bound `-c N` scaling, shared vlm remote-call metrics); the env-var overview (renumbered to §5) gains INFERFORGE_LLM / INFERFORGE_AGENT and the five INFERFORGE_LLM_* / INFERFORGE_AGENT_INSTRUCTIONS rows
+- Docs: READMEs Acknowledgments list Pydantic AI (was OpenAI SDK only; the entry is now "LLM & agents")
 
 ### Changed
 

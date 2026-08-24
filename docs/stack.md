@@ -1,6 +1,6 @@
 # 技术栈说明（Stack）
 
-> 本项目所用第三方技术：选型理由、配置点与关键决策。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-22
+> 本项目所用第三方技术：选型理由、配置点与关键决策。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-24
 
 ## 1. FastAPI + Uvicorn + Gunicorn（Web 服务）
 
@@ -111,7 +111,39 @@ client ◀──GET result── Redis
 - **NX 防竞态**：worker 若抢先写完结果，web 侧的 pending 写入不得覆盖（`SET NX` 保证先写者胜）
 - **故障语义**：提交/轮询时 Redis 不可用 → code=3；worker 写结果失败 → 任务报错不重试（日志可见，静默吞异常等于丢结果）
 
-## 4. 配置项总览（环境变量）
+## 4. OpenAI SDK + Pydantic AI（LLM 与 Agent）
+
+### 4.1 选型理由
+
+- **OpenAI SDK 当 LLM 客户端**：chat completions 已是事实标准协议，主流服务商与自托管推理框架（vLLM/Ollama/…）都提供 OpenAI 兼容端点——换供应商只改 `INFERFORGE_LLM_BASE_URL` 与模型名，任务代码零改动；超时、基础设施级重试、用量字段由 SDK 提供
+- **Pydantic AI 当 Agent 编排框架**：结构化输出（`output_type` + Pydantic 校验，校验失败自动让模型修正）、工具调用（`@agent.tool`）、依赖注入（`deps`/`RunContext`）开箱即用，与项目已有的 Pydantic 校验体系同源；手写 openai SDK 做同样的事要自行实现 JSON prompt 解析容错与 function-calling 协议（成本对比见 [agent.md](agent.md) §1.3）
+- **装 slim 包而非完整 pydantic-ai**：`pydantic-ai-slim[openai,retries]` 只带 openai provider 与重试传输层；完整包会拉入 anthropic/google/mcp 等用不到的 provider SDK 与 logfire
+- **两者都是 worker-only**：远程调用只发生在 celery worker，web 进程不需要这两个依赖——只进 `requirements-async.txt`，且在函数体内惰性导入（见 §4.3）
+
+### 4.2 配置点（`tasks/vlm.py` / `tasks/agent.py`）
+
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| `LLM_TIMEOUT` / `AGENT_TIMEOUT` | 60s | 单次远程请求超时（在 celery 软超时 240s 之下） |
+| `LLM_MAX_RETRIES` | `2` | openai SDK 级重试（连接失败 / 429 / 5xx） |
+| Agent 传输层重试 | 3 次尝试 | `AsyncHTTPX2TenacityTransport`：429/502/503/504 与连接错误，尊重 Retry-After（V2 无内置 HTTP 重试，见 §4.3） |
+| `LLM_MAX_TOKENS` / `AGENT_MAX_TOKENS` | `1024` | 单次返回 token 上限 |
+| `INFERFORGE_LLM_PROMPT` / `INFERFORGE_AGENT_INSTRUCTIONS` | 见代码默认值 | 服务端固定提示词/指令，客户端只传图片 |
+| client 生命周期 | VLM 进程内单例 / Agent 每任务新建 | `run_sync` 每次自建事件循环，httpx2 client 不可跨任务复用 |
+
+模型与鉴权环境变量（`INFERFORGE_LLM_MODEL` / `INFERFORGE_LLM_API_KEY` / `INFERFORGE_LLM_BASE_URL`，VLM 与 Agent 共用）见 §5。
+
+### 4.3 关键决策
+
+- **惰性导入 + 缺失即 code 3**：两个 SDK 都在函数体内导入（与 onnxruntime 同规则），web 进程与测试在未安装时照常导入整条任务链；未安装时返回点名 SDK 的 code 3，配置缺失同样是 code 3（VLM 在 import openai 之前先调 `get_llm_config()`，保证给出的是"缺哪个变量"而不是一个 ImportError）
+- **上游失败是业务错误，不重试**：SDK/传输层重试用尽后统一抛 `LLMUpstreamError` → code 9，任务层不再重试，轮询直接拿到失败 envelope。空返回内容视为质量异常而非远程故障——只观测延迟，不计入错误计数器；Agent 侧本地工具失败（`ToolFailed`）走 code 3，与远程失败语义分开
+- **VLM/Agent 只做 query 形态**：不提供同步与回调变体——回调交付以检测任务为参照实现，而 LLM 类任务的调用方是主动业务系统，轮询是主路（见 [api.md](api.md) §8、§9）
+- **I/O 密集靠并发扩容**：远程调用等待期不吃 CPU，用 `./start_celery.sh -c N` 提高并发；`worker_prefetch_multiplier=1` 保持不变（那是"每个子进程一次只处理一个任务"，与并发数无关）——与检测任务的 CPU 密集扩容方式相反
+- **Agent 复用 VLM 的远程调用指标**：`inferforge_vlm_remote_call_seconds` / `inferforge_vlm_remote_errors_total` 同时覆盖两类调用，不新增指标名——语义都是"一次远程 LLM 调用"（见 [metrics.md](metrics.md)）
+- **Agent 归 tasks 层**：Agent 是编排（工具 = 本地引擎 + 远程模型）而非推理内核，引擎层契约不变；换成别的属性任务只动 `tasks/agent.py` 的 schema/指令/工具三处（见 [agent.md](agent.md) §3）
+- **V2 命名与 V1 教程不同**：`output_type` / `instructions` / `BinaryContent` / `OpenAIChatModel`——照抄网上 V1 示例会直接报错，版本陷阱清单见 [agent.md](agent.md) §2
+
+## 5. 配置项总览（环境变量）
 
 | 配置 | 默认值 | 说明 | 所在文件 |
 |------|--------|------|---------|
@@ -119,9 +151,16 @@ client ◀──GET result── Redis
 | `INFERFORGE_WORKERS` | `2` | web worker 进程数 | `gunicorn.conf.py` |
 | `INFERFORGE_ASYNC` | 未设置（禁用） | 异步接口总开关（回调 + 轮询一起注册，`1`/`true`/`yes` 启用） | `app.py` |
 | `INFERFORGE_QUERY` | 未设置 | 废弃别名（等同 `INFERFORGE_ASYNC=1`，启动时打印 deprecated 告警） | `app.py` |
+| `INFERFORGE_LLM` | 未设置（禁用） | VLM 接口开关（需同时 `INFERFORGE_ASYNC=1`，否则告警跳过） | `app.py` |
+| `INFERFORGE_AGENT` | 未设置（禁用） | Agent 接口开关（需同时 `INFERFORGE_ASYNC=1`，否则告警跳过） | `app.py` |
 | `CELERY_BROKER_URL` | `amqp://guest:guest@localhost:5672//` | 消息队列地址 | `celery_app.py` |
 | `INFERFORGE_REDIS_URL` | `redis://localhost:6379/0` | 轮询结果存储地址 | `utils/redis_store.py` |
 | `INFERFORGE_RESULT_TTL` | `3600` | 结果保存秒数（过期后轮询 code=4） | `utils/redis_store.py` |
+| `INFERFORGE_LLM_MODEL` | 未设置（VLM/Agent 必填） | 远程模型名，worker 侧读取（缺失 → code=3） | `tasks/vlm.py` |
+| `INFERFORGE_LLM_API_KEY` | 未设置（VLM/Agent 必填） | 远程端点 API key（缺失 → code=3） | `tasks/vlm.py` |
+| `INFERFORGE_LLM_BASE_URL` | 未设置（用 SDK 默认） | OpenAI 兼容端点地址（换供应商只改这里 + 模型名） | `tasks/vlm.py` |
+| `INFERFORGE_LLM_PROMPT` | `Please describe this image in detail.` | VLM 服务端固定提示词 | `tasks/vlm.py` |
+| `INFERFORGE_AGENT_INSTRUCTIONS` | 见 `DEFAULT_AGENT_INSTRUCTIONS` | Agent 服务端固定指令 | `tasks/agent.py` |
 | `INFERFORGE_API_KEY` | 未设置（关闭） | API key 鉴权：设置后非豁免路径要求 `X-API-Key` header（401 + code=7） | `utils/auth.py` |
 | `INFERFORGE_RATE_LIMIT` | 未设置（关闭） | 固定窗口限流：每调用方每分钟请求上限（429 + code=8；多 worker 为近似值） | `utils/rate_limit.py` |
 | `PROMETHEUS_MULTIPROC_DIR` | 未设置（单进程注册表） | 指标多进程聚合目录（web 与 worker 必须一致） | `utils/metrics.py` |

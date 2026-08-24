@@ -139,7 +139,7 @@ RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compos
 - **Web 与服务** — [FastAPI](https://fastapi.tiangolo.com/) · [Uvicorn](https://www.uvicorn.org/) · [Gunicorn](https://gunicorn.org/)
 - **推理引擎** — [ONNX Runtime](https://onnxruntime.ai/) · [OpenCV](https://opencv.org/) · [NumPy](https://numpy.org/)
 - **异步任务** — [Celery](https://docs.celeryq.dev/) · [RabbitMQ](https://www.rabbitmq.com/) · [Redis](https://redis.io/)
-- **LLM 客户端** — [OpenAI SDK](https://github.com/openai/openai-python)
+- **LLM 与 Agent** — [OpenAI SDK](https://github.com/openai/openai-python) · [Pydantic AI](https://ai.pydantic.dev/)
 - **演示模型** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/)
 
 ## 开源协议

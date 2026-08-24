@@ -1,6 +1,6 @@
 # 架构说明（Architecture）
 
-> InferForge 的分层架构：各层职责、实现逻辑与技术栈。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-22
+> InferForge 的分层架构：各层职责、实现逻辑与技术栈。零基础读者建议先读 [concepts.md](concepts.md)。最后更新：2026-08-24
 
 ## 1. 分层总览
 
@@ -10,7 +10,7 @@
 |----|------|------|-----------|
 | 接口层 | `apis/` + `app.py` | FastAPI、Pydantic、requests | 校验参数 → 转发任务层 → 包装响应（业务状态码） |
 | 任务层 | `tasks/` + `celery_app.py` | threading、celery、openai（VLM） | 任务编排；每个任务持有自己的预测器；异步任务经 RabbitMQ 执行；VLM 任务远程调用 LLM |
-| 引擎层 | `engines/` | onnxruntime、OpenCV、NumPy | 推理引擎 contract + YOLOv8n 实现 |
+| 引擎层 | `engines/` | onnxruntime、OpenCV、NumPy | 推理引擎 contract + YOLOv8n 检测/分割/分类实现 |
 | 横切层 | `utils/` | logging、cv2、requests、base64、uuid、contextvars | 日志、图片转换、响应格式、request_id（各层共用） |
 
 ## 2. 各层职责与实现
@@ -32,9 +32,9 @@
 | Pydantic | 请求体结构校验（schemas.py） |
 | requests | URL 下载图片、下载异常类型判断 |
 
-**文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/predict.py`（同步）、`apis/health.py`（健康探针）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；由 `INFERFORGE_ASYNC=1` 开关启用）、`apis/predict_vlm_query.py`（VLM 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` 同时启用）、`apis/predict_agent_query.py`（Agent 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_AGENT=1` 同时启用）
+**文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/predict.py`（同步检测）、`apis/predict_segment.py`（同步分割；由 `INFERFORGE_SEG=1` 启用）、`apis/predict_classify.py`（同步分类；由 `INFERFORGE_CLS=1` 启用）、`apis/health.py`（健康探针）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；由 `INFERFORGE_ASYNC=1` 开关启用）、`apis/predict_vlm_query.py`（VLM 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` 同时启用）、`apis/predict_agent_query.py`（Agent 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_AGENT=1` 同时启用）
 
-**健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问 predictor 是否已加载（`tasks/detection.predictor_loaded()`，接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §4）。
+**健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问**已启用能力**的 predictor 是否已加载（检测恒启用；分割/分类在对应开关开启时纳入检查——接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §6）。
 
 ### 2.2 任务层（`tasks/`）
 
@@ -43,15 +43,15 @@
 **逻辑**：
 
 - 一个任务一个文件；每个任务**持有自己的预测器**（懒加载单例 + double-checked locking），API 层看不到预测器
-- 模型路径可用环境变量 `INFERFORGE_MODEL_PATH` 覆盖
-- 编排步骤：解析输入图 → 调用预测器 → 组装 detections 列表 → 绘图 → 编码输出
+- 模型路径可用环境变量覆盖：检测 `INFERFORGE_MODEL_PATH`、分割 `INFERFORGE_SEG_MODEL_PATH`、分类 `INFERFORGE_CLS_MODEL_PATH`（import 时读取）
+- 编排步骤：解析输入图 → 调用预测器 → 组装结果列表（detections / segments / classifications）→ 绘图（检测/分割）→ 编码输出
 
 | 库 | 用途 |
 |----|------|
 | threading | 预测器懒加载的 double-checked locking |
 | celery | 异步任务：经 RabbitMQ 投递、worker 执行 |
 
-**文件**：`tasks/detection.py`（同步编排）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试——callback 交付模式的参照实现）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）、`tasks/vlm.py`（VLM 编排：图片校验 → JPEG data URL → 远程 LLM chat completions；openai 惰性导入 + 懒加载 client 单例；LLMUpstreamError → code 9 语义）、`tasks/vlm_query.py`、`tasks/agent.py`（Agent 编排：Pydantic AI Agent + 检测引擎工具——detect_persons 定位个体、LLM 逐人判断属性；惰性导入 + 每次任务新建 client）、`tasks/agent_query.py`
+**文件**：`tasks/detection.py`（同步检测编排）、`tasks/segmentation.py`（同步分割编排：mask 编码为每实例整图二值 PNG）、`tasks/classification.py`（同步分类编排：top-5 文本结果）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试——callback 交付模式的参照实现）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）、`tasks/vlm.py`（VLM 编排：图片校验 → JPEG data URL → 远程 LLM chat completions；openai 惰性导入 + 懒加载 client 单例；LLMUpstreamError → code 9 语义）、`tasks/vlm_query.py`、`tasks/agent.py`（Agent 编排：Pydantic AI Agent + 检测引擎工具——detect_persons 定位个体、LLM 逐人判断属性；惰性导入 + 每次任务新建 client）、`tasks/agent_query.py`
 
 VLM/Agent 为 **query-only** 形态：callback 推送以检测任务为参照实现，按任务性质选择性启用——LLM/Agent 类任务的调用方是主动业务系统（提交后轮询拿结果、需要幂等重查），query 是主路。
 
@@ -61,8 +61,11 @@ VLM/Agent 为 **query-only** 形态：callback 推送以检测任务为参照实
 
 **逻辑**：
 
-- `BasePredictor` 定义 contract：`load(model_path)` / `predict(image) -> DetectionResult`；接口层和任务层只认识它
-- `YoloPredictor` 实现：letterbox 预处理 → ONNX 推理 → decode `(1,84,8400)` → NumPy NMS → OpenCV 绘图
+- `BasePredictor` 定义 contract：`load(model_path)` / `predict(image) -> PredictResult`（`DetectionResult` / `SegmentationResult` / `ClassificationResult` 三选一，结果类型按能力而定）；接口层和任务层只认识它
+- `YoloPredictor` 实现（检测）：letterbox 预处理 → ONNX 推理 → decode `(1,84,8400)` → NumPy NMS → OpenCV 绘图
+- `YoloSegPredictor` 实现（分割）：同检测链路 + 双输出头按形状识别（`(1,116,8400)` 分割头 + `(1,32,160,160)` prototype 头）→ 系数矩阵乘 + sigmoid + 阈值 → 整图二值 mask → 半透明叠加绘图
+- `YoloClsPredictor` 实现（分类）：短边缩放 256 → 中心裁 224 → ONNX 推理 → softmax top-5（ImageNet-1k 类名表见 `engines/imagenet_classes.py`，1000 条标准顺序）
+- 三个引擎均为**注册表就绪**形态：构造函数不带模型路径，`load(path)` 注入——为后续多模型注册表铺路
 - onnxruntime **延迟导入**（仅 `load()` 内 import），测试无需真实模型
 - 前后处理为**自研实现**（参考公开论文/文档），不依赖 ultralytics 库——ultralytics 为 AGPL-3.0 协议，直接使用会传染本项目协议
 
@@ -72,7 +75,7 @@ VLM/Agent 为 **query-only** 形态：callback 推送以检测任务为参照实
 | OpenCV | 缩放/padding、绘制检测框、图像编解码 |
 | NumPy | decode 与 NMS 的向量化计算 |
 
-**文件**：`engines/base.py`、`engines/yolo.py`
+**文件**：`engines/base.py`（contract + 三个结果类型）、`engines/yolo.py`（检测）、`engines/yolo_seg.py`（分割）、`engines/yolo_cls.py`（分类）、`engines/imagenet_classes.py`（ImageNet-1k 类名表）
 
 ### 2.4 横切层（`utils/`）
 
@@ -115,12 +118,15 @@ app -> apis -> tasks -> engines
 | 场景 | 额外安装 | 额外服务 | 环境变量 | 可用接口 |
 |------|---------|---------|---------|---------|
 | 纯同步 | 无 | 无 | 无 | `/predict` |
+| 同步 + 分割 | 无 | 无 | `INFERFORGE_SEG=1`（+ `models/yolov8n-seg.onnx`） | `/predict` + `/predict/segment` |
+| 同步 + 分类 | 无 | 无 | `INFERFORGE_CLS=1`（+ `models/yolov8n-cls.onnx`） | `/predict` + `/predict/classify` |
 | 同步 + 异步（全量） | `requirements-async.txt` | RabbitMQ + Redis | `INFERFORGE_ASYNC=1` | `/predict` + `/predict/callback` + `/predict/query` |
 | 同步 + 异步 + VLM | `requirements-async.txt`（含 openai） | RabbitMQ + Redis + 远程 LLM 端点 | `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` | 前述接口 + `/predict/vlm/query` |
 | 同步 + 异步 + Agent | `requirements-async.txt`（含 pydantic-ai） | RabbitMQ + Redis + 远程 LLM 端点 + 本地模型 | `INFERFORGE_ASYNC=1` + `INFERFORGE_AGENT=1` | 前述接口 + `/predict/agent/query` |
 
 实现机制：
 
+- 分割/分类是**同步形态上的可选能力**（默认关，独立于异步栈）：`INFERFORGE_SEG=1` / `INFERFORGE_CLS=1` 时 app.py 惰性 import 并注册对应 router；开关真值集合单源于 `utils/switches.py`（app.py 与 health 探针共用）；start.sh 只检查已启用能力的模型文件
 - `app.py` 按 `INFERFORGE_ASYNC=1` 一次性注册全部异步 router——异步是一种整体部署形态（celery + RabbitMQ + Redis），callback 与 query 是按请求的选择而非部署选择；`INFERFORGE_QUERY=1` 作为废弃别名保留（打印 deprecated 告警）。开了开关但缺依赖时打印告警并整体跳过异步模式，同步接口照常
 - VLM 是异步形态上的可选能力：`INFERFORGE_LLM=1` 需与 `INFERFORGE_ASYNC=1` 同时开启才注册 vlm router；仅 LLM=1 时打印告警并跳过。VLM 没有同步版本——远程调用秒级到几十秒，同步长连接易超时且客户端重试会重复计费
 - Agent 同理：`INFERFORGE_AGENT=1` 需与 `INFERFORGE_ASYNC=1` 同时开启；Agent 任务额外依赖本地检测模型（工具用）
@@ -148,6 +154,8 @@ app -> apis -> tasks -> engines
 ```
 
 每一步的日志都携带 request_id，以 JSON 落盘 `logs/app.log`——用户报障时携带 `X-Request-ID`，即可过滤出该请求的完整链路。
+
+`POST /predict/segment` 与 `POST /predict/classify` 走同一条生命周期：步骤 6-9 换成各自引擎的预处理 / 双输出推理 + mask 解码 / softmax top-k（分割在步骤 9 为半透明 mask 叠加 + 框标绘图，分类无绘图），其余步骤（校验、图片编解码、envelope、request_id）完全一致。
 
 ### 异步回调流程（POST /predict/callback）
 

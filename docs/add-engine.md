@@ -17,19 +17,35 @@ class DetectionResult:
     scores: np.ndarray     # (N,)，置信度
     class_ids: np.ndarray  # (N,)，整数类别 id
 
+@dataclass
+class SegmentationResult:
+    boxes: np.ndarray      # (N, 4)，原图像素坐标
+    scores: np.ndarray     # (N,)
+    class_ids: np.ndarray  # (N,)
+    masks: np.ndarray      # (N, H, W) bool，整图尺寸，每 box 一张
+
+@dataclass
+class ClassificationResult:
+    scores: np.ndarray     # (K,)，top-k 概率（降序）
+    class_ids: np.ndarray  # (K,)
+
+PredictResult = DetectionResult | SegmentationResult | ClassificationResult
+
 class BasePredictor(ABC):
     def load(self, model_path: str) -> None: ...
-    def predict(self, image: np.ndarray) -> DetectionResult: ...
+    def predict(self, image: np.ndarray) -> PredictResult: ...
 ```
 
 | contract 项 | 约定 |
 |--------|------|
 | `predict` 输入 | BGR、uint8、`(H, W, 3)` 的 numpy 数组（`utils/image.py` 统一产出此格式） |
-| 返回值坐标 | 必须映射回**原图像素空间**——letterbox/resize 的反变换是引擎自己的事，task 层拿到结果直接画图、序列化 |
-| `class_ids` | 整数数组，task 层用它索引类别名（`engines/yolo.py` 的 `COCO_CLASS_NAMES` 同理） |
+| `predict` 返回值 | 三个结果类型三选一，**按能力而定**——分割/分类就是现成的参照实现（`engines/yolo_seg.py` / `engines/yolo_cls.py`）；lifecycle（load）统一，推理语义按能力分叉 |
+| 返回值坐标 | 必须映射回**原图像素空间**——letterbox/resize 的反变换是引擎自己的事，task 层拿到结果直接画图、序列化（分割的 mask 同理是整图尺寸） |
+| `class_ids` | 整数数组，task 层用它索引类别名（`engines/yolo.py` 的 `COCO_CLASS_NAMES`、`engines/imagenet_classes.py` 的 `IMAGENET_CLASS_NAMES` 同理） |
 | `load` | 加载权重并驻留内存；**重型依赖的 import 写在函数体内**（如 `onnxruntime`），保证测试和轻量场景不需要装模型依赖 |
 | `predict` | 同步阻塞调用——推理是 CPU 密集操作，并发由接口层的线程池解决，**不要在引擎内部自起线程** |
-| 预/后处理 | 必须自研（本项目不引入 ultralytics，AGPL-3.0）；参照 `engines/yolo.py` 的 letterbox / decode / NMS 自实现 |
+| 构造函数 | **注册表就绪**：构造函数不带模型路径，`load(path)` 注入——为多模型注册表铺路（现有三个引擎均已如此） |
+| 预/后处理 | 必须自研（本项目不引入 ultralytics，AGPL-3.0）；参照 `engines/yolo.py` 的 letterbox / decode / NMS、`engines/yolo_seg.py` 的双输出 mask 解码自实现 |
 
 ## 3. 接入步骤（以 YOLOv8n 为参照）
 

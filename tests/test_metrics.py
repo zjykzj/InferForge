@@ -145,6 +145,32 @@ def test_vlm_remote_error_metric(monkeypatch):
     assert REGISTRY.get_sample_value("inferforge_vlm_remote_errors_total") == before + 1.0
 
 
+# --- task-labeled phase / predictor metrics ---
+
+
+def _phase_count(phase, task):
+    return (REGISTRY.get_sample_value("inferforge_predict_phase_seconds_count",
+                                      {"phase": phase, "task": task}) or 0.0)
+
+
+def test_observe_phase_records_task_label():
+    before = _phase_count("infer", "segment")
+    metrics.observe_phase("infer", 0.01, task="segment")
+    assert _phase_count("infer", "segment") == before + 1.0
+
+
+def test_observe_phase_defaults_to_detect():
+    before = _phase_count("post", "detect")
+    metrics.observe_phase("post", 0.01)  # task omitted -> "detect"
+    assert _phase_count("post", "detect") == before + 1.0
+
+
+def test_mark_predictor_loaded_task_label():
+    metrics.mark_predictor_loaded(task="classify")
+    value = REGISTRY.get_sample_value("inferforge_predictor_loaded", {"task": "classify"})
+    assert value == 1.0
+
+
 # --- celery queue-wait metric (computation lives in utils.metrics.record_queue_wait;
 #     never import celery_app in tests — its thread-local current_app would split
 #     task-proxy resolution across TestClient threads and break task monkeypatching) ---

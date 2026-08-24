@@ -107,7 +107,7 @@ python3 scripts/benchmark.py --mode vlm-direct --image assets/bus.jpg \
 压测期间 `/metrics` 可观察（配合 [metrics.md](metrics.md)）：
 
 - 端到端：`inferforge_http_request_duration_seconds{route="/predict"}`
-- 检测瓶颈定位：`inferforge_predict_phase_seconds{phase="pre|infer|post"}`
+- 检测瓶颈定位：`inferforge_predict_phase_seconds{phase="pre|infer|post"}`（指标带 `task` 标签区分 detect/segment/classify——只带 phase 标签的查询不受影响，标签匹配是叠加语义）
 - VLM 远程调用：`inferforge_vlm_remote_call_seconds` / `inferforge_vlm_remote_errors_total`（worker 路径）
 - 异步链路：`inferforge_celery_queue_wait_seconds{task}` + `inferforge_celery_task_duration_seconds{task}`
 - 业务码分布：`inferforge_responses_total{code}`（压测若出现非 0 码立即可见）

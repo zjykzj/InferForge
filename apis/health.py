@@ -13,8 +13,8 @@ import logging
 
 from fastapi import APIRouter
 
-from tasks import detection
-from utils import response
+from tasks import classification, detection, segmentation
+from utils import response, switches
 
 logger = logging.getLogger("apis.health")
 
@@ -29,12 +29,21 @@ def liveness():
 
 @health_router.get("/health/ready")
 def readiness():
-    """Ready to accept traffic: the predictor has been loaded in this process.
+    """Ready to accept traffic: every enabled capability's predictor has been
+    loaded in this process.
 
-    With lazy loading the predictor stays unloaded until the first prediction
-    warms this worker up, so a fresh deployment reports not-ready (503) until
-    then — the load balancer routes around it in the meantime.
+    Detection is always enabled; segment/classify are probed only when their
+    env switch is on (read at request time, matching app.py's router
+    registration). With lazy loading the predictors stay unloaded until the
+    first prediction warms this worker up, so a fresh deployment reports
+    not-ready (503) until then — the load balancer routes around it in the
+    meantime.
     """
-    if detection.predictor_loaded():
+    ready = detection.predictor_loaded()
+    if switches.switch_on("INFERFORGE_SEG"):
+        ready = ready and segmentation.predictor_loaded()
+    if switches.switch_on("INFERFORGE_CLS"):
+        ready = ready and classification.predictor_loaded()
+    if ready:
         return response.success({"status": "ready"})
     return response.error("model not loaded", code=6, http_status=503)

@@ -47,12 +47,19 @@ python3 scripts/benchmark.py --mode detect --image assets/bus.jpg --concurrency 
 python3 scripts/mock_llm.py --delay 0.1             # local OpenAI-compatible fake for vlm benchmarking
 INFERFORGE_ASYNC=1 INFERFORGE_AGENT=1 ./start.sh    # + agent apis (hair-count demo; worker needs INFERFORGE_LLM_* + the model)
 python3 scripts/test_predict_query.py --image assets/zidane.jpg   # submit + poll the hair-count result
+INFERFORGE_SEG=1 ./start.sh                        # + sync segment api (needs models/yolov8n-seg.onnx)
+INFERFORGE_CLS=1 ./start.sh                        # + sync classify api (needs models/yolov8n-cls.onnx)
+python3 scripts/test_predict_segment.py --image assets/bus.jpg    # test the sync segment API
+python3 scripts/test_predict_classify.py --image assets/bus.jpg   # test the sync classify API
+python3 scripts/run_segment.py --image assets/bus.jpg             # task layer directly, no web (segment)
+python3 scripts/run_classify.py --image assets/bus.jpg            # task layer directly, no web (classify)
 python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py
 ```
 
 ## Critical Details
 
 - onnxruntime is imported **inside** `YoloPredictor.load()` on purpose — tests must stay model-free. Do not move it to module level.
+- Sync segment/classify are opt-in capabilities (`INFERFORGE_SEG=1` / `INFERFORGE_CLS=1`, off by default, independent of the async stack; detection is always on). `INFERFORGE_SEG_MODEL_PATH` / `INFERFORGE_CLS_MODEL_PATH` (defaults `models/yolov8n-seg.onnx` / `models/yolov8n-cls.onnx`) are read at tasks import. `/health/ready` checks only enabled capabilities' predictors; start.sh checks model files only for enabled capabilities (bash truthy set mirrors `utils/switches.py`). Segment returns the overlay JPEG + one full-image binary-mask PNG per instance (large JSON on dense scenes — documented caveat); classify returns top-5 text, no image. The segment engine decodes the two-output head `(1,116,8400)` + `(1,32,160,160)` with shape-based output discovery (`find_seg_outputs` — docstring flags dynamic-axis fallback); all pre/post self-written, no ultralytics import. The ImageNet-1k table in `engines/imagenet_classes.py` must stay 1000 entries in standard order (matches the exported yolov8n-cls training set). Metrics `predict_phase_seconds` / `predictor_loaded` carry a `task` label (detect/segment/classify); `observe_phase` / `mark_predictor_loaded` default to `task="detect"` so detection call sites are unchanged. New engines are registry-ready (no model path in constructors; `load(path)` injects it).
 - Tests inject `FakePredictor` by monkeypatching `tasks.detection.get_predictor`; never load a real model or hit the network in tests.
 - Test apps are built via the `conftest.app_factory` fixture (request-id + auth + rate-limit + metrics middleware, validation handler, metrics router — mirrors `create_app()`'s wiring, one router per test) or `create_app()` — never register the validation handler twice.
 - Python floor is 3.12 (conda env `py312`); `X | None` syntax is allowed.

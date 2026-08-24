@@ -22,7 +22,7 @@ InferForge 是推理后端之上的服务外壳：开箱即得生产配套——
 InferForge/
 ├── apis/          # FastAPI 路由 + Pydantic 模型 —— 接口层
 ├── tasks/         # 任务编排；每个任务持有自己的预测器
-├── engines/       # BasePredictor contract + YOLOv8n 参考实现
+├── engines/       # BasePredictor contract + YOLOv8n 检测/分割/分类参考实现
 ├── utils/         # 横切机制：envelope、日志、指标、鉴权、限流
 ├── deploy/        # 参考工件：logrotate、nginx 灰度、监控栈
 ├── docs/          # 完整文档集（中文，按分类索引）
@@ -50,6 +50,23 @@ python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg    
 
 # 5. 自动生成的接口文档（Swagger UI）：http://localhost:8000/docs
 # 6. Prometheus 指标：http://localhost:8000/metrics（可选，见 docs/metrics.md）
+```
+
+可选：启用同步分割 / 分类能力（默认关，检测不受影响）：
+
+```bash
+# 1. 导出并放置模型（同检测）
+yolo export model=yolov8n-seg.pt format=onnx
+yolo export model=yolov8n-cls.pt format=onnx
+cp /path/to/yolov8n-seg.onnx models/
+cp /path/to/yolov8n-cls.onnx models/
+
+# 2. 带开关启动（可只开一个；start.sh 只检查已启用能力的模型文件）
+INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
+
+# 3. 测试
+python3 scripts/test_predict_segment.py --image assets/bus.jpg --save result_seg.jpg   # 分割
+python3 scripts/test_predict_classify.py --image assets/bus.jpg                        # 分类（top-5）
 ```
 
 运行冒烟测试：
@@ -94,7 +111,7 @@ INFERFORGE_LLM_BASE_URL=https://your-llm-endpoint/v1 \
 python3 scripts/test_vlm_query.py --image assets/bus.jpg                        # 提交 + 轮询直到文本答案返回
 ```
 
-提示词由服务端固定（`INFERFORGE_LLM_PROMPT` 可覆盖），客户端只传图片。详见 [api](docs/api.md) §8。
+提示词由服务端固定（`INFERFORGE_LLM_PROMPT` 可覆盖），客户端只传图片。详见 [api](docs/api.md) §10。
 
 配置也可以写进 `.env` 文件（`cp .env.example .env` 后填写——shell 已导出的环境变量优先）。
 

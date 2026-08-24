@@ -24,6 +24,8 @@ def no_async_switch(monkeypatch):
     monkeypatch.delenv("INFERFORGE_QUERY", raising=False)
     monkeypatch.delenv("INFERFORGE_LLM", raising=False)
     monkeypatch.delenv("INFERFORGE_AGENT", raising=False)
+    monkeypatch.delenv("INFERFORGE_SEG", raising=False)
+    monkeypatch.delenv("INFERFORGE_CLS", raising=False)
     # create_app() reads these at construction; a dev .env (loaded by app.py)
     # could otherwise leak into test apps built via create_app()
     monkeypatch.delenv("INFERFORGE_API_KEY", raising=False)
@@ -118,6 +120,39 @@ def test_async_alone_leaves_agent_out(no_async_switch, monkeypatch):
     routes = _route_paths(create_app())
     assert "/predict/callback" in routes
     assert "/predict/agent/query" not in routes
+
+
+# --- sync segment/classify switches (off by default; independent of async) ---
+
+
+def test_seg_and_cls_disabled_by_default(no_async_switch):
+    routes = _route_paths(create_app())
+    assert "/predict" in routes
+    assert "/predict/segment" not in routes
+    assert "/predict/classify" not in routes
+
+
+def test_seg_enabled_registers_router(no_async_switch, monkeypatch):
+    monkeypatch.setenv("INFERFORGE_SEG", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/segment" in routes
+    assert "/predict/classify" not in routes  # each switch is independent
+
+
+def test_cls_enabled_registers_router(no_async_switch, monkeypatch):
+    monkeypatch.setenv("INFERFORGE_CLS", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/classify" in routes
+    assert "/predict/segment" not in routes
+
+
+def test_both_capabilities_register(no_async_switch, monkeypatch):
+    monkeypatch.setenv("INFERFORGE_SEG", "1")
+    monkeypatch.setenv("INFERFORGE_CLS", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/segment" in routes
+    assert "/predict/classify" in routes
+    assert "/predict" in routes  # detection is unaffected by either switch
 
 
 # --- request-body ceiling ---

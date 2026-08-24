@@ -48,6 +48,23 @@ pytest tests/ -v
 curl http://localhost:8000/metrics
 ```
 
+### 1.6 可选：启用分割 / 分类（同步，默认关）
+
+```bash
+# 导出并放置模型（同检测：仅使用导出工具，不复制其代码）
+yolo export model=yolov8n-seg.pt format=onnx
+yolo export model=yolov8n-cls.pt format=onnx
+cp /path/to/yolov8n-seg.onnx models/
+cp /path/to/yolov8n-cls.onnx models/
+
+# 带开关启动（可只开一个；start.sh 只检查已启用能力的模型文件）
+INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
+
+# 验证
+python3 scripts/test_predict_segment.py --image assets/bus.jpg --save result_seg.jpg
+python3 scripts/test_predict_classify.py --image assets/bus.jpg
+```
+
 预期：打印 `code: 0` 与检测列表；首次请求会触发模型懒加载（多几十毫秒属正常）。
 
 ### 1.6 日志

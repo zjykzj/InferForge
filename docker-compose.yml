@@ -53,6 +53,9 @@ services:
       # INFERFORGE_LLM: "1"
       # optional: agent apis (needs INFERFORGE_ASYNC=1 + worker-side INFERFORGE_LLM_*)
       # INFERFORGE_AGENT: "1"
+      # optional: sync segment/classify apis (models come from the ./models bind-mount)
+      # INFERFORGE_SEG: "1"
+      # INFERFORGE_CLS: "1"
     volumes:
       - ./models:/app/models
       - ./logs:/app/logs

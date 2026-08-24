@@ -4,7 +4,10 @@ Dependency chain: app -> apis -> tasks -> engines. app.py knows nothing about
 tasks or algorithms — tasks own their predictors, apis own their tasks.
 
 Health probe endpoints (/health, /health/ready) and the sync predict api are
-always registered. Async APIs are registered behind an explicit env switch:
+always registered. The sync segment and classify apis are registered behind
+their own env switches (INFERFORGE_SEG=1 / INFERFORGE_CLS=1, off by default,
+no extra services — see tasks/segmentation.py + tasks/classification.py).
+Async APIs are registered behind an explicit env switch:
 INFERFORGE_ASYNC=1 registers both the callback and query apis (requires
 celery + rabbitmq + redis — one deployment shape, callback vs query is a
 per-request choice). INFERFORGE_QUERY=1 is accepted as a deprecated alias.
@@ -37,12 +40,10 @@ from fastapi.exceptions import RequestValidationError  # noqa: E402
 from apis.health import health_router  # noqa: E402
 from apis.metrics import metrics_router  # noqa: E402
 from apis.predict import predict_router  # noqa: E402
-from utils import auth, metrics, rate_limit, request_id, response  # noqa: E402
+from utils import auth, metrics, rate_limit, request_id, response, switches  # noqa: E402
 from utils.logger import setup_logging  # noqa: E402
 
 logger = logging.getLogger("app")
-
-_TRUTHY = ("1", "true", "yes")
 
 # Request-body ceiling: matches the image download limit (utils/image.py
 # MAX_DOWNLOAD_SIZE). Best-effort: only reads the Content-Length header
@@ -51,7 +52,7 @@ MAX_BODY_SIZE = 20 * 1024 * 1024
 
 
 def _switch_on(name: str) -> bool:
-    return os.environ.get(name, "").lower() in _TRUTHY
+    return switches.switch_on(name)
 
 
 def _async_enabled() -> bool:
@@ -70,6 +71,16 @@ def _agent_enabled() -> bool:
     # Agent apis are async-shaped (they need celery), so this switch only
     # takes effect together with async mode — see create_app().
     return _switch_on("INFERFORGE_AGENT")
+
+
+def _seg_enabled() -> bool:
+    # Sync segment api; independent of the async stack (see create_app()).
+    return _switch_on("INFERFORGE_SEG")
+
+
+def _cls_enabled() -> bool:
+    # Sync classify api; independent of the async stack (see create_app()).
+    return _switch_on("INFERFORGE_CLS")
 
 
 def _read_version() -> str:
@@ -133,6 +144,17 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(metrics_router)
     app.include_router(predict_router)
+
+    if _seg_enabled():
+        from apis.predict_segment import predict_segment_router
+
+        app.include_router(predict_segment_router)
+        logger.info("segment api enabled")
+    if _cls_enabled():
+        from apis.predict_classify import predict_classify_router
+
+        app.include_router(predict_classify_router)
+        logger.info("classify api enabled")
 
     if _async_enabled():
         if _switch_on("INFERFORGE_QUERY") and not _switch_on("INFERFORGE_ASYNC"):

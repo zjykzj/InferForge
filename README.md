@@ -22,7 +22,7 @@ InferForge is a serving shell above inference backends: web APIs, logging, excep
 InferForge/
 ├── apis/          # FastAPI routers + Pydantic schemas — interface layer
 ├── tasks/         # task orchestration; each task owns its predictors
-├── engines/       # BasePredictor contract + YOLOv8n reference implementation
+├── engines/       # BasePredictor contract + YOLOv8n detect/segment/classify reference implementations
 ├── utils/         # cross-cutting: envelope, logging, metrics, auth, rate limit
 ├── deploy/        # reference artifacts: logrotate, nginx canary, monitoring stack
 ├── docs/          # full documentation set (Chinese, indexed by category)
@@ -50,6 +50,23 @@ python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg    
 
 # 5. Auto-generated API docs (Swagger UI): http://localhost:8000/docs
 # 6. Prometheus metrics: http://localhost:8000/metrics (optional — see docs/metrics.md)
+```
+
+Optional: enable the sync segment / classify capabilities (off by default; detection is unaffected):
+
+```bash
+# 1. Export and place the models (same as detection)
+yolo export model=yolov8n-seg.pt format=onnx
+yolo export model=yolov8n-cls.pt format=onnx
+cp /path/to/yolov8n-seg.onnx models/
+cp /path/to/yolov8n-cls.onnx models/
+
+# 2. Start with the switches (either one works; start.sh only checks enabled models)
+INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
+
+# 3. Test
+python3 scripts/test_predict_segment.py --image assets/bus.jpg --save result_seg.jpg   # segment
+python3 scripts/test_predict_classify.py --image assets/bus.jpg                        # classify (top-5)
 ```
 
 Run the smoke tests:
@@ -94,7 +111,7 @@ INFERFORGE_LLM_BASE_URL=https://your-llm-endpoint/v1 \
 python3 scripts/test_vlm_query.py --image assets/bus.jpg                        # submit + poll until the answer arrives
 ```
 
-The prompt is fixed server-side (`INFERFORGE_LLM_PROMPT` overrides it); clients submit an image only. See [api](docs/api.md) §8.
+The prompt is fixed server-side (`INFERFORGE_LLM_PROMPT` overrides it); clients submit an image only. See [api](docs/api.md) §10.
 
 Config can also live in a `.env` file (`cp .env.example .env` and fill in — shell-exported variables take precedence).
 

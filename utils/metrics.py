@@ -58,12 +58,13 @@ responses_total = Counter(
 )
 predict_phase_seconds = Histogram(
     "inferforge_predict_phase_seconds",
-    "Inference phase durations in seconds (pre / infer / post).",
-    ("phase",),
+    "Inference phase durations in seconds (pre / infer / post), by task.",
+    ("phase", "task"),
 )
 predictor_loaded = Gauge(
     "inferforge_predictor_loaded",
-    "Whether the task-layer predictor is loaded in this process (1) or not (0).",
+    "Whether the task-layer predictor is loaded in this process (1) or not (0), by task.",
+    ("task",),
 )
 celery_tasks_total = Counter(
     "inferforge_celery_tasks_total",
@@ -121,14 +122,18 @@ def record_response(code: int) -> None:
     responses_total.labels(str(code)).inc()
 
 
-def observe_phase(phase: str, seconds: float) -> None:
-    """Record one inference phase duration (called by engines)."""
-    predict_phase_seconds.labels(phase).observe(seconds)
+def observe_phase(phase: str, seconds: float, task: str = "detect") -> None:
+    """Record one inference phase duration (called by engines).
+
+    The task label (detect / segment / classify) is capability-specific;
+    the default keeps the detection engine's call sites unchanged.
+    """
+    predict_phase_seconds.labels(phase, task).observe(seconds)
 
 
-def mark_predictor_loaded() -> None:
-    """Flag the task-layer predictor as loaded in this process."""
-    predictor_loaded.set(1)
+def mark_predictor_loaded(task: str = "detect") -> None:
+    """Flag one task-layer predictor as loaded in this process."""
+    predictor_loaded.labels(task).set(1)
 
 
 def record_celery_task(name: str, state: str, seconds=None) -> None:

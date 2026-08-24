@@ -9,7 +9,7 @@
   * [add-engine.md](add-engine.md)：新增推理引擎——BasePredictor contract 、接入步骤（含 TensorRT/Triton）与验证清单
   * [api.md](api.md)：接口调用——/predict、/predict/segment、/predict/classify、/predict/callback、/predict/query、/predict/vlm/* 参数与响应、curl 示例、参数设计规范
   * [benchmark.md](benchmark.md)：性能基准——压测工具、检测/VLM 基线数据与复现步骤
-  * [agent.md](agent.md)：Agent 编排——Pydantic AI 示例（检测引擎 + LLM 判断人物属性）、V2 用法要点与泛化指南
+  * [agent.md](agent.md)：Agent 编排——Pydantic AI 示例（检测引擎 + LLM 判断人物属性）、V2 用法要点、泛化指南与编排形态选择（workflow / 单 / 多 Agent）
   * [deployment.md](deployment.md)：部署指南——线上灰度发布与测试/生产环境长期共存的完整方案
 * 技术栈文档
   * [stack.md](stack.md)：技术栈说明——FastAPI/Uvicorn/Gunicorn、Celery/RabbitMQ、Redis 与 OpenAI SDK/Pydantic AI 的选型理由、配置点与关键决策（全景，含环境变量总览）

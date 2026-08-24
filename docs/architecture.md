@@ -64,7 +64,7 @@ VLM/Agent 为 **query-only** 形态：callback 推送以检测任务为参照实
 - `BasePredictor` 定义 contract：`load(model_path)` / `predict(image) -> PredictResult`（`DetectionResult` / `SegmentationResult` / `ClassificationResult` 三选一，结果类型按能力而定）；接口层和任务层只认识它
 - `YoloPredictor` 实现（检测）：letterbox 预处理 → ONNX 推理 → decode `(1,84,8400)` → NumPy NMS → OpenCV 绘图
 - `YoloSegPredictor` 实现（分割）：同检测链路 + 双输出头按形状识别（`(1,116,8400)` 分割头 + `(1,32,160,160)` prototype 头）→ 系数矩阵乘 + sigmoid + 阈值 → 整图二值 mask → 半透明叠加绘图
-- `YoloClsPredictor` 实现（分类）：短边缩放 256 → 中心裁 224 → ONNX 推理 → softmax top-5（ImageNet-1k 类名表见 `engines/imagenet_classes.py`，1000 条标准顺序）
+- `YoloClsPredictor` 实现（分类）：短边缩放 224（PIL bilinear，与模型训练 transform 对齐——cv2 插值核与之差异可测，会拉平置信度）→ 中心裁 224 → ONNX 推理（输出已是 softmax 概率，引擎不再二次 softmax）→ top-5 取值（ImageNet-1k 类名表见 `engines/imagenet_classes.py`，1000 条标准顺序）
 - 三个引擎均为**注册表就绪**形态：构造函数不带模型路径，`load(path)` 注入——为后续多模型注册表铺路
 - onnxruntime **延迟导入**（仅 `load()` 内 import），测试无需真实模型
 - 前后处理为**自研实现**（参考公开论文/文档），不依赖 ultralytics 库——ultralytics 为 AGPL-3.0 协议，直接使用会传染本项目协议

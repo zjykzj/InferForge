@@ -1,10 +1,12 @@
 """YOLOv8-cls image classification: ONNXRuntime inference with self-written
 pre/post processing.
 
-The preprocess (resize shorter edge to 256 -> center-crop 224 -> RGB -> /255)
-mirrors the ultralytics classify transform, implemented from scratch. No code
-is copied from the ultralytics repository (AGPL-3.0), so this project stays
-MIT.
+The preprocess mirrors the ultralytics classify transform (BGR->RGB,
+PIL-bilinear resize with the shorter edge at 224, center-crop 224x224, /255)
+— implemented from scratch; the resize deliberately uses Pillow because the
+cv2 bilinear kernel differs measurably from PIL's (up to ~0.5 normalized
+values), and the model was trained with the PIL pipeline. No code is copied
+from the ultralytics repository (AGPL-3.0), so this project stays MIT.
 """
 import logging
 import time
@@ -12,6 +14,7 @@ from typing import Tuple
 
 import cv2
 import numpy as np
+from PIL import Image
 
 from engines.base import BasePredictor, ClassificationResult
 from utils import metrics
@@ -19,33 +22,41 @@ from utils import metrics
 logger = logging.getLogger("engines.yolo_cls")
 
 INPUT_SIZE = 224
-RESIZE_SHORT = 256
 TOP_K = 5
 
 
 def preprocess(image: np.ndarray) -> np.ndarray:
     """BGR uint8 (H, W, 3) -> (1, 3, 224, 224) float32 RGB in [0, 1].
 
-    Mirrors the ultralytics classify transform (self-written): resize the
-    shorter edge to 256 (bilinear), center-crop 224x224, BGR->RGB, /255.
+    Mirrors the ultralytics classify transform (self-written): BGR->RGB,
+    PIL-bilinear resize with the shorter edge at 224 (torchvision Resize(224)
+    semantics — the longer edge is int(224 * h / w), truncated), center-crop
+    224x224, /255, CHW. cv2.INTER_LINEAR is NOT equivalent to PIL bilinear —
+    the resample phase would visibly degrade the probabilities.
     """
     h, w = image.shape[:2]
-    scale = RESIZE_SHORT / min(h, w)
-    resized = cv2.resize(
-        image, (int(round(w * scale)), int(round(h * scale))),
-        interpolation=cv2.INTER_LINEAR,
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    if w < h:
+        ow, oh = INPUT_SIZE, int(INPUT_SIZE * h / w)
+    else:
+        ow, oh = int(INPUT_SIZE * w / h), INPUT_SIZE
+    resized = Image.fromarray(rgb).resize((ow, oh), Image.BILINEAR)
+    y0, x0 = (oh - INPUT_SIZE) // 2, (ow - INPUT_SIZE) // 2
+    crop = np.asarray(
+        resized.crop((x0, y0, x0 + INPUT_SIZE, y0 + INPUT_SIZE)), dtype=np.float32
     )
-    y0 = (resized.shape[0] - INPUT_SIZE) // 2
-    x0 = (resized.shape[1] - INPUT_SIZE) // 2
-    crop = resized[y0:y0 + INPUT_SIZE, x0:x0 + INPUT_SIZE]
-    blob = crop[:, :, ::-1].transpose(2, 0, 1)[np.newaxis]  # BGR->RGB, CHW, batch
-    return np.ascontiguousarray(blob, dtype=np.float32) / 255.0
+    blob = crop.transpose(2, 0, 1)[np.newaxis] / 255.0
+    return np.ascontiguousarray(blob, dtype=np.float32)
 
 
-def topk(logits: np.ndarray, k: int = TOP_K) -> Tuple[np.ndarray, np.ndarray]:
-    """(1, 1000) logits -> ((k,) probs sorted descending, (k,) class ids)."""
-    exp = np.exp(logits[0] - logits[0].max())  # stable softmax
-    probs = exp / exp.sum()
+def topk(probs: np.ndarray, k: int = TOP_K) -> Tuple[np.ndarray, np.ndarray]:
+    """(1, 1000) probabilities -> ((k,) probs sorted descending, (k,) ids).
+
+    The exported yolov8n-cls head already applies softmax (the ultralytics
+    ClassificationModel emits probabilities, not logits) — softmaxing again
+    would flatten the distribution, so topk only sorts and truncates.
+    """
+    probs = probs[0]
     idx = probs.argsort()[::-1][:k]
     return probs[idx], idx
 

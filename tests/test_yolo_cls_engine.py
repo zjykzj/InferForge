@@ -38,20 +38,20 @@ def test_preprocess_handles_non_square_images():
 # --- topk ---
 
 
-def test_topk_sorts_descending_and_normalizes():
-    # all logits far below the three interesting ones, so the top-3 order
-    # is fully determined
-    logits = np.full((1, 1000), -100.0, dtype=np.float32)
-    logits[0, 5] = 3.0
-    logits[0, 7] = 1.0
-    logits[0, 0] = -1.0
-    probs, idx = topk(logits, k=3)
+def test_topk_sorts_probabilities_without_resoftmax():
+    # the model head already emits softmax probabilities — topk must not
+    # re-softmax them (that would flatten the distribution)
+    out = np.zeros((1, 1000), dtype=np.float32)
+    out[0, 5] = 0.5
+    out[0, 7] = 0.3
+    out[0, 0] = 0.2
+    probs, idx = topk(out, k=3)
     assert idx.tolist() == [5, 7, 0]
-    assert probs[0] > probs[1] > probs[2]
-    assert abs(probs.sum() - 1.0) < 1e-6
+    np.testing.assert_allclose(probs, [0.5, 0.3, 0.2])  # raw values, unchanged
 
 
 def test_topk_default_k_is_five():
-    logits = np.random.default_rng(0).standard_normal((1, 1000)).astype(np.float32)
-    probs, idx = topk(logits)
-    assert len(probs) == 5 and len(idx) == 5
+    probs = np.random.default_rng(0).dirichlet(np.ones(1000)).astype(np.float32)
+    p, idx = topk(probs[np.newaxis])
+    assert len(p) == 5 and len(idx) == 5
+    assert p[0] >= p[1] >= p[2] >= p[3] >= p[4]  # sorted descending

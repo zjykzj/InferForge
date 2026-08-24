@@ -277,9 +277,9 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 
 已落地：见 §3 异步轮询接口（POST /predict/query + GET 轮询）。同步/异步并存时，由接口路径区分而非参数区分——调用方一眼可知行为。
 
-## 8. VLM 异步接口：POST /predict/vlm/callback + POST /predict/vlm/query
+## 8. VLM 异步接口：POST /predict/vlm/query
 
-图片理解（VLM）异步接口：输入一张图片，worker 内部组装**固定服务端提示词**并**远程调用 LLM**（OpenAI 兼容 chat completions），返回文本答案。与检测异步接口同构——callback 推送 + query 轮询两种形态，**没有同步版本**（远程调用秒级到几十秒，长连接易超时且客户端重试会重复计费）。
+图片理解（VLM）异步接口：输入一张图片，worker 内部组装**固定服务端提示词**并**远程调用 LLM**（OpenAI 兼容 chat completions），返回文本答案。**仅 query 轮询形态**——远程调用秒级到几十秒，没有同步版本（长连接易超时且客户端重试会重复计费）；callback 推送模式以检测任务（§2）为参照，VLM/Agent 类任务按需再启用。
 
 启用前置：
 
@@ -290,7 +290,6 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:---:|------|
-| `callback_url` | string | 仅 callback | 结果回调地址（同检测 callback） |
 | `image` | string | 二选一 | base64 图片（同检测接口） |
 | `url` | string | 二选一 | 图片 URL（同检测接口） |
 
@@ -302,7 +301,7 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 // 提交响应（立即返回，同检测异步）
 {"code": 0, "message": "success", "data": {"task_id": "76898f32-c64d-..."}}
 
-// 结果 envelope（callback payload / 轮询原样返回）
+// 结果 envelope（轮询原样返回）
 {"code": 0, "message": "success", "data": {"answer": "<文本答案>", "model": "<模型名>"}}
 {"code": 1, "message": "...", "data": null}    // 图片非法（付费调用前校验）
 {"code": 2, "message": "...", "data": null}    // 图片下载失败
@@ -312,7 +311,7 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 
 ### 8.3 语义
 
-- **code=9 是业务错误**：回调不重试（与 1/2/3 一致），只有回调 POST 本身的网络故障才指数退避重试（最多 3 次）——回调恰好触发一次
+- 轮询**幂等**：result envelope 写入 Redis 后原样返回，多次轮询无副作用；结果带 TTL（默认 3600s）
 - 远程调用的基础设施重试由 openai SDK 内置（连接 / 429 / 5xx，`max_retries=2`），worker 内不手写重试循环
 - **付费前校验**：图片先解码验证（code 1/2 阶梯复用检测路径），通过后才发起远程调用——非法输入不产生费用
 - v1 无结果缓存：重复提交同一图片会重复调用远程 LLM（缓存留待后续版本）
@@ -321,25 +320,20 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 ### 8.4 curl 示例
 
 ```bash
-# 提交（query 形态；payload 文件方式避免 base64 超长）
+# 提交（payload 文件方式避免 base64 超长）
 python3 -c "import base64,json; json.dump({'image': base64.b64encode(open('assets/bus.jpg','rb').read()).decode()}, open('/tmp/payload.json','w'))"
 curl -s -X POST http://localhost:8000/predict/vlm/query \
   -H "Content-Type: application/json" -d @/tmp/payload.json
 
 # 轮询（task_id 为提交响应里的值；code=5 继续轮询，0/1/2/3/9 为终态）
 curl -s http://localhost:8000/predict/vlm/query/<task_id>
-
-# callback 形态（回调接收端可用 scripts/callback_receiver.py）
-curl -X POST http://localhost:8000/predict/vlm/callback \
-  -H "Content-Type: application/json" \
-  -d '{"image": "<base64>", "callback_url": "http://localhost:9000/result"}'
 ```
 
 自动化客户端：`python3 scripts/test_vlm_query.py --image assets/bus.jpg`（自带轮询循环）。
 
-## 9. Agent 异步接口：POST /predict/agent/callback + POST /predict/agent/query
+## 9. Agent 异步接口：POST /predict/agent/query
 
-图片人物发型统计（Pydantic AI 编排示例）：输入一张图片，worker 内 Agent 先调用**本地检测引擎**（工具）定位每个人，再由**远程 LLM** 逐人判断是否有头发，返回结构化结果。与检测/VLM 异步接口完全同构——callback 推送 + query 轮询，**没有同步版本**。
+图片人物发型统计（Pydantic AI 编排示例）：输入一张图片，worker 内 Agent 先调用**本地检测引擎**（工具）定位每个人，再由**远程 LLM** 逐人判断是否有头发，返回结构化结果。与 VLM 一致为**仅 query 轮询形态**，没有同步版本。
 
 启用前置：
 
@@ -351,7 +345,6 @@ curl -X POST http://localhost:8000/predict/vlm/callback \
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:---:|------|
-| `callback_url` | string | 仅 callback | 结果回调地址（同检测 callback） |
 | `image` | string | 二选一 | base64 图片（同检测接口） |
 | `url` | string | 二选一 | 图片 URL（同检测接口） |
 
@@ -363,7 +356,7 @@ curl -X POST http://localhost:8000/predict/vlm/callback \
 // 提交响应（立即返回，同检测异步）
 {"code": 0, "message": "success", "data": {"task_id": "76898f32-c64d-..."}}
 
-// 结果 envelope（callback payload / 轮询原样返回）
+// 结果 envelope（轮询原样返回）
 {"code": 0, "message": "success", "data": {
   "total_persons": 2,
   "with_hair": 1,
@@ -381,7 +374,7 @@ curl -X POST http://localhost:8000/predict/vlm/callback \
 
 ### 9.3 语义
 
-- **code=9 是业务错误**：回调不重试（与 1/2/3 一致），只有回调 POST 本身的网络故障才指数退避重试（最多 3 次）——回调恰好触发一次
+- 轮询**幂等**：result envelope 写入 Redis 后原样返回，多次轮询无副作用
 - 传输重试在 Pydantic AI 的 transport 层（429/5xx/连接，3 次，尊重 Retry-After）——语义对齐 VLM 的 SDK 重试；结构化输出验证失败由框架自动让模型修正重试
 - **付费前校验**：图片先解码验证（code 1/2），通过后才构建 Agent 发起远程调用
 - 检测工具失败（本地引擎异常）→ code 3，与上游 LLM 失败（code 9）语义分开
@@ -390,18 +383,13 @@ curl -X POST http://localhost:8000/predict/vlm/callback \
 ### 9.4 curl 示例
 
 ```bash
-# 提交（query 形态；payload 文件方式避免 base64 超长）
+# 提交（payload 文件方式避免 base64 超长）
 python3 -c "import base64,json; json.dump({'image': base64.b64encode(open('assets/zidane.jpg','rb').read()).decode()}, open('/tmp/payload.json','w'))"
 curl -s -X POST http://localhost:8000/predict/agent/query \
   -H "Content-Type: application/json" -d @/tmp/payload.json
 
 # 轮询（task_id 为提交响应里的值；code=5 继续轮询，0/1/2/3/9 为终态）
 curl -s http://localhost:8000/predict/agent/query/<task_id>
-
-# callback 形态（回调接收端可用 scripts/callback_receiver.py）
-curl -X POST http://localhost:8000/predict/agent/callback \
-  -H "Content-Type: application/json" \
-  -d '{"image": "<base64>", "callback_url": "http://localhost:9000/result"}'
 ```
 
 ## 10. 测试规范引用

@@ -22,8 +22,8 @@ CALLBACK_RETRY_BASE_DELAY = 2  # seconds, exponential: 2, 4, 8
 def post_callback(callback_url, payload):
     """POST the payload, retrying transient network failures with backoff.
 
-    Shared by tasks.vlm_callback: the retry constants stay here so exactly-once
-    delivery semantics have a single source.
+    Reusable by any future async callback task: the retry constants stay here
+    so exactly-once delivery semantics have a single source.
     """
     for attempt in range(CALLBACK_MAX_RETRIES):
         try:

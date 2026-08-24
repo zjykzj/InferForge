@@ -105,7 +105,9 @@ INFERFORGE_AGENT=1 INFERFORGE_ASYNC=1 ./start.sh                                
 INFERFORGE_LLM_MODEL=your-model \
 INFERFORGE_LLM_API_KEY=your-key \
 ./start_celery.sh                                                               # 启动 worker（Agent 在这里运行）
-python3 scripts/test_predict_query.py --image assets/zidane.jpg                 # 提交 + 轮询发型统计结果
+curl -s -X POST http://localhost:8000/predict/agent/query \                     # 提交后用返回的 task_id 轮询
+  -H "Content-Type: application/json" \
+  -d '{"image": "<assets/zidane.jpg 的 base64>"}'
 ```
 
 示例统计图中人物有头发/无头发的人数（zidane.jpg → 2 人 1:1）；换属性字段 + 指令 + 工具即可换成任意属性任务。详见 [agent](docs/agent.md)。

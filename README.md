@@ -105,7 +105,9 @@ INFERFORGE_AGENT=1 INFERFORGE_ASYNC=1 ./start.sh                                
 INFERFORGE_LLM_MODEL=your-model \
 INFERFORGE_LLM_API_KEY=your-key \
 ./start_celery.sh                                                               # start worker (agent runs here)
-python3 scripts/test_predict_query.py --image assets/zidane.jpg                 # submit + poll for the hair-count result
+curl -s -X POST http://localhost:8000/predict/agent/query \                     # submit; then poll the returned task_id
+  -H "Content-Type: application/json" \
+  -d '{"image": "<base64 of assets/zidane.jpg>"}'
 ```
 
 The demo counts persons with/without hair (zidane.jpg → 2 persons, 1:1); swap the schema + instructions + tool for any other attribute task. See [agent](docs/agent.md).

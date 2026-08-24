@@ -73,19 +73,17 @@ def test_async_skipped_without_redis(no_async_switch, monkeypatch):
 def test_vlm_disabled_without_async(no_async_switch, monkeypatch):
     monkeypatch.setenv("INFERFORGE_LLM", "1")
     routes = _route_paths(create_app())
-    assert "/predict/vlm/callback" not in routes
     assert "/predict/vlm/query" not in routes
 
 
-def test_vlm_enabled_registers_both_apis(no_async_switch, monkeypatch):
+def test_vlm_enabled_registers_query_api(no_async_switch, monkeypatch):
     pytest.importorskip("redis")  # full async mode needs redis installed
     monkeypatch.setenv("INFERFORGE_ASYNC", "1")
     monkeypatch.setenv("INFERFORGE_LLM", "1")
     routes = _route_paths(create_app())
     assert "/predict/callback" in routes
     assert "/predict/query" in routes
-    assert "/predict/vlm/callback" in routes
-    assert "/predict/vlm/query" in routes
+    assert "/predict/vlm/query" in routes  # vlm is query-only (no callback variant)
 
 
 def test_async_alone_leaves_vlm_out(no_async_switch, monkeypatch):
@@ -93,7 +91,6 @@ def test_async_alone_leaves_vlm_out(no_async_switch, monkeypatch):
     monkeypatch.setenv("INFERFORGE_ASYNC", "1")
     routes = _route_paths(create_app())
     assert "/predict/callback" in routes
-    assert "/predict/vlm/callback" not in routes
     assert "/predict/vlm/query" not in routes
 
 
@@ -103,18 +100,16 @@ def test_async_alone_leaves_vlm_out(no_async_switch, monkeypatch):
 def test_agent_disabled_without_async(no_async_switch, monkeypatch):
     monkeypatch.setenv("INFERFORGE_AGENT", "1")
     routes = _route_paths(create_app())
-    assert "/predict/agent/callback" not in routes
     assert "/predict/agent/query" not in routes
 
 
-def test_agent_enabled_registers_both_apis(no_async_switch, monkeypatch):
+def test_agent_enabled_registers_query_api(no_async_switch, monkeypatch):
     pytest.importorskip("redis")  # full async mode needs redis installed
     monkeypatch.setenv("INFERFORGE_ASYNC", "1")
     monkeypatch.setenv("INFERFORGE_AGENT", "1")
     routes = _route_paths(create_app())
     assert "/predict/callback" in routes
-    assert "/predict/agent/callback" in routes
-    assert "/predict/agent/query" in routes
+    assert "/predict/agent/query" in routes  # agent is query-only (no callback variant)
 
 
 def test_async_alone_leaves_agent_out(no_async_switch, monkeypatch):
@@ -122,7 +117,6 @@ def test_async_alone_leaves_agent_out(no_async_switch, monkeypatch):
     monkeypatch.setenv("INFERFORGE_ASYNC", "1")
     routes = _route_paths(create_app())
     assert "/predict/callback" in routes
-    assert "/predict/agent/callback" not in routes
     assert "/predict/agent/query" not in routes
 
 

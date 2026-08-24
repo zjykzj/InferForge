@@ -17,7 +17,7 @@
 | `inferforge_vlm_remote_errors_total` | Counter | — | 远程 LLM 调用失败数（SDK 重试后仍 OpenAIError） |
 | `inferforge_celery_queue_wait_seconds` | Histogram | task | 任务在 broker 队列中的等待时长（显式桶到 300s） |
 
-埋点位置：请求计数在 `MetricsMiddleware`（`utils/metrics.py`）、业务码计数在 `utils/response.py`（envelope 的唯一出口）、推理耗时在 `engines/yolo.py`、worker 计数在 `celery_app.py` 的 celery signals、远程调用延迟/错误在 `tasks/vlm.py` 与 `tasks/agent.py`（Agent 复用 vlm 的 `inferforge_vlm_remote_call_seconds` / `inferforge_vlm_remote_errors_total` 两个指标——语义是「远程 LLM 调用」而非仅 VLM）、队列等待在 `utils/metrics.py` 的 `record_queue_wait`（`celery_app.py` 的 `task_prerun` 调用——6 个 apis 提交任务时携带 `submitted_at` 墙钟时间戳，同机/NTP 假设，负值钳为 0）。
+埋点位置：请求计数在 `MetricsMiddleware`（`utils/metrics.py`）、业务码计数在 `utils/response.py`（envelope 的唯一出口）、推理耗时在 `engines/yolo.py`、worker 计数在 `celery_app.py` 的 celery signals、远程调用延迟/错误在 `tasks/vlm.py` 与 `tasks/agent.py`（Agent 复用 vlm 的 `inferforge_vlm_remote_call_seconds` / `inferforge_vlm_remote_errors_total` 两个指标——语义是「远程 LLM 调用」而非仅 VLM）、队列等待在 `utils/metrics.py` 的 `record_queue_wait`（`celery_app.py` 的 `task_prerun` 调用——4 个异步 apis 提交任务时携带 `submitted_at` 墙钟时间戳，同机/NTP 假设，负值钳为 0）。
 
 ## 2. 暴露端点：GET /metrics
 

@@ -40,10 +40,10 @@ class HairCountResult(BaseModel):
 
 ### 1.2 接口与启用
 
-- 接口：`POST /predict/agent/callback` + `POST /predict/agent/query` + `GET /predict/agent/query/{task_id}`——与检测/VLM 异步接口完全同构（详见 [api.md](api.md)）
+- 接口：`POST /predict/agent/query` + `GET /predict/agent/query/{task_id}`——与检测/VLM 异步轮询完全同构（详见 [api.md](api.md)）；**query-only**（callback 推送以检测任务为参照，LLM/Agent 类任务的调用方是主动业务系统，query 是主路）
 - 启用：`INFERFORGE_ASYNC=1 INFERFORGE_AGENT=1` 启动 web；worker 侧配置 `INFERFORGE_LLM_MODEL` / `INFERFORGE_LLM_API_KEY`（必填）+ `INFERFORGE_LLM_BASE_URL`（可选），与 VLM 共用
 - 指令：服务端固定（`INFERFORGE_AGENT_INSTRUCTIONS` 可覆盖），客户端只传图片
-- 业务码：图片校验 1/2、上游失败 9（回调不重试）、内部 3——零新增
+- 业务码：图片校验 1/2、上游失败 9、内部 3——零新增
 
 ### 1.3 为什么用 Pydantic AI
 
@@ -98,6 +98,6 @@ class HairCountResult(BaseModel):
 | 模型调用 | openai SDK 手写 chat completions | Pydantic AI Agent（OpenAIChatModel） |
 | 输出 | 自由文本 | 结构化 schema（Pydantic 校验） |
 | 编排 | 单次调用 | 工具调用 + 结构化输出 |
-| 配置/错误码/指标/回调 | 共享 `INFERFORGE_LLM_*`、code 1/2/9/3、`inferforge_vlm_remote_*` 指标、exactly-once 回调 |
+| 配置/错误码/指标 | 共享 `INFERFORGE_LLM_*`、code 1/2/9/3、`inferforge_vlm_remote_*` 指标 |
 
 两者同构且可并存：`INFERFORGE_LLM=1` 开 VLM，`INFERFORGE_AGENT=1` 开 Agent，开关独立。

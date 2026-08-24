@@ -6,13 +6,13 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Agent: Pydantic AI orchestration demo (/predict/agent/callback + /predict/agent/query, async-only) — hair-count task: the local detection engine locates persons (detect_persons tool) and the remote LLM agent judges the hair attribute per person into a typed HairCountResult (output_type + Pydantic validation); tasks/agent.py keeps pydantic-ai lazy-imported (worker-only) with a fresh agent/client per task; transport retries configured via AsyncHTTPX2TenacityTransport (429/5xx/connection x3, Retry-After aware — V2 has no built-in HTTP retries); INFERFORGE_AGENT=1 switch (requires INFERFORGE_ASYNC=1); docs/agent.md with the generalization guide
+- Agent: Pydantic AI orchestration demo (/predict/agent/query, async-only, query-only) — hair-count task: the local detection engine locates persons (detect_persons tool) and the remote LLM agent judges the hair attribute per person into a typed HairCountResult (output_type + Pydantic validation); tasks/agent.py keeps pydantic-ai lazy-imported (worker-only) with a fresh agent/client per task; transport retries configured via AsyncHTTPX2TenacityTransport (429/5xx/connection x3, Retry-After aware — V2 has no built-in HTTP retries); INFERFORGE_AGENT=1 switch (requires INFERFORGE_ASYNC=1); docs/agent.md with the generalization guide
 - Agent: tasks/vlm._get_config renamed to get_llm_config (shared by vlm + agent); agent remote calls reuse the vlm remote-call metrics (documented in metrics.md)
 - Deps: pydantic-ai-slim[openai,retries]>=2.33,<3.0 (slim package — the full pydantic-ai pulls unrelated provider SDKs); openai pin relaxed to >=3.0,<4.0 (pydantic-ai 2.x requires openai 3.x; vlm API surface verified on 3.3.x by the suite)
-- VLM: async image-understanding tasks (/predict/vlm/callback + /predict/vlm/query, no sync variant, no result caching in v1) — fixed server-side prompt (INFERFORGE_LLM_PROMPT overrides), remote OpenAI-compatible chat completions via the openai SDK (requirements-async.txt, `>=1.40,<3.0`; worker-only lazy import; SDK-level infra retries max_retries=2); image validated before the paid call (reuses the code 1/2 ladder)
+- VLM: async image-understanding tasks (/predict/vlm/query, query-only — no sync or callback variant; callback delivery stays with the detection task as the reference implementation) — fixed server-side prompt (INFERFORGE_LLM_PROMPT overrides), remote OpenAI-compatible chat completions via the openai SDK (requirements-async.txt, `>=3.0,<4.0`; worker-only lazy import; SDK-level infra retries max_retries=2); image validated before the paid call (reuses the code 1/2 ladder)
 - VLM: business code 9 (upstream LLM failure after SDK retries) registered in utils/response.py + docs/status-codes.md; business errors never retried by the callback (exactly-once holds for code 9)
 - VLM: INFERFORGE_LLM=1 switch (requires INFERFORGE_ASYNC=1, warns and skips otherwise); worker env INFERFORGE_LLM_MODEL / INFERFORGE_LLM_API_KEY (required) + INFERFORGE_LLM_BASE_URL (optional); vlm workers are I/O-bound (`-c N`, prefetch_multiplier stays 1)
-- VLM: test scripts (scripts/test_vlm_callback.py, scripts/test_vlm_query.py) and smoke tests (tests/test_vlm.py, test_predict_vlm_callback.py, test_predict_vlm_query.py); compose gains commented INFERFORGE_LLM_* env examples; docs updated (api.md §8, architecture.md, deployment.md, status-codes.md)
+- VLM: test script (scripts/test_vlm_query.py) and smoke tests (tests/test_vlm.py, test_predict_vlm_query.py); compose gains commented INFERFORGE_LLM_* env examples; docs updated (api.md §8, architecture.md, deployment.md, status-codes.md)
 - Config: .env support — app.py and celery_app.py load the project-root .env at import time (python-dotenv, override=False so shell/compose env wins); .env.example template shipped (.env already gitignored)
 - Metrics: VLM remote-call latency histogram + remote-error counter + per-task broker queue-wait histogram (submitted_at wall-clock transport kwarg from the 4 submit apis, observed in celery_app task_prerun via utils.metrics.record_queue_wait; same-host assumption, negatives clamped); VLM token usage logged per call; docs/metrics.md synced
 - Tooling: scripts/benchmark.py (detect / vlm-direct / vlm-http fixed-concurrency load generator, P50/P95/P99, RPS, outcome distribution, JSON output) + scripts/mock_llm.py (stdlib OpenAI-compatible /v1/chat/completions fake)
@@ -20,7 +20,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
-- Refactor: tasks/detection_callback._post_callback renamed to post_callback and shared with tasks.vlm_callback (retry constants stay single-sourced; behavior unchanged)
+- Refactor: tasks/detection_callback._post_callback renamed to post_callback (reusable by future async callback tasks; retry constants stay single-sourced; behavior unchanged)
 
 ## [1.0.0] - 2026-08-22
 

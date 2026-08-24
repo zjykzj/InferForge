@@ -8,11 +8,12 @@ always registered. Async APIs are registered behind an explicit env switch:
 INFERFORGE_ASYNC=1 registers both the callback and query apis (requires
 celery + rabbitmq + redis — one deployment shape, callback vs query is a
 per-request choice). INFERFORGE_QUERY=1 is accepted as a deprecated alias.
-The VLM apis (remote LLM call, no sync variant) additionally require
-INFERFORGE_LLM=1 AND INFERFORGE_ASYNC=1 — LLM without async logs a warning.
-The agent apis (detection tool + Pydantic AI orchestration, no sync variant)
-require INFERFORGE_AGENT=1 AND INFERFORGE_ASYNC=1 — agent without async logs
-a warning. A missing dependency logs a warning and skips the whole async mode.
+The VLM api (remote LLM call, query-only — no sync or callback variant)
+additionally requires INFERFORGE_LLM=1 AND INFERFORGE_ASYNC=1 — LLM without
+async logs a warning. The agent api (detection tool + Pydantic AI
+orchestration, query-only) requires INFERFORGE_AGENT=1 AND
+INFERFORGE_ASYNC=1 — agent without async logs a warning. A missing
+dependency logs a warning and skips the whole async mode.
 
 Serving: gunicorn with the uvicorn ASGI worker (gunicorn.conf.py). Endpoints
 are plain `def` (sync) — FastAPI runs them in its threadpool, because ONNX
@@ -147,19 +148,15 @@ def create_app() -> FastAPI:
             app.include_router(predict_query_router)
             logger.info("async apis enabled (callback + query)")
             if _llm_enabled():
-                from apis.predict_vlm_callback import predict_vlm_callback_router
                 from apis.predict_vlm_query import predict_vlm_query_router
 
-                app.include_router(predict_vlm_callback_router)
                 app.include_router(predict_vlm_query_router)
-                logger.info("vlm apis enabled (callback + query)")
+                logger.info("vlm query api enabled")
             if _agent_enabled():
-                from apis.predict_agent_callback import predict_agent_callback_router
                 from apis.predict_agent_query import predict_agent_query_router
 
-                app.include_router(predict_agent_callback_router)
                 app.include_router(predict_agent_query_router)
-                logger.info("agent apis enabled (callback + query)")
+                logger.info("agent query api enabled")
         except ImportError:
             logger.warning(
                 "INFERFORGE_ASYNC=1 but celery or redis is not installed — "
@@ -168,13 +165,13 @@ def create_app() -> FastAPI:
     else:
         if _llm_enabled():
             logger.warning(
-                "INFERFORGE_LLM=1 but INFERFORGE_ASYNC is off — vlm apis "
-                "disabled (they need the async stack)"
+                "INFERFORGE_LLM=1 but INFERFORGE_ASYNC is off — vlm api "
+                "disabled (it needs the async stack)"
             )
         if _agent_enabled():
             logger.warning(
-                "INFERFORGE_AGENT=1 but INFERFORGE_ASYNC is off — agent apis "
-                "disabled (they need the async stack)"
+                "INFERFORGE_AGENT=1 but INFERFORGE_ASYNC is off — agent api "
+                "disabled (it needs the async stack)"
             )
         logger.info("async api disabled (set INFERFORGE_ASYNC=1 to enable)")
 

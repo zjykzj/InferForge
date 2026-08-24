@@ -46,9 +46,7 @@ celery_app.conf.update(
 # shared_task, which binds to this app without a circular import.
 from tasks import detection_callback  # noqa: E402,F401
 from tasks import detection_query  # noqa: E402,F401
-from tasks import vlm_callback  # noqa: E402,F401
 from tasks import vlm_query  # noqa: E402,F401
-from tasks import agent_callback  # noqa: E402,F401
 from tasks import agent_query  # noqa: E402,F401
 
 

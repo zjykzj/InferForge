@@ -14,6 +14,12 @@ import time
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _PROJECT_ROOT)
 
+# Load .env BEFORE task modules import — tasks read env at import time
+# (INFERFORGE_MODEL_PATH, INFERFORGE_LLM_PROMPT). override=False: shell env wins.
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
+
 from celery import Celery  # noqa: E402
 from celery.signals import setup_logging, task_failure, task_postrun, task_prerun  # noqa: E402
 from utils import metrics  # noqa: E402
@@ -40,6 +46,8 @@ celery_app.conf.update(
 # shared_task, which binds to this app without a circular import.
 from tasks import detection_callback  # noqa: E402,F401
 from tasks import detection_query  # noqa: E402,F401
+from tasks import vlm_callback  # noqa: E402,F401
+from tasks import vlm_query  # noqa: E402,F401
 
 
 @setup_logging.connect

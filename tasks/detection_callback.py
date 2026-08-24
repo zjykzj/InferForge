@@ -19,8 +19,12 @@ CALLBACK_MAX_RETRIES = 3
 CALLBACK_RETRY_BASE_DELAY = 2  # seconds, exponential: 2, 4, 8
 
 
-def _post_callback(callback_url, payload):
-    """POST the payload, retrying transient network failures with backoff."""
+def post_callback(callback_url, payload):
+    """POST the payload, retrying transient network failures with backoff.
+
+    Shared by tasks.vlm_callback: the retry constants stay here so exactly-once
+    delivery semantics have a single source.
+    """
     for attempt in range(CALLBACK_MAX_RETRIES):
         try:
             requests.post(callback_url, json=payload, timeout=CALLBACK_TIMEOUT)
@@ -57,6 +61,6 @@ def detect_callback_task(self, callback_url, image_b64=None, image_url=None, req
         logger.exception("detection failed (internal)")
         payload = {"code": 3, "message": "internal server error", "data": None}
 
-    _post_callback(callback_url, payload)
+    post_callback(callback_url, payload)
     logger.info("callback delivered: %s (code=%s)", callback_url, payload["code"])
     return {"callback_url": callback_url, "code": payload["code"]}

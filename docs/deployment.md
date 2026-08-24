@@ -97,18 +97,27 @@ upstream inferforge_web {
 CELERY_BROKER_URL=amqp://guest:guest@localhost:5672/test   # RabbitMQ 不同 vhost
 INFERFORGE_REDIS_URL=redis://localhost:6379/1              # Redis 不同 DB index
 INFERFORGE_MODEL_PATH=/path/to/test/yolov8n.onnx
-INFERFORGE_ASYNC=1 ./start.sh
+INFERFORGE_LLM_MODEL=test-model                            # VLM（可选）：测试/生产可指向不同 LLM 端点
+INFERFORGE_LLM_API_KEY=test-key
+INFERFORGE_LLM_BASE_URL=https://test-llm.example.com/v1
+INFERFORGE_ASYNC=1 INFERFORGE_LLM=1 ./start.sh
 
 # 生产环境
 CELERY_BROKER_URL=amqp://guest:guest@localhost:5672/prod
 INFERFORGE_REDIS_URL=redis://localhost:6379/2
 INFERFORGE_MODEL_PATH=/path/to/prod/yolov8n.onnx
-INFERFORGE_ASYNC=1 ./start.sh
+INFERFORGE_LLM_MODEL=prod-model
+INFERFORGE_LLM_API_KEY=prod-key
+INFERFORGE_LLM_BASE_URL=https://prod-llm.example.com/v1
+INFERFORGE_ASYNC=1 INFERFORGE_LLM=1 ./start.sh
 ```
 
 - **RabbitMQ**：共享实例时用不同 vhost 隔离（`amqp://...:5672/test` 与 `/prod`）；要求强隔离时起独立实例（不同端口）
 - **Redis**：共享实例时用不同 DB index（`/1`、`/2`）；强隔离时独立实例
-- **worker**：同理各起一个（`./start_celery.sh` 读同一组环境变量），两套互不串任务
+- **远程 LLM**：`INFERFORGE_LLM_BASE_URL` / `INFERFORGE_LLM_MODEL` / `INFERFORGE_LLM_API_KEY` 让测试与生产天然指向不同端点与模型
+- **worker**：同理各起一个（`./start_celery.sh` 读同一组环境变量），两套互不串任务；vlm 任务为 I/O 密集，worker 可用 `./start_celery.sh -c N` 提升并发（`worker_prefetch_multiplier` 仍为 1，见 [architecture.md](architecture.md)）
+
+**.env 文件（可选）**：项目根目录的 `.env` 会被 web（`app.py`）与 worker（`celery_app.py`）在导入时加载（python-dotenv，`override=False`——shell 已导出的变量优先于文件）。复制 `.env.example` 填写即可（`.env` 已 gitignore，不会入库）。适合本地开发把 LLM 密钥等写进文件；多环境隔离仍建议按上面示例显式 export（不同目录部署时各自带一份 `.env` 同样可行，注意 `.env` 读的是进程工作目录无关的**项目根目录**固定路径）。
 
 ### 3.2 访问地址分离
 

@@ -7,7 +7,7 @@ InferForge is an algorithm-agnostic inference-serving project template — a ser
 Layers:
 
 - `apis/` + `app.py` — interface layer: FastAPI routers (sync + optional async), Pydantic input validation, unified responses
-- `tasks/` + `celery_app.py` — task layer: orchestration; each task owns its predictors (lazy loading); celery tasks run via RabbitMQ
+- `tasks/` + `celery_app.py` — task layer: orchestration; each task owns its predictors (lazy loading); celery tasks run via RabbitMQ; VLM tasks own a remote LLM client instead of a local predictor
 - `engines/` — engine layer: `BasePredictor` contract + YOLOv8n implementation
 - `utils/` — cross-cutting: logging, image conversion, response format, request_id, metrics, auth, rate limit
 
@@ -29,12 +29,16 @@ pytest tests/ -v                                    # smoke tests (no model file
 python3 app.py                                      # dev server (uvicorn single process, no model check)
 ./start.sh                                          # run service (requires models/yolov8n.onnx)
 INFERFORGE_ASYNC=1 ./start.sh                       # run service with the async apis (callback + query)
+INFERFORGE_ASYNC=1 INFERFORGE_LLM=1 ./start.sh      # + vlm apis (worker needs INFERFORGE_LLM_MODEL/API_KEY)
 ./start_celery.sh                                   # run async worker (requires RabbitMQ + celery)
 docker compose up -d                                # full stack in containers (needs models/yolov8n.onnx)
 python3 scripts/test_predict.py --image assets/bus.jpg          # test the sync API
 python3 scripts/test_predict_callback.py --image assets/bus.jpg \  # test the async callback API
   --callback-url http://localhost:9000/result
 python3 scripts/test_predict_query.py --image assets/bus.jpg     # test the async query API
+python3 scripts/test_vlm_query.py --image assets/bus.jpg         # test the vlm query API
+python3 scripts/test_vlm_callback.py --image assets/bus.jpg \    # test the vlm callback API
+  --callback-url http://localhost:9000/result
 python3 scripts/callback_receiver.py                # receive async results (saves to outputs/callbacks/)
 python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py
 ```
@@ -53,9 +57,11 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 - Rate limit is off unless `INFERFORGE_RATE_LIMIT=N` is set (fixed window, 429 + code=8 + Retry-After; buckets keyed by X-API-Key when auth is on, else client IP). Buckets are per-process memory — multi-worker limits are approximate by design (documented); strict limits need shared storage (Redis).
 - CI (`.github/workflows/ci.yml`) runs pytest + py_compile + docs link check on push/PR — tests stay model-free and network-free so CI needs no artifacts or services.
 - New business codes must be registered in **both** `utils/response.py` docstring and `docs/status-codes.md`.
+- `.env` at the project root is loaded at import time by `app.py` and `celery_app.py` (python-dotenv, `override=False` — shell/compose env wins; explicit file path, not cwd-relative). It must run BEFORE project imports because `INFERFORGE_MODEL_PATH` / `INFERFORGE_LLM_PROMPT` are read at module import. Tests don't load dotenv (conftest bypasses app.py); `test_app.py`'s `no_async_switch` fixture deletes the capability vars so a dev `.env` can't leak into `create_app()` tests.
 - Gitignored: `models/*.onnx`, `logs/`, `outputs/`, `result*.jpg`/`result*.json`, `archive/` (old design docs — leave untouched).
 - Celery/redis are optional: async is one deployment shape behind `INFERFORGE_ASYNC=1` — it registers both async apis (callback + query; requires celery + rabbitmq + redis). `INFERFORGE_QUERY=1` is a deprecated alias (logs a warning). Missing deps log a warning and skip the whole async mode. Async task modules use `shared_task` (never import celery_app from tasks — circular import). `celery_app.py` must keep its unconditional sys.path insert — the celery CLI temporarily removes cwd from sys.path.
-- Callback fires exactly once: detection business errors (code 1/2/3) are NOT retried — only network failures on the callback POST retry (3 attempts, exponential backoff). Keep it that way.
+- Callback fires exactly once: detection business errors (code 1/2/3) are NOT retried — only network failures on the callback POST retry (3 attempts, exponential backoff). Keep it that way. `tasks.detection_callback.post_callback` is the shared helper (`tasks/vlm_callback` imports it) — retry constants stay single-sourced there.
+- VLM (`INFERFORGE_LLM=1`, requires `INFERFORGE_ASYNC=1`): worker builds a fixed server-side prompt (`INFERFORGE_LLM_PROMPT` overrides) and calls a remote OpenAI-compatible endpoint; config via `INFERFORGE_LLM_MODEL`/`INFERFORGE_LLM_API_KEY` (required) + `INFERFORGE_LLM_BASE_URL` (optional), read lazily by `tasks/vlm._get_config` (tests reset `tasks.vlm._client`). The openai SDK is worker-only, imported lazily inside `tasks/vlm.py` function bodies — the web process and tests must import the vlm chain without openai installed. Code 9 (upstream LLM failure after SDK retries) is a business error: never retried by the callback. VLM workers are I/O-bound — scale with `./start_celery.sh -c N`; `worker_prefetch_multiplier` stays 1.
 - Log rotation belongs to system logrotate (copytruncate, `deploy/logrotate.conf`) — do not reintroduce in-app rotation handlers (multi-process rotation races).
 - The compose stack bind-mounts `./models` and `./logs` — put yolov8n.onnx in `models/` first; the Docker image never bakes the model. In-container broker/redis urls are overridden in `docker-compose.yml` (the localhost defaults won't work).
 - Docs language: `docs/` in Chinese, READMEs bilingual. Docs describe current implementation only — no version planning. Professional terms stay in English (envelope, contract, composition root, …) — don't coin Chinese translations; established terms (线程池、灰度、幂等) stay Chinese.

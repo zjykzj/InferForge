@@ -9,7 +9,7 @@
 | 层 | 目录 | 技术 | 一句话职责 |
 |----|------|------|-----------|
 | 接口层 | `apis/` + `app.py` | FastAPI、Pydantic、requests | 校验参数 → 转发任务层 → 包装响应（业务状态码） |
-| 任务层 | `tasks/` + `celery_app.py` | threading、celery | 任务编排；每个任务持有自己的预测器；异步任务经 RabbitMQ 执行 |
+| 任务层 | `tasks/` + `celery_app.py` | threading、celery、openai（VLM） | 任务编排；每个任务持有自己的预测器；异步任务经 RabbitMQ 执行；VLM 任务远程调用 LLM |
 | 引擎层 | `engines/` | onnxruntime、OpenCV、NumPy | 推理引擎 contract + YOLOv8n 实现 |
 | 横切层 | `utils/` | logging、cv2、requests、base64、uuid、contextvars | 日志、图片转换、响应格式、request_id（各层共用） |
 
@@ -32,7 +32,7 @@
 | Pydantic | 请求体结构校验（schemas.py） |
 | requests | URL 下载图片、下载异常类型判断 |
 
-**文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/predict.py`（同步）、`apis/health.py`（健康探针）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；后两者由 `INFERFORGE_ASYNC=1` 开关启用）
+**文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/predict.py`（同步）、`apis/health.py`（健康探针）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；由 `INFERFORGE_ASYNC=1` 开关启用）、`apis/predict_vlm_callback.py`、`apis/predict_vlm_query.py`（VLM 异步，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` 同时启用）
 
 **健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问 predictor 是否已加载（`tasks/detection.predictor_loaded()`，接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §4）。
 
@@ -51,7 +51,7 @@
 | threading | 预测器懒加载的 double-checked locking |
 | celery | 异步任务：经 RabbitMQ 投递、worker 执行 |
 
-**文件**：`tasks/detection.py`（同步编排）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）
+**文件**：`tasks/detection.py`（同步编排）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）、`tasks/vlm.py`（VLM 编排：图片校验 → JPEG data URL → 远程 LLM chat completions；openai 惰性导入 + 懒加载 client 单例；LLMUpstreamError → code 9 语义）、`tasks/vlm_callback.py`（复用 detection_callback 共享的 post_callback）、`tasks/vlm_query.py`
 
 ### 2.3 引擎层（`engines/`）
 
@@ -114,10 +114,12 @@ app -> apis -> tasks -> engines
 |------|---------|---------|---------|---------|
 | 纯同步 | 无 | 无 | 无 | `/predict` |
 | 同步 + 异步（全量） | `requirements-async.txt` | RabbitMQ + Redis | `INFERFORGE_ASYNC=1` | `/predict` + `/predict/callback` + `/predict/query` |
+| 同步 + 异步 + VLM | `requirements-async.txt`（含 openai） | RabbitMQ + Redis + 远程 LLM 端点 | `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` | 前述接口 + `/predict/vlm/callback` + `/predict/vlm/query` |
 
 实现机制：
 
 - `app.py` 按 `INFERFORGE_ASYNC=1` 一次性注册全部异步 router——异步是一种整体部署形态（celery + RabbitMQ + Redis），callback 与 query 是按请求的选择而非部署选择；`INFERFORGE_QUERY=1` 作为废弃别名保留（打印 deprecated 告警）。开了开关但缺依赖时打印告警并整体跳过异步模式，同步接口照常
+- VLM 是异步形态上的可选能力：`INFERFORGE_LLM=1` 需与 `INFERFORGE_ASYNC=1` 同时开启才注册 vlm router；仅 LLM=1 时打印告警并跳过。VLM 没有同步版本——远程调用秒级到几十秒，同步长连接易超时且客户端重试会重复计费
 - 任务模块用 `shared_task` 注册，避免与 celery_app 循环导入
 - `celery_app.py` 显式导入任务模块（不用惰性 autodiscover），并保证项目根目录在 sys.path 中（celery CLI 会临时移除 cwd）
 
@@ -169,6 +171,27 @@ app -> apis -> tasks -> engines
 
 轮询**幂等**：结果落 Redis 后原样返回，多次轮询无副作用；结果带 TTL（默认 3600s），过期后轮询返回 code=4。
 
+### 异步 VLM 流程（POST /predict/vlm/callback + /predict/vlm/query）
+
+与检测异步链路同构，差异在 worker 的第 4 步：
+
+```
+ 1. apis/predict_vlm_*.py    校验参数 → delay() 提交任务（callback / query 与检测完全一致）
+ 2. RabbitMQ                  任务排队
+ 3. Celery worker             消费任务 → run_vlm（tasks/vlm.py）
+ 4. worker                    图片解码校验（code 1/2 阶梯，付费前校验）→ JPEG data URL
+ 5. worker                    组装固定提示词 + 图片消息 → openai client 远程调用
+                              （SDK 内置重试：连接/429/5xx，max_retries=2）
+ 6. worker                    成功 → code=0 envelope（data: {answer, model}）
+                              远程失败 → code=9（SDK 重试耗尽）；配置缺失 → code=3（点名变量）
+ 7. 交付与检测一致              callback：POST 到 callback_url（code 9 属业务错误不重试，仅 POST 网络重试）
+                              query：envelope 写入 Redis，客户端轮询原样返回
+```
+
+- VLM worker 为 **I/O 密集**：`worker_prefetch_multiplier` 保持 1（那是"每个子进程一次一个任务"的约定，对远程调用同样成立），并发用 `./start_celery.sh -c N` 增加子进程数
+- code=9 与 exactly-once：上游 LLM 失败与 1/2/3 同为业务错误——回调恰好触发一次，业务逻辑绝不重跑；只有回调 POST 传输重试
+- 远程调用的基础设施重试在 SDK 层（`max_retries=2`），worker 内不手写重试循环——与"检测业务错误不重试"的边界一致
+
 ## 5. 技术栈总览
 
 | 库 | 所属层 | 用途 |
@@ -178,6 +201,7 @@ app -> apis -> tasks -> engines
 | requests | 接口层 / 横切层 | URL 下载图片、下载异常类型 |
 | threading | 任务层 | 预测器懒加载 double-checked locking |
 | celery | 任务层 | 异步任务投递与执行 |
+| openai | 任务层（VLM） | 远程 LLM 调用（OpenAI-compatible chat completions；函数体内惰性导入） |
 | onnxruntime | 引擎层 | ONNX 模型推理（延迟导入） |
 | OpenCV | 引擎层 / 横切层 | 图像处理：缩放、绘图、编解码 |
 | NumPy | 引擎层 / 横切层 | 向量化计算、数组处理 |

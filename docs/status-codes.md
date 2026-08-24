@@ -37,6 +37,7 @@
 | `6` | service not ready | 就绪检查未通过：predictor 尚未加载（`GET /health/ready` 冷启动期间） |
 | `7` | unauthorized | 鉴权失败：缺失或错误的 `X-API-Key`（`INFERFORGE_API_KEY` 设置后启用，见 §2 鉴权例外） |
 | `8` | rate limit exceeded | 超限：超过 `INFERFORGE_RATE_LIMIT` 设定的每分钟配额（见 §2 限流例外） |
+| `9` | upstream LLM failure | VLM 任务远程 LLM 调用失败（超时 / 5xx / 限流耗尽 / 连接失败，SDK 内置重试耗尽后），出现在 vlm 回调与轮询的 result envelope 中；与 1/2/3 同为业务错误，回调不重试 |
 
 扩展原则：
 
@@ -109,7 +110,7 @@ else:
 
 1. 在 `utils/response.py` docstring 与本文档 §2 登记新码语义
 2. apis 层调用 `response.error(msg, code=N)`
-3. 在对应测试文件（`tests/test_predict.py` / `tests/test_predict_query.py`）补充对应断言
+3. 在对应测试文件（`tests/test_predict.py` / `tests/test_predict_query.py` / `tests/test_predict_vlm_query.py`）补充对应断言
 
 ## 4. 方案比较：永远 200 vs HTTP 状态码
 

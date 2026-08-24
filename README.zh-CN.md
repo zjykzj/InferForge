@@ -83,6 +83,21 @@ redis-server &                                                                  
 python3 scripts/test_predict_query.py --image assets/bus.jpg                    # 提交 + 轮询直到完成
 ```
 
+VLM（图片理解，远程调用 LLM，仅异步形态）—— 在异步基础上再加 `INFERFORGE_LLM=1`，worker 侧配置远程模型：
+
+```bash
+INFERFORGE_LLM=1 INFERFORGE_ASYNC=1 ./start.sh                                  # 启动 web（注册 /predict/vlm/*）
+INFERFORGE_LLM_MODEL=your-model \
+INFERFORGE_LLM_API_KEY=your-key \
+INFERFORGE_LLM_BASE_URL=https://your-llm-endpoint/v1 \
+./start_celery.sh                                                               # 启动 worker（远程调用发生在 worker）
+python3 scripts/test_vlm_query.py --image assets/bus.jpg                        # 提交 + 轮询直到文本答案返回
+```
+
+提示词由服务端固定（`INFERFORGE_LLM_PROMPT` 可覆盖），客户端只传图片。详见 [api](docs/api.md) §8。
+
+配置也可以写进 `.env` 文件（`cp .env.example .env` 后填写——shell 已导出的环境变量优先）。
+
 ### Docker
 
 容器化一键起全栈 —— web + worker + RabbitMQ + Redis，本机零安装：
@@ -110,6 +125,7 @@ RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compos
 - **Web 与服务** — [FastAPI](https://fastapi.tiangolo.com/) · [Uvicorn](https://www.uvicorn.org/) · [Gunicorn](https://gunicorn.org/)
 - **推理引擎** — [ONNX Runtime](https://onnxruntime.ai/) · [OpenCV](https://opencv.org/) · [NumPy](https://numpy.org/)
 - **异步任务** — [Celery](https://docs.celeryq.dev/) · [RabbitMQ](https://www.rabbitmq.com/) · [Redis](https://redis.io/)
+- **LLM 客户端** — [OpenAI SDK](https://github.com/openai/openai-python)
 - **演示模型** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/)
 
 ## 开源协议

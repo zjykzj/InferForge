@@ -83,6 +83,21 @@ redis-server &                                                                  
 python3 scripts/test_predict_query.py --image assets/bus.jpg                    # submit + poll until done
 ```
 
+VLM (image understanding via a remote LLM, async-only) — add `INFERFORGE_LLM=1` on top of async; the worker calls the remote model:
+
+```bash
+INFERFORGE_LLM=1 INFERFORGE_ASYNC=1 ./start.sh                                  # start web (registers /predict/vlm/*)
+INFERFORGE_LLM_MODEL=your-model \
+INFERFORGE_LLM_API_KEY=your-key \
+INFERFORGE_LLM_BASE_URL=https://your-llm-endpoint/v1 \
+./start_celery.sh                                                               # start worker (remote call happens here)
+python3 scripts/test_vlm_query.py --image assets/bus.jpg                        # submit + poll until the answer arrives
+```
+
+The prompt is fixed server-side (`INFERFORGE_LLM_PROMPT` overrides it); clients submit an image only. See [api](docs/api.md) §8.
+
+Config can also live in a `.env` file (`cp .env.example .env` and fill in — shell-exported variables take precedence).
+
 ### Docker
 
 Full stack in containers — web + worker + RabbitMQ + Redis, no local installs:
@@ -110,6 +125,7 @@ Full index with one-line descriptions: [docs/README.md](docs/README.md).
 - **Web & serving** — [FastAPI](https://fastapi.tiangolo.com/) · [Uvicorn](https://www.uvicorn.org/) · [Gunicorn](https://gunicorn.org/)
 - **Inference** — [ONNX Runtime](https://onnxruntime.ai/) · [OpenCV](https://opencv.org/) · [NumPy](https://numpy.org/)
 - **Async tasks** — [Celery](https://docs.celeryq.dev/) · [RabbitMQ](https://www.rabbitmq.com/) · [Redis](https://redis.io/)
+- **LLM clients** — [OpenAI SDK](https://github.com/openai/openai-python)
 - **Demo model** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/)
 
 ## License

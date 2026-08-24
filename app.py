@@ -8,23 +8,34 @@ always registered. Async APIs are registered behind an explicit env switch:
 INFERFORGE_ASYNC=1 registers both the callback and query apis (requires
 celery + rabbitmq + redis — one deployment shape, callback vs query is a
 per-request choice). INFERFORGE_QUERY=1 is accepted as a deprecated alias.
+The VLM apis (remote LLM call, no sync variant) additionally require
+INFERFORGE_LLM=1 AND INFERFORGE_ASYNC=1 — LLM without async logs a warning.
 A missing dependency logs a warning and skips the whole async mode.
 
 Serving: gunicorn with the uvicorn ASGI worker (gunicorn.conf.py). Endpoints
 are plain `def` (sync) — FastAPI runs them in its threadpool, because ONNX
 inference is CPU-bound blocking. Never add async/await to the inference path.
 """
-import logging
 import os
 
-from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
+# Load .env BEFORE any project import reads configuration: INFERFORGE_MODEL_PATH
+# is read at tasks.detection import and INFERFORGE_LLM_PROMPT at tasks.vlm
+# import (both happen below via the apis imports). Explicit path — the default
+# cwd-relative search breaks when gunicorn runs from another directory.
+# override=False: shell-exported vars (start.sh / compose) beat the file.
+from dotenv import load_dotenv
 
-from apis.health import health_router
-from apis.metrics import metrics_router
-from apis.predict import predict_router
-from utils import auth, metrics, rate_limit, request_id, response
-from utils.logger import setup_logging
+load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+
+import logging  # noqa: E402
+from fastapi import FastAPI  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+
+from apis.health import health_router  # noqa: E402
+from apis.metrics import metrics_router  # noqa: E402
+from apis.predict import predict_router  # noqa: E402
+from utils import auth, metrics, rate_limit, request_id, response  # noqa: E402
+from utils.logger import setup_logging  # noqa: E402
 
 logger = logging.getLogger("app")
 
@@ -44,6 +55,12 @@ def _async_enabled() -> bool:
     # INFERFORGE_QUERY is a deprecated alias: async mode always includes the
     # query api, so either switch enables the full async mode.
     return _switch_on("INFERFORGE_ASYNC") or _switch_on("INFERFORGE_QUERY")
+
+
+def _llm_enabled() -> bool:
+    # VLM apis are async-shaped (they need celery), so this switch only takes
+    # effect together with async mode — see create_app().
+    return _switch_on("INFERFORGE_LLM")
 
 
 def _read_version() -> str:
@@ -121,12 +138,24 @@ def create_app() -> FastAPI:
             app.include_router(predict_callback_router)
             app.include_router(predict_query_router)
             logger.info("async apis enabled (callback + query)")
+            if _llm_enabled():
+                from apis.predict_vlm_callback import predict_vlm_callback_router
+                from apis.predict_vlm_query import predict_vlm_query_router
+
+                app.include_router(predict_vlm_callback_router)
+                app.include_router(predict_vlm_query_router)
+                logger.info("vlm apis enabled (callback + query)")
         except ImportError:
             logger.warning(
                 "INFERFORGE_ASYNC=1 but celery or redis is not installed — "
                 "async apis disabled"
             )
     else:
+        if _llm_enabled():
+            logger.warning(
+                "INFERFORGE_LLM=1 but INFERFORGE_ASYNC is off — vlm apis "
+                "disabled (they need the async stack)"
+            )
         logger.info("async api disabled (set INFERFORGE_ASYNC=1 to enable)")
 
     logger.info("app created")

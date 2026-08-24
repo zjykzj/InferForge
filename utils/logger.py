@@ -17,7 +17,7 @@ from utils import request_id
 LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
 
 # Third-party libraries are too noisy at INFO; keep them at WARNING.
-_QUIET_LIBRARIES = ("onnxruntime", "urllib3", "requests", "amqp", "kombu")
+_QUIET_LIBRARIES = ("onnxruntime", "urllib3", "requests", "amqp", "kombu", "openai")
 
 _CONSOLE_FMT = ("%(asctime)s | %(levelname)-7s | %(name)s | "
                 "%(request_id)s | %(task_id)s | %(message)s")

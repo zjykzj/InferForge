@@ -277,7 +277,67 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 
 已落地：见 §3 异步轮询接口（POST /predict/query + GET 轮询）。同步/异步并存时，由接口路径区分而非参数区分——调用方一眼可知行为。
 
-## 8. 测试规范引用
+## 8. VLM 异步接口：POST /predict/vlm/callback + POST /predict/vlm/query
+
+图片理解（VLM）异步接口：输入一张图片，worker 内部组装**固定服务端提示词**并**远程调用 LLM**（OpenAI 兼容 chat completions），返回文本答案。与检测异步接口同构——callback 推送 + query 轮询两种形态，**没有同步版本**（远程调用秒级到几十秒，长连接易超时且客户端重试会重复计费）。
+
+启用前置：
+
+- web：`INFERFORGE_ASYNC=1 INFERFORGE_LLM=1` 启动（仅 `INFERFORGE_LLM=1` 时告警并跳过注册）
+- worker：`INFERFORGE_LLM_MODEL`（必填）、`INFERFORGE_LLM_API_KEY`（必填）、`INFERFORGE_LLM_BASE_URL`（可选）、`INFERFORGE_LLM_PROMPT`（可选，覆盖默认提示词）
+
+### 8.1 请求参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:---:|------|
+| `callback_url` | string | 仅 callback | 结果回调地址（同检测 callback） |
+| `image` | string | 二选一 | base64 图片（同检测接口） |
+| `url` | string | 二选一 | 图片 URL（同检测接口） |
+
+提示词完全由服务端固定（默认 "Please describe this image in detail."），客户端**不传**文本参数。
+
+### 8.2 响应与结果 envelope
+
+```json
+// 提交响应（立即返回，同检测异步）
+{"code": 0, "message": "success", "data": {"task_id": "76898f32-c64d-..."}}
+
+// 结果 envelope（callback payload / 轮询原样返回）
+{"code": 0, "message": "success", "data": {"answer": "<文本答案>", "model": "<模型名>"}}
+{"code": 1, "message": "...", "data": null}    // 图片非法（付费调用前校验）
+{"code": 2, "message": "...", "data": null}    // 图片下载失败
+{"code": 9, "message": "upstream LLM call failed: ...", "data": null}  // 远程 LLM 失败（SDK 重试耗尽）
+{"code": 3, "message": "...", "data": null}    // 配置缺失（点名环境变量）/ 内部错误
+```
+
+### 8.3 语义
+
+- **code=9 是业务错误**：回调不重试（与 1/2/3 一致），只有回调 POST 本身的网络故障才指数退避重试（最多 3 次）——回调恰好触发一次
+- 远程调用的基础设施重试由 openai SDK 内置（连接 / 429 / 5xx，`max_retries=2`），worker 内不手写重试循环
+- **付费前校验**：图片先解码验证（code 1/2 阶梯复用检测路径），通过后才发起远程调用——非法输入不产生费用
+- v1 无结果缓存：重复提交同一图片会重复调用远程 LLM（缓存留待后续版本）
+- worker 为 I/O 密集：`./start_celery.sh -c N` 提升并发（`worker_prefetch_multiplier` 保持 1，见 [architecture.md](architecture.md)）
+
+### 8.4 curl 示例
+
+```bash
+# 提交（query 形态；payload 文件方式避免 base64 超长）
+python3 -c "import base64,json; json.dump({'image': base64.b64encode(open('assets/bus.jpg','rb').read()).decode()}, open('/tmp/payload.json','w'))"
+curl -s -X POST http://localhost:8000/predict/vlm/query \
+  -H "Content-Type: application/json" -d @/tmp/payload.json
+
+# 轮询（task_id 为提交响应里的值；code=5 继续轮询，0/1/2/3/9 为终态）
+curl -s http://localhost:8000/predict/vlm/query/<task_id>
+
+# callback 形态（回调接收端可用 scripts/callback_receiver.py）
+curl -X POST http://localhost:8000/predict/vlm/callback \
+  -H "Content-Type: application/json" \
+  -d '{"image": "<base64>", "callback_url": "http://localhost:9000/result"}'
+```
+
+自动化客户端：`python3 scripts/test_vlm_query.py --image assets/bus.jpg`（自带轮询循环）。
+
+## 9. 测试规范引用
 
 - 响应格式与业务码：[status-codes.md](status-codes.md)
 - 分层与异步数据流：[architecture.md](architecture.md)

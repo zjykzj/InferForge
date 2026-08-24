@@ -10,6 +10,7 @@ HTTP status is always 200; business status is carried by `code`:
     6     service not ready (health/ready: predictor not loaded)
     7     unauthorized (auth middleware: missing / wrong X-API-Key)
     8     rate limit exceeded (rate_limit middleware: over INFERFORGE_RATE_LIMIT)
+    9     upstream LLM call failure (vlm tasks: remote LLM timeout / 5xx / rate limit / connection)
 
 The exceptions to "always 200" are infrastructure endpoints: /health/ready
 returns HTTP 503 alongside code 6 so that orchestrator probes can read the

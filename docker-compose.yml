@@ -49,6 +49,8 @@ services:
       # INFERFORGE_API_KEY: your-secret-key
       # optional: fixed-window rate limit, N requests/minute (429 + code=8)
       # INFERFORGE_RATE_LIMIT: "60"
+      # optional: VLM apis (needs INFERFORGE_ASYNC=1 + worker-side INFERFORGE_LLM_*)
+      # INFERFORGE_LLM: "1"
     volumes:
       - ./models:/app/models
       - ./logs:/app/logs
@@ -77,6 +79,10 @@ services:
       INFERFORGE_REDIS_URL: redis://redis:6379/0
       # same multiprocess metrics dir as the web service (aggregated there)
       PROMETHEUS_MULTIPROC_DIR: /app/logs/metrics
+      # optional: VLM remote LLM config (worker-side; web only needs INFERFORGE_LLM)
+      # INFERFORGE_LLM_MODEL: your-model-name
+      # INFERFORGE_LLM_API_KEY: your-api-key
+      # INFERFORGE_LLM_BASE_URL: https://your-openai-compatible-endpoint/v1
     volumes:
       - ./models:/app/models
       - ./logs:/app/logs

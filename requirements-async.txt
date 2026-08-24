@@ -1,2 +1,6 @@
 celery>=5.3,<6.0
 redis>=4.0,<6.0
+# VLM tasks (worker-only): imported lazily inside tasks/vlm.py so the web
+# process never needs it. <3.0 excludes 3.0.0 (2026-08-12), which dropped
+# httpx/certifi and breaks TLS in containers.
+openai>=1.40,<3.0

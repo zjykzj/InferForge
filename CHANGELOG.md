@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- VLM: async image-understanding tasks (/predict/vlm/callback + /predict/vlm/query, no sync variant, no result caching in v1) — fixed server-side prompt (INFERFORGE_LLM_PROMPT overrides), remote OpenAI-compatible chat completions via the openai SDK (requirements-async.txt, `>=1.40,<3.0`; worker-only lazy import; SDK-level infra retries max_retries=2); image validated before the paid call (reuses the code 1/2 ladder)
+- VLM: business code 9 (upstream LLM failure after SDK retries) registered in utils/response.py + docs/status-codes.md; business errors never retried by the callback (exactly-once holds for code 9)
+- VLM: INFERFORGE_LLM=1 switch (requires INFERFORGE_ASYNC=1, warns and skips otherwise); worker env INFERFORGE_LLM_MODEL / INFERFORGE_LLM_API_KEY (required) + INFERFORGE_LLM_BASE_URL (optional); vlm workers are I/O-bound (`-c N`, prefetch_multiplier stays 1)
+- VLM: test scripts (scripts/test_vlm_callback.py, scripts/test_vlm_query.py) and smoke tests (tests/test_vlm.py, test_predict_vlm_callback.py, test_predict_vlm_query.py); compose gains commented INFERFORGE_LLM_* env examples; docs updated (api.md §8, architecture.md, deployment.md, status-codes.md)
+- Config: .env support — app.py and celery_app.py load the project-root .env at import time (python-dotenv, override=False so shell/compose env wins); .env.example template shipped (.env already gitignored)
+
+### Changed
+
+- Refactor: tasks/detection_callback._post_callback renamed to post_callback and shared with tasks.vlm_callback (retry constants stay single-sourced; behavior unchanged)
+
 ## [1.0.0] - 2026-08-22
 
 ### Added

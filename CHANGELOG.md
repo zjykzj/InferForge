@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-08-24
+
 ### Added
 
 - Agent: Pydantic AI orchestration demo (/predict/agent/query, async-only, query-only) — hair-count task: the local detection engine locates persons (detect_persons tool) and the remote LLM agent judges the hair attribute per person into a typed HairCountResult (output_type + Pydantic validation); tasks/agent.py keeps pydantic-ai lazy-imported (worker-only) with a fresh agent/client per task; transport retries configured via AsyncHTTPX2TenacityTransport (429/5xx/connection x3, Retry-After aware — V2 has no built-in HTTP retries); INFERFORGE_AGENT=1 switch (requires INFERFORGE_ASYNC=1); docs/agent.md with the generalization guide

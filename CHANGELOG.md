@@ -16,6 +16,7 @@ All notable changes to this project will be documented in this file.
 - Config: .env support — app.py and celery_app.py load the project-root .env at import time (python-dotenv, override=False so shell/compose env wins); .env.example template shipped (.env already gitignored)
 - Metrics: VLM remote-call latency histogram + remote-error counter + per-task broker queue-wait histogram (submitted_at wall-clock transport kwarg from the 4 submit apis, observed in celery_app task_prerun via utils.metrics.record_queue_wait; same-host assumption, negatives clamped); VLM token usage logged per call; docs/metrics.md synced
 - Tooling: scripts/benchmark.py (detect / vlm-direct / vlm-http fixed-concurrency load generator, P50/P95/P99, RPS, outcome distribution, JSON output) + scripts/mock_llm.py (stdlib OpenAI-compatible /v1/chat/completions fake)
+- Tooling: scripts/run_detection.py / run_vlm.py / run_agent.py — direct task-layer inference examples (call tasks.* orchestration without the web service, demonstrating the layer's web-independence)
 - Docs: benchmark.md — detection + VLM baselines (queue-wait pending a broker environment); indexed in docs/README.md and READMEs
 
 ### Changed

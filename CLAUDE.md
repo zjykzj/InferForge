@@ -38,6 +38,11 @@ python3 scripts/test_predict_callback.py --image assets/bus.jpg \  # test the as
 python3 scripts/test_predict_query.py --image assets/bus.jpg     # test the async query API
 python3 scripts/test_vlm_query.py --image assets/bus.jpg         # test the vlm query API (vlm/agent are query-only)
 python3 scripts/callback_receiver.py                # receive async results (saves to outputs/callbacks/)
+python3 scripts/run_detection.py --image assets/bus.jpg          # task layer directly, no web (sync detection)
+INFERFORGE_LLM_MODEL=m INFERFORGE_LLM_API_KEY=k \
+python3 scripts/run_vlm.py --image assets/bus.jpg                # task layer directly, no web (vlm)
+INFERFORGE_LLM_MODEL=m INFERFORGE_LLM_API_KEY=k \
+python3 scripts/run_agent.py --image assets/zidane.jpg           # task layer directly, no web (agent)
 python3 scripts/benchmark.py --mode detect --image assets/bus.jpg --concurrency 4 --requests 100   # load test /predict
 python3 scripts/mock_llm.py --delay 0.1             # local OpenAI-compatible fake for vlm benchmarking
 INFERFORGE_ASYNC=1 INFERFORGE_AGENT=1 ./start.sh    # + agent apis (hair-count demo; worker needs INFERFORGE_LLM_* + the model)

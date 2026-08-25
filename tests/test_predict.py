@@ -28,8 +28,8 @@ class FakePredictor(BasePredictor):
 
 @pytest.fixture()
 def client(monkeypatch, app_factory):
-    # The task owns its predictor; swap it out for the fake one.
-    monkeypatch.setattr(detection, "get_predictor", lambda: FakePredictor())
+    # The task owns its predictors; swap them out for the fake one.
+    monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
     return TestClient(app_factory(predict_router))
 
 
@@ -73,6 +73,28 @@ def test_predict_invalid_base64(client):
     resp = client.post("/predict", json={"image": "!!not-base64!!"})
     assert resp.status_code == 200
     assert resp.json()["code"] == 1
+
+
+def test_predict_unknown_model_returns_code10(client):
+    resp = client.post("/predict", json={"image": _tiny_image_b64(), "model": "nope"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["code"] == 10
+    assert body["data"] is None
+
+
+def test_predict_model_reaches_task_layer(client, monkeypatch):
+    """The api layer passes the model through; the task layer routes on it."""
+    seen = []
+
+    def _spy(model=None):
+        seen.append(model)
+        return FakePredictor()
+
+    monkeypatch.setattr(detection, "get_predictor", _spy)
+    resp = client.post("/predict", json={"image": _tiny_image_b64(), "model": "yolov8n"})
+    assert resp.json()["code"] == 0
+    assert seen == ["yolov8n"]
 
 
 def test_response_has_request_id(client):

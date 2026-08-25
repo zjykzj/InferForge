@@ -1,12 +1,13 @@
 # 文档说明（Docs）
 
-> InferForge 的文档索引。最后更新：2026-08-24
+> InferForge 的文档索引。最后更新：2026-08-25
 
 * 工程文档
   * [concepts.md](concepts.md)：概念入门——Web 服务、任务队列、回调/轮询、Redis 的零基础科普
   * [quick-start.md](quick-start.md)：快速开始——同步/异步（回调 + 轮询）场景的完整启动与验证
   * [architecture.md](architecture.md)：分层架构——各层职责、实现逻辑、依赖规则、技术栈
   * [add-engine.md](add-engine.md)：新增推理引擎——BasePredictor contract 、接入步骤（含 TensorRT/Triton）与验证清单
+  * [model-registry.md](model-registry.md)：多模型注册表——YAML 格式、请求级 `model` 路由、缺省推导、每模型类别表与向后兼容
   * [api.md](api.md)：接口调用——/predict、/predict/segment、/predict/classify、/predict/callback、/predict/query、/predict/vlm/* 参数与响应、curl 示例、参数设计规范
   * [benchmark.md](benchmark.md)：性能基准——压测工具、检测/VLM 基线数据与复现步骤
   * [agent.md](agent.md)：Agent 编排——Pydantic AI 示例（检测引擎 + LLM 判断人物属性）、V2 用法要点、泛化指南与编排形态选择（workflow / 单 / 多 Agent）

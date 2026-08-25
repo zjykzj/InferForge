@@ -3,10 +3,28 @@
 Every algorithm mounts into InferForge by implementing this class; the API and
 task layers depend on this contract only, never on a concrete algorithm.
 """
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import numpy as np
+
+logger = logging.getLogger("engines.base")
+
+
+def class_label(class_names, class_id) -> str:
+    """Look up a class label, tolerating a table shorter than the model's
+    class count.
+
+    Per-model class tables come from the registry and can disagree with the
+    weights they are paired with. One mismatched row should degrade a single
+    label, not fail the whole request with an IndexError.
+    """
+    idx = int(class_id)
+    if 0 <= idx < len(class_names):
+        return class_names[idx]
+    logger.warning("class id %d out of range for a %d-entry class table", idx, len(class_names))
+    return "class_%d" % idx
 
 
 @dataclass

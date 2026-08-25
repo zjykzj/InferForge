@@ -11,7 +11,7 @@ from typing import Tuple
 import cv2
 import numpy as np
 
-from engines.base import BasePredictor, DetectionResult
+from engines.base import BasePredictor, DetectionResult, class_label
 from utils import metrics
 
 logger = logging.getLogger("engines.yolo")
@@ -113,7 +113,7 @@ def draw_detections(image: np.ndarray, result: DetectionResult,
         x1, y1, x2, y2 = box.astype(int)
         color = CLASS_COLORS[int(class_id) % len(CLASS_COLORS)]
         cv2.rectangle(canvas, (x1, y1), (x2, y2), color, 2)
-        label = "%s %.2f" % (class_names[int(class_id)], score)
+        label = "%s %.2f" % (class_label(class_names, class_id), score)
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
         cv2.rectangle(canvas, (x1, y1 - th - 4), (x1 + tw, y1), color, -1)
         cv2.putText(canvas, label, (x1, y1 - 3), cv2.FONT_HERSHEY_SIMPLEX,

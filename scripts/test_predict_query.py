@@ -34,6 +34,7 @@ def parse_args():
     source.add_argument("--url", help="remote image url (sent as url)")
     parser.add_argument("--save", default=None, help="save the drawn result image to this path")
     parser.add_argument("--timeout", type=float, default=30.0, help="request timeout in seconds")
+    parser.add_argument("--model", default=None, help="registered model name (default: the detect default)")
     parser.add_argument("--poll-interval", type=float, default=1.0,
                         help="seconds between polls")
     parser.add_argument("--max-attempts", type=int, default=60,
@@ -50,6 +51,8 @@ def main():
         print("image=%s" % args.image)
     else:
         payload = {"url": args.url}
+    if args.model:
+        payload["model"] = args.model
         print("url=%s" % args.url)
 
     print("POST %s/predict/query" % args.host)

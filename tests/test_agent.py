@@ -54,7 +54,7 @@ def test_hair_count_result_model_dump():
 
 
 def test_detect_persons_filters_to_person_class(monkeypatch):
-    monkeypatch.setattr(agent, "get_predictor", lambda: FakePredictor())
+    monkeypatch.setattr(agent, "get_predictor", lambda model=None: FakePredictor())
     detections = agent._detect_persons(np.zeros((64, 64, 3), dtype=np.uint8))
     assert len(detections.persons) == 2  # the tie class is filtered out
     assert detections.persons[0].index == 0

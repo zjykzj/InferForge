@@ -40,7 +40,7 @@ def _tiny_image_b64():
 
 @pytest.fixture()
 def client(monkeypatch, app_factory):
-    monkeypatch.setattr(detection, "get_predictor", lambda: FakePredictor())
+    monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
     return TestClient(app_factory(predict_router))
 
 
@@ -166,8 +166,9 @@ def test_observe_phase_defaults_to_detect():
 
 
 def test_mark_predictor_loaded_task_label():
-    metrics.mark_predictor_loaded(task="classify")
-    value = REGISTRY.get_sample_value("inferforge_predictor_loaded", {"task": "classify"})
+    metrics.mark_predictor_loaded(task="classify", model="yolov8n-cls")
+    value = REGISTRY.get_sample_value("inferforge_predictor_loaded",
+                                      {"task": "classify", "model": "yolov8n-cls"})
     assert value == 1.0
 
 

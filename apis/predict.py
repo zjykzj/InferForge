@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request
 
 from apis.schemas import PredictRequest
 from tasks import detection
-from utils import response
+from utils import errors, response
 
 logger = logging.getLogger("apis.predict")
 
@@ -29,8 +29,11 @@ def predict(request: Request, payload: PredictRequest):
 
     try:
         out_image, detections = detection.run_detection(
-            image_b64=image_b64, image_url=image_url
+            image_b64=image_b64, image_url=image_url, model=payload.model
         )
+    except errors.ModelNotFound as exc:  # before ValueError: not a ValueError subclass
+        logger.warning("predict rejected (model): %s", exc)
+        return response.error(str(exc), code=10)
     except ValueError as exc:  # invalid input (bad base64, missing params, ...)
         logger.warning("predict rejected: %s", exc)
         return response.error(str(exc), code=1)

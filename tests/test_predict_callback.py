@@ -8,6 +8,7 @@ import requests
 from fastapi.testclient import TestClient
 
 from apis.predict_callback import predict_callback_router
+from engines import registry
 from engines.base import BasePredictor, DetectionResult
 from tasks import detection
 from tasks import detection_callback
@@ -46,7 +47,7 @@ def fake_delay(monkeypatch):
 
 @pytest.fixture()
 def client(monkeypatch, app_factory, fake_delay):
-    monkeypatch.setattr(detection, "get_predictor", lambda: FakePredictor())
+    monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
     return TestClient(app_factory(predict_callback_router))
 
 
@@ -91,8 +92,20 @@ def test_submit_rejects_both_inputs(client):
     assert resp.json()["code"] == 1
 
 
+def test_submit_rejects_unknown_model_synchronously(client, fake_delay):
+    resp = client.post("/predict/callback", json={
+        "image": _tiny_image_b64(), "model": "ghost",
+        "callback_url": "http://cb.local/result",
+    })
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["code"] == 10
+    assert body["data"] is None
+    assert fake_delay == []  # nothing queued: the caller knows immediately
+
+
 def test_task_posts_success_envelope(monkeypatch):
-    monkeypatch.setattr(detection, "get_predictor", lambda: FakePredictor())
+    monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
     posted = {}
 
     def _fake_post(url, json=None, timeout=None):
@@ -112,8 +125,28 @@ def test_task_posts_success_envelope(monkeypatch):
     assert posted["json"]["data"]["detections"][0]["class"] == "person"
 
 
+def test_task_posts_code10_envelope_on_unknown_model(monkeypatch):
+    # web/worker registry drift defense: the worker reports code 10 as a
+    # business error and the callback still fires exactly once.
+    monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
+    posted = {}
+
+    def _fake_post(url, json=None, timeout=None):
+        posted["json"] = json
+
+    monkeypatch.setattr(detection_callback.requests, "post", _fake_post)
+    registry.reset_cache()  # task runs "on the worker": re-read the registry
+
+    result = detection_callback.detect_callback_task.run(
+        "http://cb.local/result", image_b64=_tiny_image_b64(), model="ghost"
+    )
+    assert result["code"] == 10
+    assert posted["json"]["code"] == 10
+    assert posted["json"]["data"] is None
+
+
 def test_task_posts_failure_envelope_on_bad_input(monkeypatch):
-    monkeypatch.setattr(detection, "get_predictor", lambda: FakePredictor())
+    monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
     posted = {}
 
     def _fake_post(url, json=None, timeout=None):
@@ -130,7 +163,7 @@ def test_task_posts_failure_envelope_on_bad_input(monkeypatch):
 
 
 def test_task_retries_failed_callback_post(monkeypatch):
-    monkeypatch.setattr(detection, "get_predictor", lambda: FakePredictor())
+    monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
     monkeypatch.setattr(detection_callback.time, "sleep", lambda _: None)
 
     calls = []

@@ -1,51 +1,61 @@
-"""Classification task: owns its predictor and orchestrates the full pipeline.
+"""Classification task: owns its predictors and orchestrates the full pipeline.
 
-input parsing -> inference -> top-k mapping -> response payload. The predictor
-is lazily loaded on first use and kept resident afterwards; the API layer
-never sees it. No drawing — classification returns text results only.
+input parsing -> inference -> top-k mapping -> response payload. Predictors
+are lazily loaded on first use and kept resident afterwards; the API layer
+never sees them. No drawing — classification returns text results only.
+Which predictor a request gets is decided by the model registry
+(engines.registry) — the `model` field or, when absent, the classify default.
 """
 import logging
-import os
 import threading
 import time
 from typing import Optional
 
+from engines import registry
 from engines.base import BasePredictor
-from engines.imagenet_classes import IMAGENET_CLASS_NAMES
 from engines.yolo_cls import YoloClsPredictor
 from utils import image as image_utils
 from utils import metrics
 
 logger = logging.getLogger("tasks.classification")
 
-MODEL_PATH = os.environ.get(
-    "INFERFORGE_CLS_MODEL_PATH",
-    os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "models", "yolov8n-cls.onnx"),
-)
-
-_predictor: Optional[BasePredictor] = None
-_predictor_lock = threading.Lock()
+# Per-model predictors, keyed by registered model name. A single lock covers
+# all models (see tasks.detection for the rationale).
+_predictors: dict[str, BasePredictor] = {}
+_predictors_lock = threading.Lock()
 
 
-def get_predictor() -> BasePredictor:
-    """Lazily load the classifier on first use; kept resident afterwards."""
-    global _predictor
-    if _predictor is None:
-        with _predictor_lock:
-            if _predictor is None:
+def get_predictor(model: Optional[str] = None) -> BasePredictor:
+    """Lazily load the predictor for `model` (or the classify default) on
+    first use; kept resident afterwards."""
+    spec = registry.resolve(model, "classify")
+    if spec.name not in _predictors:
+        with _predictors_lock:
+            if spec.name not in _predictors:
                 predictor = YoloClsPredictor()
-                predictor.load(MODEL_PATH)
-                _predictor = predictor
-                metrics.mark_predictor_loaded(task="classify")
-    return _predictor
+                predictor.load(spec.path)
+                _predictors[spec.name] = predictor
+                metrics.mark_predictor_loaded(task="classify", model=spec.name)
+    return _predictors[spec.name]
 
 
-def predictor_loaded() -> bool:
-    """Whether the predictor has been loaded (pure check, no side effects)."""
-    return _predictor is not None
+def predictor_loaded(model: Optional[str] = None) -> bool:
+    """Whether the predictor for `model` (or the classify default) has been
+    loaded (pure check, no side effects)."""
+    name = registry.resolve(model, "classify").name
+    return name in _predictors
 
 
-def run_classification(image_b64=None, image_url=None):
+def default_model_loaded() -> bool:
+    """Readiness probe: is the classify DEFAULT model loaded? False (not an
+    exception) when no classify model is registered at all."""
+    try:
+        return predictor_loaded()
+    except registry.ModelNotFound:
+        return False
+
+
+def run_classification(image_b64=None, image_url=None, model=None):
     """Run the full classification pipeline.
 
     Returns the top-k classifications as a list of
@@ -56,17 +66,18 @@ def run_classification(image_b64=None, image_url=None):
 
     image = image_utils.input_to_image(image_b64, image_url)
 
-    result = get_predictor().predict(image)
+    spec = registry.resolve(model, "classify")
+    result = get_predictor(spec.name).predict(image)
 
     classifications = [
         {
             "class_id": int(class_id),
-            "class": IMAGENET_CLASS_NAMES[int(class_id)],
+            "class": spec.label(class_id),
             "confidence": round(float(score), 4),
         }
         for class_id, score in zip(result.class_ids, result.scores)
     ]
 
-    logger.info("classification task done: top-k=%d, total=%.1fms",
-                len(classifications), (time.perf_counter() - t_start) * 1000)
+    logger.info("classification task done: model=%s, top-k=%d, total=%.1fms",
+                spec.name, len(classifications), (time.perf_counter() - t_start) * 1000)
     return classifications

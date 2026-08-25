@@ -12,6 +12,7 @@
 |------|------|:---:|------|
 | `image` | string | 二选一 | base64 编码的图片（支持 `data:` URL 前缀） |
 | `url` | string | 二选一 | 图片 URL（GET 下载，超时 10s，上限 20MB） |
+| `model` | string | 否 | 注册的模型名（见 [model-registry.md](model-registry.md)）；缺省用 detect 缺省模型，未登记返回 code=10 |
 
 两个参数**同时给或都不给**返回 code=1。
 
@@ -92,6 +93,7 @@ curl -d '{bad json' ...                                 # → code=1 非法 JSON
 |------|------|:---:|------|
 | `image` | string | 二选一 | base64 编码的图片（同检测接口） |
 | `url` | string | 二选一 | 图片 URL（同检测接口） |
+| `model` | string | 否 | 注册的模型名；缺省用该 capability 的缺省模型，未登记返回 code=10 |
 
 ### 2.2 响应结构
 
@@ -143,6 +145,7 @@ if d['data']['segments']:
 |------|------|:---:|------|
 | `image` | string | 二选一 | base64 编码的图片（同检测接口） |
 | `url` | string | 二选一 | 图片 URL（同检测接口） |
+| `model` | string | 否 | 注册的模型名；缺省用该 capability 的缺省模型，未登记返回 code=10 |
 
 ### 3.2 响应结构
 
@@ -184,6 +187,7 @@ curl -s -X POST http://localhost:8000/predict/classify \
 | `callback_url` | string | 是 | 结果回调地址（服务端主动 POST 结果到这里） |
 | `image` | string | 二选一 | base64 图片（同同步接口） |
 | `url` | string | 二选一 | 图片 URL（同同步接口） |
+| `model` | string | 否 | 注册的模型名；缺省用 detect 缺省模型，未登记在提交时即返回 code=10（不会入队） |
 
 ### 4.2 响应与回调
 
@@ -196,6 +200,7 @@ curl -s -X POST http://localhost:8000/predict/classify \
 {"code": 1, "message": "...", "data": null}    // 检测业务失败（图片非法等）
 {"code": 2, "message": "...", "data": null}    // 图片下载失败
 {"code": 3, "message": "...", "data": null}    // 服务内部错误
+{"code": 10, "message": "...", "data": null}   // 模型未登记（web/worker 注册表漂移时）
 ```
 
 语义：**回调恰好触发一次**——检测业务错误不重试，只有回调 POST 本身的网络故障才指数退避重试（最多 3 次）。
@@ -217,6 +222,7 @@ curl -X POST http://localhost:8000/predict/callback \
 |------|------|:---:|------|
 | `image` | string | 二选一 | base64 图片（同同步接口） |
 | `url` | string | 二选一 | 图片 URL（同同步接口） |
+| `model` | string | 否 | 注册的模型名；缺省用 detect 缺省模型，未登记在提交时即返回 code=10（不会入队） |
 
 ### 5.2 提交响应
 
@@ -234,7 +240,7 @@ curl -X POST http://localhost:8000/predict/callback \
 | 任务处理中 | `{"code": 5, "message": "task is still processing", "data": null}` |
 | 任务不存在（未提交 / 已过期） | `{"code": 4, "message": "task not found", "data": null}` |
 | 完成（成功） | `{"code": 0, "message": "success", "data": {"image": "<base64>", "detections": [...]}}` |
-| 完成（业务失败） | `{"code": 1/2/3, "message": "...", "data": null}`（与提交时的错误语义一致） |
+| 完成（业务失败） | `{"code": 1/2/3/10, "message": "...", "data": null}`（与提交时的错误语义一致） |
 | Redis 掉线 / 存储值损坏 | `{"code": 3, "message": "internal server error", "data": null}` |
 
 ### 5.4 语义
@@ -347,15 +353,16 @@ INFERFORGE_RATE_LIMIT=60 ./start.sh
 
 规则：同一接口最多提供两种载体（如 image + url），**至少一种、至多一种**，冲突即 code=1。
 
-### 9.2 推理参数（规划）
+### 9.2 推理参数
 
 可选的阈值/行为覆盖，不传用服务端默认值：
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
-| `conf_thres` | float | 置信度阈值（默认 0.25） |
-| `iou_thres` | float | NMS IoU 阈值（默认 0.45） |
-| `with_image` | bool | 是否返回绘图 base64（默认 true；纯取坐标的调用方省流量） |
+| `model` | string | **已落地**：注册的模型名（[model-registry.md](model-registry.md)），缺省用该 capability 的缺省模型 |
+| `conf_thres` | float | 置信度阈值（默认 0.25）（规划） |
+| `iou_thres` | float | NMS IoU 阈值（默认 0.45）（规划） |
+| `with_image` | bool | 是否返回绘图 base64（默认 true；纯取坐标的调用方省流量）（规划） |
 
 ### 9.3 异步模式
 

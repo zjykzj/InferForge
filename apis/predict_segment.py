@@ -13,7 +13,7 @@ from fastapi import APIRouter, Request
 
 from apis.schemas import PredictRequest
 from tasks import segmentation
-from utils import response
+from utils import errors, response
 
 logger = logging.getLogger("apis.predict_segment")
 
@@ -31,8 +31,11 @@ def predict_segment(request: Request, payload: PredictRequest):
 
     try:
         out_image, segments = segmentation.run_segmentation(
-            image_b64=image_b64, image_url=image_url
+            image_b64=image_b64, image_url=image_url, model=payload.model
         )
+    except errors.ModelNotFound as exc:  # before ValueError: not a ValueError subclass
+        logger.warning("segment rejected (model): %s", exc)
+        return response.error(str(exc), code=10)
     except ValueError as exc:  # invalid input (bad base64, missing params, ...)
         logger.warning("segment rejected: %s", exc)
         return response.error(str(exc), code=1)

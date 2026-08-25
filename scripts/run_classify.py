@@ -30,6 +30,7 @@ def parse_args():
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--image", help="local image path (sent as base64)")
     source.add_argument("--url", help="remote image url")
+    parser.add_argument("--model", default=None, help="registered model name (default: the classify default)")
     return parser.parse_args()
 
 
@@ -49,7 +50,7 @@ def main():
         print("url=%s" % args.url)
 
     t0 = time.perf_counter()
-    classifications = run_classification(image_b64=image_b64, image_url=image_url)
+    classifications = run_classification(image_b64=image_b64, image_url=image_url, model=args.model)
     print("top-%d (%.1fms total):" % (len(classifications), (time.perf_counter() - t0) * 1000))
     for i, cls in enumerate(classifications, start=1):
         print("  %d. %-25s id=%-4d conf=%.4f" % (

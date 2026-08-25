@@ -34,6 +34,7 @@ def parse_args():
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--image", help="local image path (sent as base64)")
     source.add_argument("--url", help="remote image url (sent as url)")
+    parser.add_argument("--model", default=None, help="registered model name (default: the detect default)")
     parser.add_argument("--timeout", type=float, default=30.0, help="request timeout in seconds")
     return parser.parse_args()
 
@@ -47,6 +48,8 @@ def main():
         print("image=%s" % args.image)
     else:
         payload = {"url": args.url}
+    if args.model:
+        payload["model"] = args.model
         print("url=%s" % args.url)
     payload["callback_url"] = args.callback_url
 

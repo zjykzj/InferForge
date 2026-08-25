@@ -665,8 +665,12 @@ cython_debug/
 
 
 # Project-specific
+# Negations need the directory itself re-included: `models/*` excludes the
+# `models` dir, and git never descends into excluded dirs to apply `!paths`.
+!models/
 models/*
 !models/.gitkeep
+!models/registry.example.yaml
 logs/
 archive/
 

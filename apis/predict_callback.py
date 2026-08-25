@@ -9,8 +9,9 @@ import time
 from fastapi import APIRouter, Request
 
 from apis.schemas import CallbackRequest
+from tasks import detection
 from tasks.detection_callback import detect_callback_task
-from utils import request_id, response
+from utils import errors, request_id, response
 
 logger = logging.getLogger("apis.predict_callback")
 
@@ -28,13 +29,20 @@ def predict_callback(request: Request, payload: CallbackRequest):
                 bool(image_b64), bool(image_url))
 
     try:
+        # Reject an unknown model synchronously (see apis/predict_query.py);
+        # registry check only, no model loading.
+        detection.validate_model(payload.model)
         task = detect_callback_task.delay(
             callback_url,
             image_b64=image_b64,
             image_url=image_url,
+            model=payload.model,
             request_id=request_id.get_request_id(),
             submitted_at=time.time(),  # wall clock: queue-wait metric (celery_app task_prerun)
         )
+    except errors.ModelNotFound as exc:
+        logger.warning("callback rejected (model): %s", exc)
+        return response.error(str(exc), code=10)
     except Exception:  # broker unreachable, serialization failure, ...
         logger.exception("failed to submit callback task")
         return response.error("failed to submit task", code=3)

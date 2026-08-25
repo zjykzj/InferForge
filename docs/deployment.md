@@ -157,3 +157,4 @@ docker compose -p inferforge-prod up -d    # 生产栈
 | envelope contract 稳定 → web/worker 两层独立发布 | worker 与 web 共用同一队列——模型灰度只能先全量（无按队列路由） |
 | 环境变量配置化（MODEL_PATH/BROKER/URL/WORKERS）→ 多实例易起 | 无流量染色标记——灰度流量靠 request_id 事后归因 |
 | request_id 全链路 → 同流量两侧日志可对比 | 多实例 env 管理靠手工，无配置中心 |
+| 多模型注册表（`models/registry.yaml`，随 `./models` bind-mount 进容器）：同一部署内按 `model` 字段路由多个模型；web/worker 各自解析注册表，发布时保持两份配置同步 | 注册表不支持热重载——加模型需改 YAML 后重启（见 [model-registry.md](model-registry.md) §8） |

@@ -44,16 +44,17 @@ class BasePredictor(ABC):
 | `class_ids` | 整数数组，task 层用它索引类别名（`engines/yolo.py` 的 `COCO_CLASS_NAMES`、`engines/imagenet_classes.py` 的 `IMAGENET_CLASS_NAMES` 同理） |
 | `load` | 加载权重并驻留内存；**重型依赖的 import 写在函数体内**（如 `onnxruntime`），保证测试和轻量场景不需要装模型依赖 |
 | `predict` | 同步阻塞调用——推理是 CPU 密集操作，并发由接口层的线程池解决，**不要在引擎内部自起线程** |
-| 构造函数 | **注册表就绪**：构造函数不带模型路径，`load(path)` 注入——为多模型注册表铺路（现有三个引擎均已如此） |
+| 构造函数 | **注册表就绪**：构造函数不带模型路径，`load(path)` 注入——多模型注册表据此按需加载（现有三个引擎均已如此；注册表格式见 [model-registry.md](model-registry.md)） |
 | 预/后处理 | 必须自研（本项目不引入 ultralytics，AGPL-3.0）；参照 `engines/yolo.py` 的 letterbox / decode / NMS、`engines/yolo_seg.py` 的双输出 mask 解码自实现 |
 
 ## 3. 接入步骤（以 YOLOv8n 为参照）
 
 1. **新建 `engines/<name>.py`**，实现 `load` + `predict` 两个方法。参照 [engines/yolo.py](../engines/yolo.py)：预处理（letterbox）→ 推理 → 后处理（decode + NMS）→ 坐标反变换
 2. **模型文件放 `models/`**（git 忽略、docker 绑定挂载，不进镜像）
-3. **task 层持有**：修改 `tasks/detection.py` 的 `get_predictor()`（实例化你的引擎、`load(MODEL_PATH)`），或新建一个 task 持有多个引擎。模型路径由 `INFERFORGE_MODEL_PATH` 覆盖，默认 `models/yolov8n.onnx`
-4. **类别名与绘图**：`draw_detections(image, result, class_names=你的类别表)`——`DetectionResult` 只有类别 id，名字表属于引擎的附属资源
-5. **多引擎并存**：task 各持各的预测器；需要"按请求选引擎"时在 **task 层**做路由（如按参数分派到不同 predictor），api 层不感知
+3. **登记进模型注册表**：在 `models/registry.yaml` 加一个条目（`capability` + `path`，可选 `classes`），请求即可用 `model` 字段选中它（见 [model-registry.md](model-registry.md)）。没有注册表文件时，单模型路径由 `INFERFORGE_MODEL_PATH` 覆盖，默认 `models/yolov8n.onnx`
+4. **task 层持有**：`tasks/*.py` 的 `get_predictor(model)` 已按注册模型名懒加载并缓存 predictor——同 capability 的引擎实现切换改这里（实例化你的引擎），或新建 task 持有其他 capability 的引擎
+5. **类别名与绘图**：`draw_detections(image, result, class_names=你的类别表)`——`DetectionResult` 只有类别 id，名字表属于引擎的附属资源（注册表的 `classes` 字段可选，省略用 capability 内置表）
+6. **多引擎并存**：task 各持各的预测器；需要"按请求选引擎"时在 **task 层**做路由（按 `model` 字段分派到不同 predictor），api 层只透传参数、不感知
 
 ## 4. TensorRT / Triton 接入说明
 

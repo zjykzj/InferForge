@@ -4,7 +4,42 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
 from apis.metrics import metrics_router
+from engines import registry
 from utils import auth, metrics, rate_limit, request_id, response
+
+_DEFAULT_REGISTRY = """\
+defaults:
+  detect: yolov8n
+  segment: yolov8n-seg
+  classify: yolov8n-cls
+
+models:
+  yolov8n:
+    capability: detect
+    path: models/yolov8n.onnx
+  yolov8n-seg:
+    capability: segment
+    path: models/yolov8n-seg.onnx
+  yolov8n-cls:
+    capability: classify
+    path: models/yolov8n-cls.onnx
+"""
+
+
+@pytest.fixture(autouse=True)
+def registry_isolation(tmp_path, monkeypatch):
+    """Point the registry at a per-test file so tests are deterministic even
+    on a dev machine with a real models/registry.yaml present.
+
+    The paths inside never need to exist on disk: tests swap the predictors
+    out via get_predictor before any load() would happen. Tests that need a
+    custom registry overwrite the env var (and the registry reloads via
+    reset_cache) — see tests/test_registry.py.
+    """
+    registry_file = tmp_path / "registry.yaml"
+    registry_file.write_text(_DEFAULT_REGISTRY)
+    monkeypatch.setenv("INFERFORGE_REGISTRY_PATH", str(registry_file))
+    registry.reset_cache()
 
 
 @pytest.fixture()

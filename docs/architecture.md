@@ -42,8 +42,8 @@
 
 **逻辑**：
 
-- 一个任务一个文件；每个任务**持有自己的预测器**（懒加载单例 + double-checked locking），API 层看不到预测器
-- 模型路径可用环境变量覆盖：检测 `INFERFORGE_MODEL_PATH`、分割 `INFERFORGE_SEG_MODEL_PATH`、分类 `INFERFORGE_CLS_MODEL_PATH`（import 时读取）
+- 一个任务一个文件；每个任务**持有自己的预测器**（懒加载 + double-checked locking，按注册模型名缓存为 dict），API 层看不到预测器
+- 模型清单来自**模型注册表** `engines/registry.py`（见 [model-registry.md](model-registry.md)）：请求的 `model` 字段在 task 层解析为具体 predictor；没有 `models/registry.yaml` 时，从 `INFERFORGE_MODEL_PATH` / `INFERFORGE_SEG_MODEL_PATH` / `INFERFORGE_CLS_MODEL_PATH` 合成单模型注册表（惰性读取，向后兼容）
 - 编排步骤：解析输入图 → 调用预测器 → 组装结果列表（detections / segments / classifications）→ 绘图（检测/分割）→ 编码输出
 
 | 库 | 用途 |
@@ -65,7 +65,8 @@ VLM/Agent 为 **query-only** 形态：callback 推送以检测任务为参照实
 - `YoloPredictor` 实现（检测）：letterbox 预处理 → ONNX 推理 → decode `(1,84,8400)` → NumPy NMS → OpenCV 绘图
 - `YoloSegPredictor` 实现（分割）：同检测链路 + 双输出头按形状识别（`(1,116,8400)` 分割头 + `(1,32,160,160)` prototype 头）→ 系数矩阵乘 + sigmoid + 阈值 → 整图二值 mask → 半透明叠加绘图
 - `YoloClsPredictor` 实现（分类）：短边缩放 224（PIL bilinear，与模型训练 transform 对齐——cv2 插值核与之差异可测，会拉平置信度）→ 中心裁 224 → ONNX 推理（输出已是 softmax 概率，引擎不再二次 softmax）→ top-5 取值（ImageNet-1k 类名表见 `engines/imagenet_classes.py`，1000 条标准顺序）
-- 三个引擎均为**注册表就绪**形态：构造函数不带模型路径，`load(path)` 注入——为后续多模型注册表铺路
+- 三个引擎均为**注册表就绪**形态：构造函数不带模型路径，`load(path)` 注入——多模型注册表（`engines/registry.py`）据此按需加载任意数量的引擎实例；注册表本身是**纯元数据**（不持有 predictor、不加载权重），predictor 缓存仍在 task 层
+- `engines/base.py` 的 `class_label()`：类别表与权重不匹配时降级为 `class_N` 标签 + warning，不让单个越界 class id 打挂整个请求（注册表可配每模型类别表后，这类错配更常见）
 - onnxruntime **延迟导入**（仅 `load()` 内 import），测试无需真实模型
 - 前后处理为**自研实现**（参考公开论文/文档），不依赖 ultralytics 库——ultralytics 为 AGPL-3.0 协议，直接使用会传染本项目协议
 
@@ -75,7 +76,7 @@ VLM/Agent 为 **query-only** 形态：callback 推送以检测任务为参照实
 | OpenCV | 缩放/padding、绘制检测框、图像编解码 |
 | NumPy | decode 与 NMS 的向量化计算 |
 
-**文件**：`engines/base.py`（contract + 三个结果类型）、`engines/yolo.py`（检测）、`engines/yolo_seg.py`（分割）、`engines/yolo_cls.py`（分类）、`engines/imagenet_classes.py`（ImageNet-1k 类名表）
+**文件**：`engines/base.py`（contract + 三个结果类型 + `class_label` 安全查表）、`engines/yolo.py`（检测）、`engines/yolo_seg.py`（分割）、`engines/yolo_cls.py`（分类）、`engines/imagenet_classes.py`（ImageNet-1k 类名表）、`engines/registry.py`（模型注册表：YAML 解析 + env 回退 + 缺省推导）
 
 ### 2.4 横切层（`utils/`）
 

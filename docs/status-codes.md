@@ -38,6 +38,7 @@
 | `7` | unauthorized | 鉴权失败：缺失或错误的 `X-API-Key`（`INFERFORGE_API_KEY` 设置后启用，见 §2 鉴权例外） |
 | `8` | rate limit exceeded | 超限：超过 `INFERFORGE_RATE_LIMIT` 设定的每分钟配额（见 §2 限流例外） |
 | `9` | upstream LLM failure | VLM 任务远程 LLM 调用失败（超时 / 5xx / 限流耗尽 / 连接失败，SDK 内置重试耗尽后），出现在 vlm 回调与轮询的 result envelope 中；与 1/2/3 同为业务错误，回调不重试 |
+| `10` | model not found | 请求携带的 `model` 未在注册表登记，或登记的 capability 与端点不符（如拿 detect 模型调 `/predict/classify`）；异步接口在提交时即拒绝（同步返回），worker 因 web/worker 注册表漂移再次命中时以 code 10 写入结果 |
 
 扩展原则：
 

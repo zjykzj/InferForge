@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Model registry: declarative multi-model config (models/registry.yaml, PyYAML; models/registry.example.yaml shipped) + request-level model routing via the `model` field — sync /predict, /predict/segment, /predict/classify and async /predict/query, /predict/callback accept it; engines/registry.py is pure metadata (lazy parse + process cache, no predictor instances); without a registry file the service synthesizes a single-model registry from the historical INFERFORGE_[SEG_|CLS_]MODEL_PATH env vars (byte-identical behavior, zero-cost upgrade)
+- Model registry: per-model class names (optional `classes:` txt per entry; omitted -> built-in COCO-80 / ImageNet-1k); out-of-range class ids degrade to a `class_N` label + warning instead of failing the request (engines.base.class_label, used by draw_detections and the task-layer JSON mapping)
+- Model registry: business code 10 (model not found / capability mismatch) registered in utils/response.py + docs/status-codes.md; async submit apis reject unknown models synchronously (validate_model) and workers re-check for web/worker registry drift; defaults derivation fails loudly when a capability has multiple models and no declared default
+- Model registry: task layer predictor caches keyed by registered model name (per-capability dict + double-checked locking); /health/ready probes each enabled capability's DEFAULT model; start.sh preflight replaced by scripts/preflight_models.py (enumerates registered models of enabled capabilities, validates YAML at boot; the bash truthy mirror is gone — utils/switches.py is now the single source)
+- Metrics: inferforge_predictor_loaded gains a `model` label (predict_phase_seconds stays model-unlabeled — engines don't know their registry name; limitation documented in docs/metrics.md)
+- Tooling: scripts gain --model (test_predict*, run_detection/segment/classify, benchmark detect mode); new docs/model-registry.md (format, routing semantics, default derivation, switch relationship, backward compatibility), indexed in docs/README.md
+
 ## [1.1.0] - 2026-08-24
 
 ### Added

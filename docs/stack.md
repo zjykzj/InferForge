@@ -147,11 +147,12 @@ client ◀──GET result── Redis
 
 | 配置 | 默认值 | 说明 | 所在文件 |
 |------|--------|------|---------|
-| `INFERFORGE_MODEL_PATH` | `models/yolov8n.onnx` | 检测模型文件路径 | `tasks/detection.py` |
+| `INFERFORGE_REGISTRY_PATH` | `models/registry.yaml` | 模型注册表文件路径（显式指定但文件不存在 → 启动报错；无文件时用下面的 path 变量回退） | `engines/registry.py` |
+| `INFERFORGE_MODEL_PATH` | `models/yolov8n.onnx` | 检测模型文件路径（仅注册表文件不存在时生效） | `engines/registry.py` |
 | `INFERFORGE_SEG` | 未设置（禁用） | 同步分割接口开关（默认关，独立于异步栈） | `app.py` / `apis/health.py` |
-| `INFERFORGE_SEG_MODEL_PATH` | `models/yolov8n-seg.onnx` | 分割模型文件路径 | `tasks/segmentation.py` |
+| `INFERFORGE_SEG_MODEL_PATH` | `models/yolov8n-seg.onnx` | 分割模型文件路径（仅注册表文件不存在时生效） | `engines/registry.py` |
 | `INFERFORGE_CLS` | 未设置（禁用） | 同步分类接口开关（默认关，独立于异步栈） | `app.py` / `apis/health.py` |
-| `INFERFORGE_CLS_MODEL_PATH` | `models/yolov8n-cls.onnx` | 分类模型文件路径 | `tasks/classification.py` |
+| `INFERFORGE_CLS_MODEL_PATH` | `models/yolov8n-cls.onnx` | 分类模型文件路径（仅注册表文件不存在时生效） | `engines/registry.py` |
 | `INFERFORGE_WORKERS` | `2` | web worker 进程数 | `gunicorn.conf.py` |
 | `INFERFORGE_ASYNC` | 未设置（禁用） | 异步接口总开关（回调 + 轮询一起注册，`1`/`true`/`yes` 启用） | `app.py` |
 | `INFERFORGE_QUERY` | 未设置 | 废弃别名（等同 `INFERFORGE_ASYNC=1`，启动时打印 deprecated 告警） | `app.py` |

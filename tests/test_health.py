@@ -3,7 +3,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apis.health import health_router
+from engines import registry
 from tasks import classification, detection, segmentation
+
+
+def _mark_loaded(monkeypatch, task_module, capability):
+    """Populate the task module's predictor cache with its default model, as
+    if a first prediction had warmed it up. The cache is a dict keyed by
+    registered model name; readiness probes only the default."""
+    monkeypatch.setattr(task_module, "_predictors", {registry.default_name(capability): object()})
 
 
 @pytest.fixture()
@@ -14,9 +22,9 @@ def client(monkeypatch, app_factory):
     # a dev .env could otherwise leak in).
     monkeypatch.delenv("INFERFORGE_SEG", raising=False)
     monkeypatch.delenv("INFERFORGE_CLS", raising=False)
-    monkeypatch.setattr(detection, "_predictor", None)
-    monkeypatch.setattr(segmentation, "_predictor", None)
-    monkeypatch.setattr(classification, "_predictor", None)
+    monkeypatch.setattr(detection, "_predictors", {})
+    monkeypatch.setattr(segmentation, "_predictors", {})
+    monkeypatch.setattr(classification, "_predictors", {})
     return TestClient(app_factory(health_router))
 
 
@@ -38,9 +46,9 @@ def test_readiness_not_loaded(client):
 
 
 def test_readiness_flips_after_predictor_loads(client, monkeypatch):
-    # Simulate a first prediction warming the task layer: any non-None
-    # predictor makes the real predictor_loaded() report ready.
-    monkeypatch.setattr(detection, "_predictor", object())
+    # Simulate a first prediction warming the task layer: the default model
+    # present in the cache makes predictor_loaded() report ready.
+    _mark_loaded(monkeypatch, detection, "detect")
     resp = client.get("/health/ready")
     assert resp.status_code == 200
     body = resp.json()
@@ -50,7 +58,7 @@ def test_readiness_flips_after_predictor_loads(client, monkeypatch):
 
 def test_readiness_requires_seg_model_when_enabled(client, monkeypatch):
     monkeypatch.setenv("INFERFORGE_SEG", "1")
-    monkeypatch.setattr(detection, "_predictor", object())  # detection ready
+    _mark_loaded(monkeypatch, detection, "detect")  # detection ready
     resp = client.get("/health/ready")
     assert resp.status_code == 503  # segment enabled but not loaded
     assert resp.json()["code"] == 6
@@ -58,8 +66,8 @@ def test_readiness_requires_seg_model_when_enabled(client, monkeypatch):
 
 def test_readiness_ready_when_seg_loaded(client, monkeypatch):
     monkeypatch.setenv("INFERFORGE_SEG", "1")
-    monkeypatch.setattr(detection, "_predictor", object())
-    monkeypatch.setattr(segmentation, "_predictor", object())
+    _mark_loaded(monkeypatch, detection, "detect")
+    _mark_loaded(monkeypatch, segmentation, "segment")
     resp = client.get("/health/ready")
     assert resp.status_code == 200
     assert resp.json()["code"] == 0
@@ -67,7 +75,7 @@ def test_readiness_ready_when_seg_loaded(client, monkeypatch):
 
 def test_readiness_requires_cls_model_when_enabled(client, monkeypatch):
     monkeypatch.setenv("INFERFORGE_CLS", "1")
-    monkeypatch.setattr(detection, "_predictor", object())
+    _mark_loaded(monkeypatch, detection, "detect")
     resp = client.get("/health/ready")
     assert resp.status_code == 503  # classify enabled but not loaded
     assert resp.json()["code"] == 6
@@ -75,7 +83,7 @@ def test_readiness_requires_cls_model_when_enabled(client, monkeypatch):
 
 def test_readiness_ignores_disabled_capabilities(client, monkeypatch):
     # switches off: only detection's predictor state matters
-    monkeypatch.setattr(detection, "_predictor", object())
+    _mark_loaded(monkeypatch, detection, "detect")
     resp = client.get("/health/ready")
     assert resp.status_code == 200
 

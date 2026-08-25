@@ -1,0 +1,31 @@
+# Model registry — copy to models/registry.yaml to enable multi-model routing.
+# See docs/model-registry.md for the full format and routing semantics.
+#
+# When models/registry.yaml is absent, the service synthesizes an equivalent
+# registry from the INFERFORGE_MODEL_PATH / INFERFORGE_SEG_MODEL_PATH /
+# INFERFORGE_CLS_MODEL_PATH env vars (single model per capability).
+
+defaults:                      # one default model per capability (requests
+  detect: yolov8n              # without a "model" field use these)
+  segment: yolov8n-seg
+  classify: yolov8n-cls
+
+models:
+  yolov8n:
+    capability: detect
+    path: models/yolov8n.onnx
+  yolov8n-seg:
+    capability: segment
+    path: models/yolov8n-seg.onnx
+  yolov8n-cls:
+    capability: classify
+    path: models/yolov8n-cls.onnx
+
+  # Custom models: one entry per ONNX weights file. `classes` is optional —
+  # omit it to use the built-in table for the capability (COCO-80 for
+  # detect/segment, ImageNet-1k for classify).
+  #
+  # defect-det:
+  #   capability: detect
+  #   path: models/defect.onnx
+  #   classes: models/defect_classes.txt

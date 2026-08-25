@@ -69,6 +69,17 @@ python3 scripts/test_predict_segment.py --image assets/bus.jpg --save result_seg
 python3 scripts/test_predict_classify.py --image assets/bus.jpg                        # classify (top-5)
 ```
 
+Optional: multi-model routing — copy the example registry and pick models per request (no registry file means single-model behavior, exactly as above):
+
+```bash
+cp models/registry.example.yaml models/registry.yaml     # edit it to list your models
+./start.sh                                               # preflight checks every registered model
+
+python3 scripts/test_predict.py --image assets/bus.jpg --model yolov8n          # explicit model
+python3 scripts/test_predict.py --image assets/bus.jpg                            # default model (no field)
+# details: docs/model-registry.md
+```
+
 Run the smoke tests:
 
 ```bash

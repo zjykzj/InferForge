@@ -11,11 +11,13 @@ from pydantic import BaseModel, model_validator
 
 
 class PredictRequest(BaseModel):
-    """Exactly one of image (base64) or url. Messages mirror the task-layer
-    errors so callers see identical text."""
+    """Exactly one of image (base64) or url, plus an optional registered model
+    name (see docs/model-registry.md). Messages mirror the task-layer errors
+    so callers see identical text."""
 
     image: Optional[str] = None
     url: Optional[str] = None
+    model: Optional[str] = None  # absent -> the capability's default model
 
     @model_validator(mode="after")
     def _exactly_one_source(self):

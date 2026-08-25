@@ -8,16 +8,18 @@
 |------|------|------|------|
 | `inferforge_http_requests_total` | Counter | method, route | 各接口请求量（route 是路径模板，如 `/predict/query/{task_id}`） |
 | `inferforge_http_request_duration_seconds` | Histogram | method, route | 端到端请求延迟 |
-| `inferforge_responses_total` | Counter | code | envelope 业务码分布（0–9） |
+| `inferforge_responses_total` | Counter | code | envelope 业务码分布（0–10） |
 | `inferforge_predict_phase_seconds` | Histogram | phase, task | 推理三段耗时（pre / infer / post），按能力分（detect / segment / classify） |
-| `inferforge_predictor_loaded` | Gauge | task（multiprocess 模式下自动带 `pid` 标签） | 本进程某能力 predictor 是否已加载（0/1，与 `/health/ready` 对应；detect / segment / classify） |
+| `inferforge_predictor_loaded` | Gauge | task, model（multiprocess 模式下自动带 `pid` 标签） | 本进程某能力的某注册模型 predictor 是否已加载（0/1，与 `/health/ready` 对应；model 为注册模型名，非注册表调用方为空串） |
 | `inferforge_celery_tasks_total` | Counter | task, state | worker 任务执行数与状态（success / failure） |
 | `inferforge_celery_task_duration_seconds` | Histogram | task | worker 任务耗时 |
 | `inferforge_vlm_remote_call_seconds` | Histogram | — | 远程 LLM 调用耗时（含 SDK 重试；无标签防基数爆炸，显式桶到 180s） |
 | `inferforge_vlm_remote_errors_total` | Counter | — | 远程 LLM 调用失败数（SDK 重试后仍 OpenAIError） |
 | `inferforge_celery_queue_wait_seconds` | Histogram | task | 任务在 broker 队列中的等待时长（显式桶到 300s） |
 
-埋点位置：请求计数在 `MetricsMiddleware`（`utils/metrics.py`）、业务码计数在 `utils/response.py`（envelope 的唯一出口）、推理耗时在 `engines/yolo.py` / `engines/yolo_seg.py` / `engines/yolo_cls.py`（`observe_phase(phase, seconds, task=...)` 按能力打标签，检测调用点用默认值 `detect`）、worker 计数在 `celery_app.py` 的 celery signals、远程调用延迟/错误在 `tasks/vlm.py` 与 `tasks/agent.py`（Agent 复用 vlm 的 `inferforge_vlm_remote_call_seconds` / `inferforge_vlm_remote_errors_total` 两个指标——语义是「远程 LLM 调用」而非仅 VLM）、队列等待在 `utils/metrics.py` 的 `record_queue_wait`（`celery_app.py` 的 `task_prerun` 调用——4 个异步 apis 提交任务时携带 `submitted_at` 墙钟时间戳，同机/NTP 假设，负值钳为 0）。
+埋点位置：请求计数在 `MetricsMiddleware`（`utils/metrics.py`）、业务码计数在 `utils/response.py`（envelope 的唯一出口）、推理耗时在 `engines/yolo.py` / `engines/yolo_seg.py` / `engines/yolo_cls.py`（`observe_phase(phase, seconds, task=...)` 按能力打标签，检测调用点用默认值 `detect`）、predictor 加载在 `tasks/*.py` 的 `get_predictor()`（`mark_predictor_loaded(task, model)`，注册模型名打 `model` 标签）、worker 计数在 `celery_app.py` 的 celery signals、远程调用延迟/错误在 `tasks/vlm.py` 与 `tasks/agent.py`（Agent 复用 vlm 的 `inferforge_vlm_remote_call_seconds` / `inferforge_vlm_remote_errors_total` 两个指标——语义是「远程 LLM 调用」而非仅 VLM）、队列等待在 `utils/metrics.py` 的 `record_queue_wait`（`celery_app.py` 的 `task_prerun` 调用——4 个异步 apis 提交任务时携带 `submitted_at` 墙钟时间戳，同机/NTP 假设，负值钳为 0）。
+
+已知限制：`inferforge_predict_phase_seconds` 不带 `model` 标签——phase 耗时从引擎内部上报，引擎不知道自己的注册名；要补标签需在构造后回写 predictor 状态或扩展 `BasePredictor` contract，当前暂不为之。多模型场景下想区分各模型延迟时，可先按部署拆分（各部署各跑一个模型），或给引擎实例挂属性后自行扩展。
 
 ## 2. 暴露端点：GET /metrics
 

@@ -28,7 +28,7 @@ class FakePredictor(BasePredictor):
 @pytest.fixture()
 def client(monkeypatch, app_factory):
     # The task owns its predictor; swap it out for the fake one.
-    monkeypatch.setattr(classification, "get_predictor", lambda: FakePredictor())
+    monkeypatch.setattr(classification, "get_predictor", lambda model=None: FakePredictor())
     return TestClient(app_factory(predict_classify_router))
 
 

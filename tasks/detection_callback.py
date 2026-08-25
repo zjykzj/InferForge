@@ -1,8 +1,10 @@
 """Async detection with server-side callback: run detection, POST the result to callback_url.
 
 The callback always fires exactly once — with a success envelope (code=0) or a
-failure envelope (code=1/2/3). Only the callback POST itself is retried
-(network failures), never the detection business errors.
+failure envelope (code=1/2/3/10). Only the callback POST itself is retried
+(network failures), never the detection business errors. Code 10 normally
+gets rejected at submission; the worker guards it again because web and
+worker each parse the registry and their copies can drift (deploy skew).
 """
 import logging
 import time
@@ -11,6 +13,7 @@ import requests
 from celery import shared_task
 
 from tasks.detection import run_detection
+from utils import errors
 
 logger = logging.getLogger("tasks.detection_callback")
 
@@ -39,8 +42,8 @@ def post_callback(callback_url, payload):
 
 
 @shared_task(name="tasks.detection_callback", bind=True)
-def detect_callback_task(self, callback_url, image_b64=None, image_url=None, request_id="-",
-                         submitted_at=None):
+def detect_callback_task(self, callback_url, image_b64=None, image_url=None, model=None,
+                         request_id="-", submitted_at=None):
     """Run detection and POST the result (success or failure) to callback_url.
 
     request_id travels with the task so worker logs can be correlated with
@@ -48,12 +51,16 @@ def detect_callback_task(self, callback_url, image_b64=None, image_url=None, req
     submitted_at is transport metadata for the queue-wait metric
     (celery_app task_prerun) — never read by the task body.
     """
-    logger.info("callback task started: callback=%s has_image=%s has_url=%s",
-                callback_url, bool(image_b64), bool(image_url))
+    logger.info("callback task started: callback=%s has_image=%s has_url=%s model=%s",
+                callback_url, bool(image_b64), bool(image_url), model)
     try:
-        out_image, detections = run_detection(image_b64=image_b64, image_url=image_url)
+        out_image, detections = run_detection(image_b64=image_b64, image_url=image_url,
+                                              model=model)
         payload = {"code": 0, "message": "success",
                    "data": {"image": out_image, "detections": detections}}
+    except errors.ModelNotFound as exc:  # registry drift between web and worker
+        logger.warning("detection rejected (model): %s", exc)
+        payload = {"code": 10, "message": str(exc), "data": None}
     except ValueError as exc:  # invalid input
         logger.warning("detection rejected: %s", exc)
         payload = {"code": 1, "message": str(exc), "data": None}

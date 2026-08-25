@@ -29,8 +29,8 @@ def liveness():
 
 @health_router.get("/health/ready")
 def readiness():
-    """Ready to accept traffic: every enabled capability's predictor has been
-    loaded in this process.
+    """Ready to accept traffic: every enabled capability's default model has
+    been loaded in this process.
 
     Detection is always enabled; segment/classify are probed only when their
     env switch is on (read at request time, matching app.py's router
@@ -38,12 +38,17 @@ def readiness():
     first prediction warms this worker up, so a fresh deployment reports
     not-ready (503) until then — the load balancer routes around it in the
     meantime.
+
+    Only the DEFAULT model of each capability is probed: with a multi-model
+    registry, requiring every registered model to be loaded would keep the
+    service perpetually not-ready (rare models warm on their first use).
+    A capability whose registry holds no model at all counts as not ready.
     """
-    ready = detection.predictor_loaded()
+    ready = detection.default_model_loaded()
     if switches.switch_on("INFERFORGE_SEG"):
-        ready = ready and segmentation.predictor_loaded()
+        ready = ready and segmentation.default_model_loaded()
     if switches.switch_on("INFERFORGE_CLS"):
-        ready = ready and classification.predictor_loaded()
+        ready = ready and classification.default_model_loaded()
     if ready:
         return response.success({"status": "ready"})
     return response.error("model not loaded", code=6, http_status=503)

@@ -69,6 +69,17 @@ python3 scripts/test_predict_segment.py --image assets/bus.jpg --save result_seg
 python3 scripts/test_predict_classify.py --image assets/bus.jpg                        # 分类（top-5）
 ```
 
+可选：多模型路由——复制示例注册表后按请求选模型（没有注册表文件时保持单模型行为，与上文完全一致）：
+
+```bash
+cp models/registry.example.yaml models/registry.yaml     # 编辑它，列出你的模型
+./start.sh                                               # preflight 检查每个注册模型
+
+python3 scripts/test_predict.py --image assets/bus.jpg --model yolov8n          # 显式指定模型
+python3 scripts/test_predict.py --image assets/bus.jpg                            # 不带 model 字段 → 缺省模型
+# 详见 docs/model-registry.md
+```
+
 运行冒烟测试：
 
 ```bash

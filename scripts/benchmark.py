@@ -111,6 +111,8 @@ def _print_stats(stats):
 
 def _benchmark_detect(args, payload_b64):
     payload = {"image": payload_b64}
+    if args.model:
+        payload["model"] = args.model
     url = args.host.rstrip("/") + "/predict"
 
     def once():
@@ -217,6 +219,7 @@ def parse_args():
                         help="seconds between polls [vlm-http]")
     parser.add_argument("--max-attempts", type=int, default=600,
                         help="max poll attempts before giving up [vlm-http]")
+    parser.add_argument("--model", default=None, help="registered model name for the detect mode (default: the detect default)")
     parser.add_argument("--output", default=None, help="write stats JSON to this path")
     return parser.parse_args()
 

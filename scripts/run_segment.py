@@ -29,6 +29,7 @@ def parse_args():
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--image", help="local image path (sent as base64)")
     source.add_argument("--url", help="remote image url")
+    parser.add_argument("--model", default=None, help="registered model name (default: the segment default)")
     parser.add_argument("--save", default=None, help="save the overlay result image to this path")
     return parser.parse_args()
 
@@ -49,7 +50,7 @@ def main():
         print("url=%s" % args.url)
 
     t0 = time.perf_counter()
-    out_b64, segments = run_segmentation(image_b64=image_b64, image_url=image_url)
+    out_b64, segments = run_segmentation(image_b64=image_b64, image_url=image_url, model=args.model)
     print("segments: %d (%.1fms total)" % (len(segments), (time.perf_counter() - t0) * 1000))
     for seg in segments:
         x1, y1, x2, y2 = seg["bbox"]

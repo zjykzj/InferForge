@@ -13,7 +13,7 @@ from fastapi import APIRouter, Request
 
 from apis.schemas import PredictRequest
 from tasks import classification
-from utils import response
+from utils import errors, response
 
 logger = logging.getLogger("apis.predict_classify")
 
@@ -31,8 +31,11 @@ def predict_classify(request: Request, payload: PredictRequest):
 
     try:
         classifications = classification.run_classification(
-            image_b64=image_b64, image_url=image_url
+            image_b64=image_b64, image_url=image_url, model=payload.model
         )
+    except errors.ModelNotFound as exc:  # before ValueError: not a ValueError subclass
+        logger.warning("classify rejected (model): %s", exc)
+        return response.error(str(exc), code=10)
     except ValueError as exc:  # invalid input (bad base64, missing params, ...)
         logger.warning("classify rejected: %s", exc)
         return response.error(str(exc), code=1)

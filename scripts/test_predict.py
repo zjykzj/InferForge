@@ -30,6 +30,7 @@ def parse_args():
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--image", help="local image path (sent as base64)")
     source.add_argument("--url", help="remote image url (sent as url)")
+    parser.add_argument("--model", default=None, help="registered model name (default: the detect default)")
     parser.add_argument("--save", default=None, help="save the drawn result image to this path")
     parser.add_argument("--timeout", type=float, default=30.0, help="request timeout in seconds")
     return parser.parse_args()
@@ -45,6 +46,8 @@ def main():
     else:
         payload = {"url": args.url}
         print("POST %s/predict  url=%s" % (args.host, args.url))
+    if args.model:
+        payload["model"] = args.model
 
     t0 = time.perf_counter()
     try:

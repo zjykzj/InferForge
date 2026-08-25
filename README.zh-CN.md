@@ -42,7 +42,8 @@ pip install -r requirements.txt
 cp /path/to/yolov8n.onnx models/
 
 # 3. 启动服务（默认 2 worker，端口 8000）
-./start.sh
+./start.sh                                  # 模型在首个请求时懒加载
+INFERFORGE_PRELOAD=1 ./start.sh             # ... 或启动即加载（就绪检查立即 ready）
 
 # 4. 测试接口
 python3 scripts/test_predict.py --image assets/bus.jpg                              # 本地图片（base64）

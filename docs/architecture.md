@@ -45,6 +45,7 @@
 - 一个任务一个文件；每个任务**持有自己的预测器**（懒加载 + double-checked locking，按注册模型名缓存为 dict），API 层看不到预测器
 - 模型清单来自**模型注册表** `engines/registry.py`（见 [model-registry.md](model-registry.md)）：请求的 `model` 字段在 task 层解析为具体 predictor；没有 `models/registry.yaml` 时，从 `INFERFORGE_MODEL_PATH` / `INFERFORGE_SEG_MODEL_PATH` / `INFERFORGE_CLS_MODEL_PATH` 合成单模型注册表（惰性读取，向后兼容）
 - 编排步骤：解析输入图 → 调用预测器 → 组装结果列表（detections / segments / classifications）→ 绘图（检测/分割）→ 编码输出
+- `tasks/warmup.py`：`INFERFORGE_PRELOAD=1` 的启动预热编排——web 与 worker 各自调用，只预热各自服务的能力的**缺省模型**（web：detect + 开关内的 seg/cls；worker：仅 detect）；逐能力 try/except，单个模型加载失败只记日志、该能力维持 not-ready（readiness 才是真相来源）
 
 | 库 | 用途 |
 |----|------|

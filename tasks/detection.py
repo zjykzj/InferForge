@@ -40,6 +40,17 @@ def get_predictor(model: Optional[str] = None) -> BasePredictor:
     return _predictors[spec.name]
 
 
+def preload() -> None:
+    """Warmup: load the detect default model now instead of on first request.
+
+    Only the DEFAULT model is loaded — other registered models keep lazy
+    loading (a warmup that loads everything would defeat the registry's
+    on-demand design). Best-effort: a failure propagates to tasks.warmup,
+    which logs it and leaves /health/ready to report not-ready.
+    """
+    get_predictor()
+
+
 def predictor_loaded(model: Optional[str] = None) -> bool:
     """Whether the predictor for `model` (or the detect default) has been
     loaded (pure check, no side effects)."""

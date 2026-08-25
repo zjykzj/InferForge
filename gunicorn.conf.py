@@ -9,7 +9,10 @@ preload_app=True: the app module (imports, logging config, router
 registration) is loaded once in the master before forking, so workers start
 fast and share Python imports. Model weights are loaded lazily by each task
 on its first request and kept resident afterwards — this avoids holding an
-onnxruntime session across fork().
+onnxruntime session across fork(). INFERFORGE_PRELOAD=1 loads them at
+startup instead, via the app's startup event: uvicorn runs the lifespan in
+EACH worker process (after fork), so preloaded sessions are still created
+post-fork, per worker.
 """
 import os
 

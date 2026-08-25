@@ -41,6 +41,12 @@ def get_predictor(model: Optional[str] = None) -> BasePredictor:
     return _predictors[spec.name]
 
 
+def preload() -> None:
+    """Warmup: load the segment default model now instead of on first
+    request (see tasks.detection.preload for the semantics)."""
+    get_predictor()
+
+
 def predictor_loaded(model: Optional[str] = None) -> bool:
     """Whether the predictor for `model` (or the segment default) has been
     loaded (pure check, no side effects)."""

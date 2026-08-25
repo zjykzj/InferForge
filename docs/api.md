@@ -277,7 +277,7 @@ curl -s http://localhost:8000/predict/query/<task_id>
 
 ### 6.2 就绪检查：GET /health/ready
 
-检查当前 worker 进程**已启用能力**的 predictor 是否已加载（检测恒启用；分割/分类在对应开关开启时纳入检查）：
+检查当前 worker 进程**已启用能力**的**缺省模型**是否已加载（检测恒启用；分割/分类在对应开关开启时纳入检查；多模型注册表下只探缺省模型，见 [model-registry.md](model-registry.md)）：
 
 | 场景 | HTTP | 响应 |
 |------|:---:|------|
@@ -286,7 +286,7 @@ curl -s http://localhost:8000/predict/query/<task_id>
 
 注意：
 
-- predictor 是**懒加载**的：新部署的 worker 在收到第一个 /predict 请求前，就绪检查返回 503——探针会把流量导到已就绪的 worker，冷启动期间表现为逐实例渐进就绪
+- predictor 默认**懒加载**：新部署的 worker 在收到第一个 /predict 请求前，就绪检查返回 503——探针会把流量导到已就绪的 worker，冷启动期间表现为逐实例渐进就绪。`INFERFORGE_PRELOAD=1` 启动预热可消除该窗口：启动事件里加载各启用能力的缺省模型，ready 立即为 true
 - 健康检查是**唯一**返回非 200 HTTP 状态码的接口（探针只读状态码）；业务接口永远返回 200，见 [status-codes.md](status-codes.md) §2 例外说明
 - 多 worker 部署（默认 gunicorn 2 workers）下就绪状态**每进程独立**：各 worker 各自持有 predictor，负载均衡需逐实例探活
 

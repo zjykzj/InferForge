@@ -21,7 +21,13 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
 from celery import Celery  # noqa: E402
-from celery.signals import setup_logging, task_failure, task_postrun, task_prerun  # noqa: E402
+from celery.signals import (  # noqa: E402
+    setup_logging,
+    task_failure,
+    task_postrun,
+    task_prerun,
+    worker_process_init,
+)
 from utils import metrics  # noqa: E402
 
 celery_app = Celery("inferforge")
@@ -63,6 +69,21 @@ def _configure_logging(**kwargs):
 def _task_elapsed(task) -> float | None:
     started = getattr(task.request, "metrics_started", None)
     return time.perf_counter() - started if started else None
+
+
+@worker_process_init.connect
+def _on_worker_process_init(**kwargs):
+    """Model warmup in each prefork child (after fork, before the first task).
+
+    INFERFORGE_PRELOAD gating and best-effort semantics live in tasks.warmup;
+    this handler only wires the signal. Not covered by unit tests — importing
+    celery_app in tests would split celery's thread-local current_app across
+    TestClient threads (CLAUDE.md); tasks.warmup.preload_worker is tested
+    directly instead.
+    """
+    from tasks import warmup
+
+    warmup.preload_worker()
 
 
 @task_prerun.connect

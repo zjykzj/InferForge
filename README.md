@@ -42,7 +42,8 @@ pip install -r requirements.txt
 cp /path/to/yolov8n.onnx models/
 
 # 3. Start the service (default: 2 workers on port 8000)
-./start.sh
+./start.sh                                  # models load lazily on first request
+INFERFORGE_PRELOAD=1 ./start.sh             # ... or load them at startup (readiness ready immediately)
 
 # 4. Test the API
 python3 scripts/test_predict.py --image assets/bus.jpg                              # local image (base64)

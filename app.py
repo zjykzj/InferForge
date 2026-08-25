@@ -1,7 +1,8 @@
 """FastAPI application factory: logging setup, middleware and router registration only.
 
 Dependency chain: app -> apis -> tasks -> engines. app.py knows nothing about
-tasks or algorithms — tasks own their predictors, apis own their tasks.
+algorithms — tasks own their predictors, apis own their tasks; the startup
+model warmup (INFERFORGE_PRELOAD=1) is delegated to tasks.warmup.
 
 Health probe endpoints (/health, /health/ready) and the sync predict api are
 always registered. The sync segment and classify apis are registered behind
@@ -196,6 +197,16 @@ def create_app() -> FastAPI:
                 "disabled (it needs the async stack)"
             )
         logger.info("async api disabled (set INFERFORGE_ASYNC=1 to enable)")
+
+    if _switch_on("INFERFORGE_PRELOAD"):
+        # Startup event, not module import: gunicorn preload_app=True builds
+        # this app in the master, but uvicorn runs the lifespan in EACH
+        # worker process — so the models load per worker, after fork, and
+        # onnxruntime sessions never cross a fork (gunicorn.conf.py).
+        from tasks import warmup
+
+        app.router.on_startup.append(warmup.preload_web)
+        logger.info("model preload enabled (INFERFORGE_PRELOAD=1)")
 
     logger.info("app created")
     return app

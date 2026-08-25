@@ -98,5 +98,6 @@ vlm / agent 接口不接注册表：它们调用远程 LLM，没有本地模型�
 ## 8. 运维
 
 - `start.sh` preflight：按启用 capability 枚举注册表中**全部**模型并检查文件存在（任一被路由到的模型文件缺失都会启动失败），顺带解析 YAML
+- 启动预热：`INFERFORGE_PRELOAD=1` 让 web / worker 各自在启动时加载所服务能力的**缺省模型**（只预热缺省，冷门模型保持懒加载）；best-effort——单个模型加载失败只记日志，该能力维持 not-ready（readiness 是真相来源）
 - Docker：`models/` 已 bind-mount，把 `registry.yaml` 放进 `models/` 即可，镜像无需重建
 - 类别表与权重不匹配（类别数不同）：越界 class id 降级为 `class_N` 标签并打 warning，不会让整个请求失败——但这是配置错误，应尽快修正

@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Model registry: task layer predictor caches keyed by registered model name (per-capability dict + double-checked locking); /health/ready probes each enabled capability's DEFAULT model; start.sh preflight replaced by scripts/preflight_models.py (enumerates registered models of enabled capabilities, validates YAML at boot; the bash truthy mirror is gone — utils/switches.py is now the single source)
 - Metrics: inferforge_predictor_loaded gains a `model` label (predict_phase_seconds stays model-unlabeled — engines don't know their registry name; limitation documented in docs/metrics.md)
 - Tooling: scripts gain --model (test_predict*, run_detection/segment/classify, benchmark detect mode); new docs/model-registry.md (format, routing semantics, default derivation, switch relationship, backward compatibility), indexed in docs/README.md
+- Warmup: INFERFORGE_PRELOAD=1 startup preload — web startup event (runs per gunicorn worker, after fork) and celery worker_process_init each load the DEFAULT model of the capabilities they serve (web: detect + switch-gated seg/cls; worker: detect only — seg/cls are sync-only); best-effort per capability (a broken model logs and stays 503 via readiness; readiness stays the source of truth); never preloads non-default registered models
 
 ## [1.1.0] - 2026-08-24
 

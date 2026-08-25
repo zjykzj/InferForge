@@ -154,6 +154,7 @@ client ◀──GET result── Redis
 | `INFERFORGE_CLS` | 未设置（禁用） | 同步分类接口开关（默认关，独立于异步栈） | `app.py` / `apis/health.py` |
 | `INFERFORGE_CLS_MODEL_PATH` | `models/yolov8n-cls.onnx` | 分类模型文件路径（仅注册表文件不存在时生效） | `engines/registry.py` |
 | `INFERFORGE_WORKERS` | `2` | web worker 进程数 | `gunicorn.conf.py` |
+| `INFERFORGE_PRELOAD` | 未设置（懒加载） | 启动预热：web 每个 worker 进程（startup 事件）与 celery worker 子进程（worker_process_init）启动时加载所服务能力的缺省模型；best-effort，失败只记日志 | `tasks/warmup.py` |
 | `INFERFORGE_ASYNC` | 未设置（禁用） | 异步接口总开关（回调 + 轮询一起注册，`1`/`true`/`yes` 启用） | `app.py` |
 | `INFERFORGE_QUERY` | 未设置 | 废弃别名（等同 `INFERFORGE_ASYNC=1`，启动时打印 deprecated 告警） | `app.py` |
 | `INFERFORGE_LLM` | 未设置（禁用） | VLM 接口开关（需同时 `INFERFORGE_ASYNC=1`，否则告警跳过） | `app.py` |

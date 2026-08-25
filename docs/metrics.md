@@ -34,6 +34,17 @@ gunicorn 每个 worker 有独立的内存计数，直接暴露会抓到"随机 w
 - **web 与 worker 必须指向同一目录**——worker 的指标经 web 的 `/metrics` 一并聚合上报
 - 未设置时（开发 `python3 app.py`）：单进程默认注册表，行为不变
 
+**死进程文件卫生（重要）**：prometheus_client 不会清理已退出进程的指标文件——若不做任何处理，死进程的 gauge（如 `predictor_loaded=1`）会永远聚合进 `/metrics`，计数器也会被虚高。本项目的处理分两层：
+
+1. **优雅退出自清理**：`utils.metrics.mark_process_dead()` 按 `*_{pid}.db` glob 删除本进程的指标文件（**不依赖** prometheus_client 自带的 `mark_process_dead`——本项目 pin 的版本 ≤0.26 里它只删 live-mode gauge，会漏掉 `gauge_all`/`counter`/`histogram`）。挂载点（均经实测验证）：
+   - **gunicorn worker**：app lifespan shutdown（`app.py`）——每个 worker 退出前删自己的运行期文件
+   - **gunicorn master**：`on_exit` 服务器钩子（`gunicorn.conf.py`）——master 因 `preload_app` 在 import 时就写下了自己的 counter/histogram 文件，但它从不服务请求，没有 lifespan 钩子，只能在退出时删
+   - **celery 主进程**：`worker_shutdown` 信号（`celery_app.py`）——同样清理 import 期文件
+   - **celery prefork 子进程**：`worker_process_shutdown` 信号（`celery_app.py`）——每个子进程退出前删自己的文件
+   - **start.sh 的 preflight**：导入项目模块前 unset `PROMETHEUS_MULTIPROC_DIR`——不产生文件，也就不需要清理
+   - 注意：**不要**用 gunicorn 的 `worker_exit` 钩子——uvicorn worker 会把 SIGTERM/SIGINT 重置为 SIG_DFL（uvicorn issue #894），worker 的退出路径走不到 gunicorn 的 worker_exit finally（实测三次均不触发）
+2. **部署卫生兜底**：master / 主进程被 `kill -9`、进程崩溃时没有退出钩子，文件会残留。部署更新时应在**整套栈都停掉后**清空该目录（web 与 worker 共享同一目录，单边清空会误删另一侧存活进程的文件）——代价是丢掉死进程最后一刻的计数，对运维是标准做法。另外注意：残留文件携带**旧版本进程的 schema**（如旧标签集），与新版本进程的文件混在一起会让看板对不上——这也是升级后清空目录的理由。
+
 ## 4. 监控栈（可选）
 
 不接监控栈，服务照常运行。要看指标时，用参考工件起 Prometheus + Grafana（与主 compose 合并使用）：

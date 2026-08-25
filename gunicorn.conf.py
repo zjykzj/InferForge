@@ -27,3 +27,24 @@ _LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
 accesslog = os.path.join(_LOG_DIR, "gunicorn_access.log")
 errorlog = os.path.join(_LOG_DIR, "gunicorn_error.log")
 loglevel = "info"
+
+
+def on_exit(server):
+    """Gunicorn server hook — runs in the master during its own shutdown.
+
+    The master imports the app (preload_app=True) and prometheus_client's
+    multiprocess mode writes its counter/histogram files at utils.metrics
+    import — the master never serves a request, so no lifespan hook ever
+    runs there. This deletes the master's own files.
+
+    What is deliberately NOT here: a worker_exit hook. uvicorn workers reset
+    SIGTERM/SIGINT to SIG_DFL (uvicorn issue #894) and their teardown never
+    reaches gunicorn's worker_exit finally (empirically verified). Each
+    worker deletes its own runtime files via the app lifespan shutdown hook
+    (app.py); start.sh's preflight un-sets PROMETHEUS_MULTIPROC_DIR before
+    importing project modules so it creates none. SIGKILL/crash leftovers
+    stay deploy hygiene (docs/metrics.md §3).
+    """
+    from utils import metrics
+
+    metrics.mark_process_dead()

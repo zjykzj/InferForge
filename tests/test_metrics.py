@@ -172,6 +172,27 @@ def test_mark_predictor_loaded_task_label():
     assert value == 1.0
 
 
+# --- process-death bookkeeping (multiprocess metric-file hygiene) ---
+
+
+def test_mark_process_dead_noop_without_multiprocess(monkeypatch):
+    monkeypatch.delenv("PROMETHEUS_MULTIPROC_DIR", raising=False)
+    metrics.mark_process_dead()  # dev single-process mode: must not raise
+
+
+def test_mark_process_dead_deletes_process_files(monkeypatch, tmp_path):
+    # prometheus_client's own mark_process_dead (<=0.26) misses
+    # gauge_all/counter/histogram files — this glob must cover every family.
+    monkeypatch.setenv("PROMETHEUS_MULTIPROC_DIR", str(tmp_path))
+    mine = ("counter_1234.db", "gauge_all_1234.db", "histogram_1234.db")
+    for name in mine + ("counter_9999.db",):
+        (tmp_path / name).write_text("")
+    metrics.mark_process_dead(1234)
+    for name in mine:
+        assert not (tmp_path / name).exists()
+    assert (tmp_path / "counter_9999.db").exists()  # another process's file untouched
+
+
 # --- celery queue-wait metric (computation lives in utils.metrics.record_queue_wait;
 #     never import celery_app in tests — its thread-local current_app would split
 #     task-proxy resolution across TestClient threads and break task monkeypatching) ---

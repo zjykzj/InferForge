@@ -16,6 +16,13 @@ import sys
 # the project root on sys.path, but this script imports project modules.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# This script is a boot-time check, not a metrics producer. start.sh exports
+# PROMETHEUS_MULTIPROC_DIR, and prometheus_client's multiprocess mode writes
+# one file per process at utils.metrics import (reached via the
+# engines.yolo import chain below) — unsetting the env keeps the shared
+# metrics dir free of this short-lived process's files.
+os.environ.pop("PROMETHEUS_MULTIPROC_DIR", None)
+
 from engines import registry
 from utils.errors import RegistryConfigError
 from utils.switches import switch_on

@@ -27,6 +27,8 @@ from celery.signals import (  # noqa: E402
     task_postrun,
     task_prerun,
     worker_process_init,
+    worker_process_shutdown,
+    worker_shutdown,
 )
 from utils import metrics  # noqa: E402
 
@@ -69,6 +71,27 @@ def _configure_logging(**kwargs):
 def _task_elapsed(task) -> float | None:
     started = getattr(task.request, "metrics_started", None)
     return time.perf_counter() - started if started else None
+
+
+@worker_shutdown.connect
+def _on_worker_shutdown(**kwargs):
+    """Delete the MAIN process's metric files (created at utils.metrics
+    import) when the worker shuts down — the prefork children clean their
+    own files via worker_process_shutdown below. Not covered by unit tests
+    (never import celery_app in tests, CLAUDE.md).
+    """
+    metrics.mark_process_dead()
+
+
+@worker_process_shutdown.connect
+def _on_worker_process_shutdown(**kwargs):
+    """Delete this prefork child's metrics file on graceful shutdown, so
+    /metrics stops aggregating exited children (utils.metrics.mark_process_dead;
+    no-op without PROMETHEUS_MULTIPROC_DIR). Not covered by unit tests —
+    importing celery_app in tests would split celery's thread-local
+    current_app across TestClient threads (CLAUDE.md).
+    """
+    metrics.mark_process_dead()
 
 
 @worker_process_init.connect

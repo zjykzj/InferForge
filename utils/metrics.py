@@ -18,6 +18,8 @@ cross-cutting, usable by any layer). Design notes:
   after this middleware's entry phase — so it is read lazily in the
   response wrapper (mirrors RequestIdMiddleware's structure).
 """
+import glob
+import logging
 import os
 import time
 
@@ -31,6 +33,8 @@ from prometheus_client import (
     generate_latest,
     multiprocess,
 )
+
+logger = logging.getLogger("utils.metrics")
 
 # prometheus_client switches to multiprocess mode when this env is present
 # at ITS import time (the import above). Metric constructors open mmap files
@@ -157,6 +161,38 @@ def observe_vlm_remote_call(seconds: float) -> None:
 def count_vlm_remote_error() -> None:
     """Count one failed remote LLM call (called by tasks.vlm on OpenAIError)."""
     vlm_remote_errors_total.inc()
+
+
+def mark_process_dead(pid: int | None = None) -> None:
+    """Delete this process's multiprocess metrics files on graceful shutdown.
+
+    prometheus_client's multiprocess mode writes one mmap file per process
+    and never cleans up dead processes' files — without this hook, an exited
+    worker's gauges (e.g. predictor_loaded=1) keep aggregating into /metrics
+    forever. Files are deleted by glob, NOT via
+    prometheus_client.multiprocess.mark_process_dead: in the versions this
+    project pins (<=0.26) that function only removes live-mode gauge files
+    and leaves gauge_all/counter/histogram files — exactly the ones that
+    matter — behind.
+
+    Wiring: app lifespan shutdown (app.py — uvicorn-managed deployments
+    only; gunicorn's worker teardown never runs that phase, so
+    gunicorn.conf.py's worker_exit hook deletes from the master instead);
+    celery worker_process_shutdown (celery_app.py, one call per prefork
+    child). SIGKILL/crash skips the hooks — stale files are then only
+    removed by deploy hygiene (clean the dir on full-stack redeploy,
+    docs/metrics.md §3). No-op in dev single-process mode (no
+    PROMETHEUS_MULTIPROC_DIR, no files to delete).
+    """
+    directory = os.environ.get("PROMETHEUS_MULTIPROC_DIR")
+    if not directory:
+        return
+    pid = pid if pid is not None else os.getpid()
+    removed = 0
+    for path in glob.glob(os.path.join(directory, "*_%d.db" % pid)):
+        os.remove(path)
+        removed += 1
+    logger.info("multiprocess cleanup: deleted %d metric file(s) for pid=%d", removed, pid)
 
 
 def observe_queue_wait(task: str, seconds: float) -> None:

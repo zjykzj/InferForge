@@ -120,3 +120,13 @@ def test_app_skips_preload_without_switch(no_switches, monkeypatch):
     with TestClient(app):
         pass
     assert calls == []
+
+
+def test_app_registers_metrics_shutdown_hook(no_switches):
+    # graceful shutdown deletes this worker's metrics file (multiprocess
+    # hygiene, see utils.metrics.mark_process_dead)
+    from app import create_app
+    from utils import metrics
+
+    app = create_app()
+    assert metrics.mark_process_dead in app.router.on_shutdown

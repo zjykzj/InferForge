@@ -208,6 +208,14 @@ def create_app() -> FastAPI:
         app.router.on_startup.append(warmup.preload_web)
         logger.info("model preload enabled (INFERFORGE_PRELOAD=1)")
 
+    # Multiprocess hygiene: under uvicorn-managed deployments (dev server)
+    # each process deletes its own metrics file on graceful shutdown. Under
+    # gunicorn the lifespan shutdown phase never runs during worker
+    # teardown — gunicorn.conf.py's worker_exit hook covers that path from
+    # the master (utils.metrics.mark_process_dead; no-op without
+    # PROMETHEUS_MULTIPROC_DIR).
+    app.router.on_shutdown.append(metrics.mark_process_dead)
+
     logger.info("app created")
     return app
 

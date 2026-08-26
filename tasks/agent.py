@@ -27,7 +27,7 @@ import cv2
 import numpy as np
 from pydantic import BaseModel, Field
 
-from engines.yolo import COCO_CLASS_NAMES
+from engines import registry
 from tasks.detection import get_predictor
 from tasks.vlm import LLMConfigError, LLMUpstreamError, get_llm_config
 from utils import image as image_utils
@@ -50,6 +50,9 @@ AGENT_TIMEOUT = 60.0  # seconds per run (model settings; transport retries live 
 AGENT_MAX_TOKENS = 1024
 
 RUN_MESSAGE = "Count the persons with and without hair in this image."
+
+TARGET_CLASS_ENV = "INFERFORGE_AGENT_TARGET_CLASS"
+DEFAULT_TARGET_CLASS = "person"
 
 
 class PersonHair(BaseModel):
@@ -82,25 +85,63 @@ class DetectedPersons(BaseModel):
     persons: list[DetectedPerson]
 
 
-def _detect_persons(image) -> DetectedPersons:
-    """Locate every person with the local detection engine (module-level, testable).
+def _target_class() -> str:
+    """The class the detection tool keeps: INFERFORGE_AGENT_TARGET_CLASS or
+    the demo default ("person"). Read at call time (tests monkeypatch env)."""
+    return os.environ.get(TARGET_CLASS_ENV, DEFAULT_TARGET_CLASS)
 
-    Only the person class is kept — the engine's other classes (tie, ...) are
-    noise for the attribute judgment. Indexes are 0-based and stable, so the
-    model can attribute each judgment to the right box.
+
+def _validate_target_class(spec: "registry.ModelSpec") -> str:
+    """The target class must exist in the selected detect model's class table
+    (registry-resolved: a per-model `classes` file overrides the built-in
+    table). A miss is a config error naming the env var — same convention as
+    get_llm_config (-> code 3)."""
+    target = _target_class()
+    if target not in spec.class_names:
+        raise LLMConfigError(
+            "%s=%r is not a class of detect model %r — set it to a class in "
+            "the model's registry entry (classes file) or fix the variable"
+            % (TARGET_CLASS_ENV, target, spec.name)
+        )
+    if target != DEFAULT_TARGET_CLASS and "INFERFORGE_AGENT_INSTRUCTIONS" not in os.environ:
+        logger.warning(
+            "%s=%r but INFERFORGE_AGENT_INSTRUCTIONS is not set — the default "
+            "hair-count instructions may not match this task",
+            TARGET_CLASS_ENV, target,
+        )
+    return target
+
+
+def _detect_persons(image, model=None) -> DetectedPersons:
+    """Locate every target-class object with the local detection engine
+    (module-level, testable).
+
+    `model` picks a registered detect model (absent -> the detect default);
+    the class table comes from that model's registry entry, so a fork with a
+    custom `classes` file or a renamed person class works without code edits.
+    Only the target class (INFERFORGE_AGENT_TARGET_CLASS, default "person")
+    is kept — the engine's other classes are noise for the attribute
+    judgment. Indexes are 0-based and stable, so the model can attribute
+    each judgment to the right box.
     """
-    result = get_predictor().predict(image)
+    spec = registry.resolve(model, "detect")
+    target = _validate_target_class(spec)
+    result = get_predictor(spec.name).predict(image)
     persons = [
         DetectedPerson(index=i, bbox=[round(float(v), 2) for v in box])
         for i, (box, class_id) in enumerate(zip(result.boxes, result.class_ids))
-        if COCO_CLASS_NAMES[int(class_id)] == "person"
+        if spec.label(int(class_id)) == target  # label() tolerates ids past the table
     ]
-    logger.info("detect_persons tool: %d persons", len(persons))
+    logger.info("detect_persons tool: %d %s(s)", len(persons), target)
     return DetectedPersons(persons=persons)
 
 
-def _build_agent():
+def _build_agent(model):
     """Build the hair-count agent (worker-only deps imported in-function).
+
+    `model` is the registered detect model name (registry-validated by
+    run_hair_count); the detection tool closes over it so the ReAct loop
+    runs the right predictor + class table.
 
     A fresh client per task: run_sync spins a new event loop each call, so
     the httpx2 AsyncClient cannot be reused across runs. Transport retries
@@ -147,18 +188,23 @@ def _build_agent():
     @agent.tool
     def detect_persons(ctx: RunContext[np.ndarray]) -> DetectedPersons:
         """Locate every person in the image with the local detection engine."""
-        return _detect_persons(ctx.deps)
+        return _detect_persons(ctx.deps, model=model)
 
     return agent
 
 
-def run_hair_count(image_b64=None, image_url=None):
+def run_hair_count(image_b64=None, image_url=None, model=None):
     """Run the hair-count agent: validate the image, detect persons, judge hair.
 
+    `model` picks a registered detect model (absent -> the detect default).
     Returns the HairCountResult serialized as a plain dict (the task modules
     wrap it in the result envelope).
     """
     image = image_utils.input_to_image(image_b64, image_url)  # ValueError -> code 1, download -> 2
+    # Registry + target-class checks run BEFORE the paid call; inside the
+    # tool this raise would be wrapped into a ToolFailed and lose the message.
+    spec = registry.resolve(model, "detect")
+    _validate_target_class(spec)  # LLMConfigError -> code 3, naming the env var
     ok, buf = cv2.imencode(".jpg", image)
     if not ok:
         raise ValueError("failed to encode image to jpeg")
@@ -172,7 +218,7 @@ def run_hair_count(image_b64=None, image_url=None):
             "pydantic-ai SDK is not installed in the worker — install requirements-async.txt"
         ) from None
 
-    agent = _build_agent()  # config validated here (LLMConfigError -> code 3)
+    agent = _build_agent(spec.name)  # config validated here (LLMConfigError -> code 3)
 
     started = time.perf_counter()
     try:

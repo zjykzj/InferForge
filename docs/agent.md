@@ -17,8 +17,9 @@
         │      + 传输层重试 transport（429/5xx/连接，3 次，Retry-After 感知）
         ├─ 3. agent.run_sync([指令, BinaryContent(jpeg)], deps=解码后的图)
         │      ├─ LLM 调用工具 detect_persons
-        │      │    └─ _detect_persons(deps)：tasks.detection 的本地预测器
-        │      │        过滤 person 类 → 每人 index + bbox（DetectedPersons）
+        │      │    └─ _detect_persons(deps, model)：tasks.detection 的本地预测器
+        │      │        按 INFERFORGE_AGENT_TARGET_CLASS（默认 person）过滤，类名表
+        │      │        来自所选注册模型（classes 文件可覆盖）→ 每人 index + bbox
         │      └─ LLM 依据全图 + 每人 bbox 逐人判断 has_hair
         └─ 4. result.output（HairCountResult，Pydantic 校验）→ model_dump() 返回 dict
 ```
@@ -41,9 +42,10 @@ class HairCountResult(BaseModel):
 ### 1.2 接口与启用
 
 - 接口：`POST /predict/agent/query` + `GET /predict/agent/query/{task_id}`——与检测/VLM 异步轮询完全同构（详见 [api.md](api.md)）；**query-only**（callback 推送以检测任务为参照，LLM/Agent 类任务的调用方是主动业务系统，query 是主路）
+- 检测模型：请求 `model` 字段（可选）指定检测工具使用的注册模型（缺省 detect 缺省模型；未登记提交时 code 10，worker 侧复检防注册表漂移）
 - 启用：`INFERFORGE_ASYNC=1 INFERFORGE_AGENT=1` 启动 web；worker 侧配置 `INFERFORGE_LLM_MODEL` / `INFERFORGE_LLM_API_KEY`（必填）+ `INFERFORGE_LLM_BASE_URL`（可选），与 VLM 共用
-- 指令：服务端固定（`INFERFORGE_AGENT_INSTRUCTIONS` 可覆盖），客户端只传图片
-- 业务码：图片校验 1/2、上游失败 9、内部 3——零新增
+- 检测工具目标类：`INFERFORGE_AGENT_TARGET_CLASS`（默认 `person`；须在所选检测模型类名表内——注册表 `classes` 文件可覆盖内置表——否则 code 3 点名报错）；指令服务端固定（`INFERFORGE_AGENT_INSTRUCTIONS` 可覆盖），客户端只传图片
+- 业务码：图片校验 1/2、上游失败 9、模型未登记 10、内部 3
 
 ### 1.3 为什么用 Pydantic AI
 
@@ -81,7 +83,7 @@ class HairCountResult(BaseModel):
 |--------|--------|---------------------------|
 | 输出 schema | 改 `HairCountResult`/`PersonHair` 模型 | `has_hair: bool` → `has_glasses: bool` |
 | 指令 | 改 `DEFAULT_AGENT_INSTRUCTIONS`（或 `INFERFORGE_AGENT_INSTRUCTIONS`） | 「judge whether they wear glasses」 |
-| 工具 | 改/换 `_detect_persons`（检测引擎、类别过滤、返回字段） | 过滤 person 类不变；复杂场景可换分类/分割引擎 |
+| 工具 | 改/换 `_detect_persons`（检测引擎、返回字段） | 目标类改 `INFERFORGE_AGENT_TARGET_CLASS` 即可（类名表来自注册模型，`classes` 文件可覆盖）；复杂场景可换分类/分割引擎 |
 
 工具约定（对应 [add-engine.md](add-engine.md) 之于引擎层）：
 

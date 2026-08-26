@@ -3,7 +3,7 @@
 Submit a hair-count agent task; the worker stores the result envelope in
 Redis; the client polls until the envelope appears. Poll semantics: missing
 key -> code 4 (never submitted or expired), pending marker -> code 5, final
-envelope returned verbatim (code 0/1/2/3/9 + data). Registered only when
+envelope returned verbatim (code 0/1/2/3/9/10 + data). Registered only when
 INFERFORGE_ASYNC=1 and INFERFORGE_AGENT=1 (see app.py).
 """
 import json
@@ -13,8 +13,9 @@ import time
 from fastapi import APIRouter, Request
 
 from apis.schemas import QueryRequest
+from tasks import detection
 from tasks.agent_query import agent_query_task
-from utils import redis_store, request_id, response
+from utils import errors, redis_store, request_id, response
 
 logger = logging.getLogger("apis.async_agent_query")
 
@@ -31,13 +32,20 @@ def submit_agent_query(request: Request, payload: QueryRequest):
                 bool(image_b64), bool(image_url))
 
     try:
+        # Reject an unknown model synchronously (same rule as the detection
+        # query api): a bad name must fail here, not surface on the worker.
+        detection.validate_model(payload.model)
         task = agent_query_task.delay(
             image_b64=image_b64,
             image_url=image_url,
+            model=payload.model,
             request_id=request_id.get_request_id(),
             submitted_at=time.time(),  # wall clock: queue-wait metric (celery_app task_prerun)
         )
         redis_store.set_pending(task.id)  # NX: never clobbers an already-written result
+    except errors.ModelNotFound as exc:
+        logger.warning("agent query rejected (model): %s", exc)
+        return response.error(str(exc), code=10)
     except Exception:  # broker unreachable, redis down, serialization failure, ...
         logger.exception("failed to submit agent query task")
         return response.error("failed to submit task", code=3)

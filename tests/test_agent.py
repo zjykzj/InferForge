@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import pytest
 
+from engines import registry
 from engines.base import BasePredictor, DetectionResult
 from tasks import agent
 
@@ -62,6 +63,73 @@ def test_detect_persons_filters_to_person_class(monkeypatch):
     assert detections.persons[1].index == 1  # index stable: the second person
 
 
+def test_detect_persons_respects_custom_classes_file(monkeypatch, tmp_path):
+    """A registered model's own `classes` file decides the label table — the
+    hardcoded COCO assumption is gone."""
+    classes = tmp_path / "classes.txt"
+    classes.write_text("alpha\nperson\nbeta\n")
+    registry_file = tmp_path / "registry.yaml"
+    registry_file.write_text(
+        "defaults:\n  detect: my-model\n"
+        "models:\n  my-model:\n    capability: detect\n"
+        "    path: models/x.onnx\n    classes: %s\n" % classes
+    )
+    monkeypatch.setenv("INFERFORGE_REGISTRY_PATH", str(registry_file))
+    registry.reset_cache()
+
+    class CustomPredictor(BasePredictor):
+        def load(self, model_path):
+            pass
+
+        def predict(self, image):
+            return DetectionResult(
+                boxes=np.array([[4.0, 8.0, 20.0, 32.0], [30.0, 40.0, 60.0, 90.0], [1.0, 1.0, 5.0, 5.0]]),
+                scores=np.array([0.9, 0.8, 0.4]),
+                class_ids=np.array([0, 1, 2]),  # alpha, person, beta
+            )
+
+    seen = []
+    monkeypatch.setattr(agent, "get_predictor",
+                        lambda model=None: (seen.append(model), CustomPredictor())[1])
+    detections = agent._detect_persons(np.zeros((64, 64, 3), dtype=np.uint8))
+    assert seen == ["my-model"]  # the registered model name reaches the predictor
+    assert len(detections.persons) == 1  # only the custom table's "person" (id 1)
+    assert detections.persons[0].index == 1
+
+
+def test_detect_persons_target_class_is_configurable(monkeypatch):
+    monkeypatch.setenv("INFERFORGE_AGENT_TARGET_CLASS", "tie")
+    monkeypatch.setattr(agent, "get_predictor", lambda model=None: FakePredictor())
+    detections = agent._detect_persons(np.zeros((64, 64, 3), dtype=np.uint8))
+    assert len(detections.persons) == 1  # the tie is now the target
+    assert detections.persons[0].index == 2
+
+
+def test_detect_persons_rejects_unknown_target_class(monkeypatch):
+    monkeypatch.setenv("INFERFORGE_AGENT_TARGET_CLASS", "helmet")
+    monkeypatch.setattr(agent, "get_predictor", lambda model=None: FakePredictor())
+    with pytest.raises(agent.LLMConfigError) as exc:
+        agent._detect_persons(np.zeros((64, 64, 3), dtype=np.uint8))
+    assert "INFERFORGE_AGENT_TARGET_CLASS" in str(exc.value)
+
+
+def test_detect_persons_tolerates_out_of_range_class_ids(monkeypatch):
+    class WeirdPredictor(BasePredictor):
+        def load(self, model_path):
+            pass
+
+        def predict(self, image):
+            return DetectionResult(
+                boxes=np.array([[4.0, 8.0, 20.0, 32.0]]),
+                scores=np.array([0.9]),
+                class_ids=np.array([99]),  # past the built-in COCO table
+            )
+
+    monkeypatch.setattr(agent, "get_predictor", lambda model=None: WeirdPredictor())
+    detections = agent._detect_persons(np.zeros((64, 64, 3), dtype=np.uint8))
+    assert len(detections.persons) == 0  # class_99 != the target; no IndexError
+
+
 # --- run_hair_count orchestration (agent faked) ---
 
 
@@ -77,8 +145,12 @@ def fake_agent(monkeypatch):
     calls = []
 
     class _FakeAgent:
+        def __init__(self, model):
+            self.model = model
+
         def run_sync(self, messages, deps=None, model_settings=None):
-            calls.append({"messages": messages, "deps": deps, "model_settings": model_settings})
+            calls.append({"messages": messages, "deps": deps, "model_settings": model_settings,
+                          "model": self.model})
             return _FakeRunResult(agent.HairCountResult(
                 total_persons=2, with_hair=1, without_hair=1,
                 per_person=[agent.PersonHair(index=0, bbox=[0, 0, 1, 1], has_hair=False),
@@ -114,13 +186,41 @@ def test_run_hair_count_passes_jpeg_content_and_image_deps(fake_agent):
 def test_run_hair_count_rejects_bad_input_before_agent(monkeypatch):
     built = []
 
-    def _build():
-        built.append(1)
+    def _build(model):
+        built.append(model)
 
     monkeypatch.setattr(agent, "_build_agent", _build)
     with pytest.raises(ValueError):
         agent.run_hair_count(image_b64="!!not-base64!!")
     assert built == []  # validation happens before the paid call
+
+
+def test_run_hair_count_rejects_unknown_target_class_before_agent(monkeypatch):
+    monkeypatch.setenv("INFERFORGE_AGENT_TARGET_CLASS", "helmet")
+    built = []
+
+    def _build(model):
+        built.append(model)
+
+    monkeypatch.setattr(agent, "_build_agent", _build)
+    with pytest.raises(agent.LLMConfigError):
+        agent.run_hair_count(image_b64=_tiny_image_b64())
+    assert built == []  # fails before the paid call
+
+
+def test_run_hair_count_passes_registered_model_to_build_agent(fake_agent):
+    agent.run_hair_count(image_b64=_tiny_image_b64())
+    assert fake_agent[0]["model"] == "yolov8n"  # the detect default's registered name
+
+
+def test_target_class_warns_when_instructions_not_overridden(monkeypatch, caplog):
+    import logging
+
+    monkeypatch.setenv("INFERFORGE_AGENT_TARGET_CLASS", "tie")
+    monkeypatch.setattr(agent, "get_predictor", lambda model=None: FakePredictor())
+    with caplog.at_level(logging.WARNING, logger="tasks.agent"):
+        agent._detect_persons(np.zeros((64, 64, 3), dtype=np.uint8))
+    assert any("INFERFORGE_AGENT_INSTRUCTIONS" in r.message for r in caplog.records)
 
 
 def test_run_hair_count_config_error_names_missing_model(monkeypatch):
@@ -155,7 +255,7 @@ def test_run_hair_count_maps_agent_run_error(monkeypatch):
         def run_sync(self, *args, **kwargs):
             raise AgentRunError("upstream boom")
 
-    monkeypatch.setattr(agent, "_build_agent", lambda: _FailingAgent())
+    monkeypatch.setattr(agent, "_build_agent", lambda model: _FailingAgent())
     with pytest.raises(agent.LLMUpstreamError) as exc:
         agent.run_hair_count(image_b64=_tiny_image_b64())
     assert "upstream boom" in str(exc.value)
@@ -169,6 +269,6 @@ def test_run_hair_count_maps_tool_failed(monkeypatch):
         def run_sync(self, *args, **kwargs):
             raise ToolFailed("tool boom")
 
-    monkeypatch.setattr(agent, "_build_agent", lambda: _FailingAgent())
+    monkeypatch.setattr(agent, "_build_agent", lambda model: _FailingAgent())
     with pytest.raises(RuntimeError):
         agent.run_hair_count(image_b64=_tiny_image_b64())

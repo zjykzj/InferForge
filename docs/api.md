@@ -445,6 +445,7 @@ curl -s http://localhost:8000/predict/vlm/query/<task_id>
 |------|------|:---:|------|
 | `image` | string | 二选一 | base64 图片（同检测接口） |
 | `url` | string | 二选一 | 图片 URL（同检测接口） |
+| `model` | string | 否 | 检测工具使用的注册模型名；缺省用 detect 缺省模型，未登记提交时 code=10（同 §1） |
 
 指令与输出 schema 完全由服务端固定，客户端**不传**任何业务参数。
 
@@ -467,6 +468,7 @@ curl -s http://localhost:8000/predict/vlm/query/<task_id>
 {"code": 1, "message": "...", "data": null}    // 图片非法（付费调用前校验）
 {"code": 2, "message": "...", "data": null}    // 图片下载失败
 {"code": 9, "message": "upstream LLM call failed: ...", "data": null}  // Agent 运行失败（传输重试耗尽/输出重试耗尽）
+{"code": 10, "message": "...", "data": null}   // 模型未登记（web/worker 注册表漂移时）
 {"code": 3, "message": "...", "data": null}    // 配置缺失（点名变量）/ 检测工具失败 / 内部错误
 ```
 

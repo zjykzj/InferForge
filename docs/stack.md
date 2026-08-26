@@ -167,6 +167,7 @@ client ◀──GET result── Redis
 | `INFERFORGE_LLM_BASE_URL` | 未设置（用 SDK 默认） | OpenAI 兼容端点地址（换供应商只改这里 + 模型名） | `tasks/vlm.py` |
 | `INFERFORGE_LLM_PROMPT` | `Please describe this image in detail.` | VLM 服务端固定提示词 | `tasks/vlm.py` |
 | `INFERFORGE_AGENT_INSTRUCTIONS` | 见 `DEFAULT_AGENT_INSTRUCTIONS` | Agent 服务端固定指令 | `tasks/agent.py` |
+| `INFERFORGE_AGENT_TARGET_CLASS` | `person` | Agent 检测工具的目标类（须在所选检测模型类名表内，否则 code 3 点名报错） | `tasks/agent.py` |
 | `INFERFORGE_API_KEY` | 未设置（关闭） | API key 鉴权：设置后非豁免路径要求 `X-API-Key` header（401 + code=7） | `utils/auth.py` |
 | `INFERFORGE_RATE_LIMIT` | 未设置（关闭） | 固定窗口限流：每调用方每分钟请求上限（429 + code=8；多 worker 为近似值） | `utils/rate_limit.py` |
 | `PROMETHEUS_MULTIPROC_DIR` | 未设置（单进程注册表） | 指标多进程聚合目录（web 与 worker 必须一致） | `utils/metrics.py` |

@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 pytest.importorskip("redis")  # apis.async_agent_query -> utils.redis_store imports redis
 
 from apis.async_agent_query import async_agent_query_router
+from engines import registry
 from tasks import agent
 from tasks import agent_query
 from utils import image as image_utils
@@ -84,6 +85,9 @@ def fake_agent(monkeypatch):
         usage = None
 
     class _FakeAgent:
+        def __init__(self, model):
+            pass
+
         def run_sync(self, messages, deps=None, model_settings=None):
             return _FakeRunResult()
 
@@ -134,6 +138,25 @@ def test_submit_rejects_both_inputs(client):
         "image": _tiny_image_b64(), "url": "http://x/y.jpg",
     })
     assert resp.json()["code"] == 1
+
+
+def test_submit_passes_model_to_task(client, fake_delay):
+    resp = client.post("/predict/agent/query", json={
+        "image": _tiny_image_b64(), "model": "yolov8n",
+    })
+    assert resp.json()["code"] == 0
+    assert fake_delay[0][1]["model"] == "yolov8n"
+
+
+def test_submit_rejects_unknown_model_synchronously(client, fake_delay):
+    resp = client.post("/predict/agent/query", json={
+        "image": _tiny_image_b64(), "model": "ghost",
+    })
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["code"] == 10
+    assert body["data"] is None
+    assert fake_delay == []  # nothing queued: the caller knows immediately
 
 
 def test_submit_delay_failure_returns_code3(monkeypatch, client):
@@ -249,8 +272,22 @@ def test_task_stores_download_failure_envelope(monkeypatch, fake_redis, fake_age
     assert "failed to download image" in stored["message"]
 
 
+def test_task_stores_code10_envelope_on_unknown_model(monkeypatch, fake_redis):
+    # web/worker registry drift defense: a model name that passed submit-time
+    # validation on the web must not crash the worker if its registry copy
+    # lacks it — the worker reports code 10 instead of failing the task.
+    monkeypatch.setattr(agent_query.agent_query_task.request, "id", "task-under-test")
+    registry.reset_cache()  # task runs "on the worker": re-read the registry
+
+    result = agent_query.agent_query_task.run(image_b64=_tiny_image_b64(), model="ghost")
+    assert result["code"] == 10
+    stored = json.loads(fake_redis["values"]["task-under-test"])
+    assert stored["code"] == 10
+    assert stored["data"] is None
+
+
 def test_task_stores_code9_envelope_on_upstream_failure(monkeypatch, fake_redis):
-    def _build_fails():
+    def _build_fails(model):
         raise agent.LLMUpstreamError("timeout")
 
     monkeypatch.setattr(agent, "_build_agent", _build_fails)
@@ -264,7 +301,7 @@ def test_task_stores_code9_envelope_on_upstream_failure(monkeypatch, fake_redis)
 
 
 def test_task_stores_code3_envelope_on_missing_config(monkeypatch, fake_redis):
-    def _build_fails():
+    def _build_fails(model):
         raise agent.LLMConfigError("missing INFERFORGE_LLM_MODEL: set it to the remote model name")
 
     monkeypatch.setattr(agent, "_build_agent", _build_fails)

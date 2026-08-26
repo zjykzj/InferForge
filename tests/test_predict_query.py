@@ -8,9 +8,9 @@ import pytest
 import requests
 from fastapi.testclient import TestClient
 
-pytest.importorskip("redis")  # apis.predict_query -> utils.redis_store imports redis
+pytest.importorskip("redis")  # apis.async_detect_query -> utils.redis_store imports redis
 
-from apis.predict_query import predict_query_router
+from apis.async_detect_query import async_detect_query_router
 from engines import registry
 from engines.base import BasePredictor, DetectionResult
 from tasks import detection
@@ -80,7 +80,7 @@ def fake_redis(monkeypatch):
 @pytest.fixture()
 def client(monkeypatch, app_factory, fake_delay, fake_redis):
     monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
-    return TestClient(app_factory(predict_query_router))
+    return TestClient(app_factory(async_detect_query_router))
 
 
 def _tiny_image_b64():

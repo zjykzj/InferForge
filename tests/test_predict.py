@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from engines.base import BasePredictor, DetectionResult
-from apis.predict import predict_router
+from apis.sync_detect import sync_detect_router
 from tasks import detection
 
 
@@ -30,7 +30,7 @@ class FakePredictor(BasePredictor):
 def client(monkeypatch, app_factory):
     # The task owns its predictors; swap them out for the fake one.
     monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
-    return TestClient(app_factory(predict_router))
+    return TestClient(app_factory(sync_detect_router))
 
 
 def _tiny_image_b64():

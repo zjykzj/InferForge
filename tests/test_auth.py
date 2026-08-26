@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apis.health import health_router
-from apis.predict import predict_router
+from apis.sync_detect import sync_detect_router
 
 API_KEY = "test-secret-key"
 
@@ -16,13 +16,13 @@ API_KEY = "test-secret-key"
 @pytest.fixture()
 def locked_app(monkeypatch, app_factory):
     monkeypatch.setenv("INFERFORGE_API_KEY", API_KEY)
-    return app_factory(predict_router)
+    return app_factory(sync_detect_router)
 
 
 def test_auth_disabled_by_default(monkeypatch, app_factory):
     """No env -> every request passes through untouched (zero-cost mode)."""
     monkeypatch.delenv("INFERFORGE_API_KEY", raising=False)
-    client = TestClient(app_factory(predict_router))
+    client = TestClient(app_factory(sync_detect_router))
     resp = client.post("/predict", json={})
     assert resp.status_code == 200  # code=1 validation, NOT 401
 

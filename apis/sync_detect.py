@@ -13,12 +13,12 @@ from apis.schemas import PredictRequest
 from tasks import detection
 from utils import errors, response
 
-logger = logging.getLogger("apis.predict")
+logger = logging.getLogger("apis.sync_detect")
 
-predict_router = APIRouter()
+sync_detect_router = APIRouter()
 
 
-@predict_router.post("/predict")
+@sync_detect_router.post("/predict")
 def predict(request: Request, payload: PredictRequest):
     image_b64 = payload.image
     image_url = payload.url

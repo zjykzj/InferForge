@@ -8,9 +8,9 @@ import pytest
 import requests
 from fastapi.testclient import TestClient
 
-pytest.importorskip("redis")  # apis.predict_vlm_query -> utils.redis_store imports redis
+pytest.importorskip("redis")  # apis.async_vlm_query -> utils.redis_store imports redis
 
-from apis.predict_vlm_query import predict_vlm_query_router
+from apis.async_vlm_query import async_vlm_query_router
 from tasks import vlm
 from tasks import vlm_query
 from utils import image as image_utils
@@ -71,7 +71,7 @@ def fake_remote_llm(monkeypatch):
 
 @pytest.fixture()
 def client(monkeypatch, app_factory, fake_delay, fake_redis):
-    return TestClient(app_factory(predict_vlm_query_router))
+    return TestClient(app_factory(async_vlm_query_router))
 
 
 def _tiny_image_b64():

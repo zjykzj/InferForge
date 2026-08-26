@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apis.health import health_router
-from apis.predict import predict_router
+from apis.sync_detect import sync_detect_router
 
 
 def _limited_app(monkeypatch, app_factory, limit, api_key=None):
@@ -16,13 +16,13 @@ def _limited_app(monkeypatch, app_factory, limit, api_key=None):
         monkeypatch.setenv("INFERFORGE_API_KEY", api_key)
     else:
         monkeypatch.delenv("INFERFORGE_API_KEY", raising=False)
-    return app_factory(predict_router)
+    return app_factory(sync_detect_router)
 
 
 def test_disabled_by_default(monkeypatch, app_factory):
     """No env -> no limiting, any number of requests pass."""
     monkeypatch.delenv("INFERFORGE_RATE_LIMIT", raising=False)
-    client = TestClient(app_factory(predict_router))
+    client = TestClient(app_factory(sync_detect_router))
     for _ in range(10):
         resp = client.post("/predict", json={})
         assert resp.status_code == 200  # code=1 validation, not 429

@@ -13,12 +13,12 @@ from tasks import detection
 from tasks.detection_callback import detect_callback_task
 from utils import errors, request_id, response
 
-logger = logging.getLogger("apis.predict_callback")
+logger = logging.getLogger("apis.async_detect_callback")
 
-predict_callback_router = APIRouter()
+async_detect_callback_router = APIRouter()
 
 
-@predict_callback_router.post("/predict/callback")
+@async_detect_callback_router.post("/predict/callback")
 def predict_callback(request: Request, payload: CallbackRequest):
     image_b64 = payload.image
     image_url = payload.url
@@ -29,7 +29,7 @@ def predict_callback(request: Request, payload: CallbackRequest):
                 bool(image_b64), bool(image_url))
 
     try:
-        # Reject an unknown model synchronously (see apis/predict_query.py);
+        # Reject an unknown model synchronously (see apis/async_detect_query.py);
         # registry check only, no model loading.
         detection.validate_model(payload.model)
         task = detect_callback_task.delay(

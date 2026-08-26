@@ -160,7 +160,7 @@ worker 完成后把结果放进一个**共享的"快递柜"**（Redis），发�
 | Web 服务器 | gunicorn + uvicorn worker（`gunicorn.conf.py`，`start.sh` 启动；开发用 `python3 app.py`） |
 | 任务框架 | `celery_app.py` + `tasks/` 的 `@shared_task` |
 | 消息队列 | RabbitMQ（`CELERY_BROKER_URL`） |
-| 生产者 | `apis/predict_callback.py` / `apis/predict_query.py` 里的 `.delay()` |
+| 生产者 | `apis/async_detect_callback.py` / `apis/async_detect_query.py` 里的 `.delay()` |
 | 消费者 | `tasks/detection_callback.py` / `tasks/detection_query.py` |
 | 快递柜 | Redis + `utils/redis_store.py`（`INFERFORGE_REDIS_URL`） |
 | result envelope | `{code, message, data}`（见 [status-codes.md](status-codes.md)） |

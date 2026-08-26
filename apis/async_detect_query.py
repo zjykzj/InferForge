@@ -16,12 +16,12 @@ from tasks import detection
 from tasks.detection_query import detect_query_task
 from utils import errors, redis_store, request_id, response
 
-logger = logging.getLogger("apis.predict_query")
+logger = logging.getLogger("apis.async_detect_query")
 
-predict_query_router = APIRouter()
+async_detect_query_router = APIRouter()
 
 
-@predict_query_router.post("/predict/query")
+@async_detect_query_router.post("/predict/query")
 def submit_query(request: Request, payload: QueryRequest):
     image_b64 = payload.image
     image_url = payload.url
@@ -54,7 +54,7 @@ def submit_query(request: Request, payload: QueryRequest):
     return response.success({"task_id": task.id})
 
 
-@predict_query_router.get("/predict/query/{task_id}")
+@async_detect_query_router.get("/predict/query/{task_id}")
 def poll_query(task_id: str):
     logger.info("query poll: task_id=%s", task_id)
     try:

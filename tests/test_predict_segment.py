@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from engines.base import BasePredictor, SegmentationResult
-from apis.predict_segment import predict_segment_router
+from apis.sync_segment import sync_segment_router
 from tasks import segmentation
 
 
@@ -31,7 +31,7 @@ class FakePredictor(BasePredictor):
 def client(monkeypatch, app_factory):
     # The task owns its predictor; swap it out for the fake one.
     monkeypatch.setattr(segmentation, "get_predictor", lambda model=None: FakePredictor())
-    return TestClient(app_factory(predict_segment_router))
+    return TestClient(app_factory(sync_segment_router))
 
 
 def _tiny_image_b64():

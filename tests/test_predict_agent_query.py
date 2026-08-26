@@ -8,9 +8,9 @@ import pytest
 import requests
 from fastapi.testclient import TestClient
 
-pytest.importorskip("redis")  # apis.predict_agent_query -> utils.redis_store imports redis
+pytest.importorskip("redis")  # apis.async_agent_query -> utils.redis_store imports redis
 
-from apis.predict_agent_query import predict_agent_query_router
+from apis.async_agent_query import async_agent_query_router
 from tasks import agent
 from tasks import agent_query
 from utils import image as image_utils
@@ -92,7 +92,7 @@ def fake_agent(monkeypatch):
 
 @pytest.fixture()
 def client(monkeypatch, app_factory, fake_delay, fake_redis):
-    return TestClient(app_factory(predict_agent_query_router))
+    return TestClient(app_factory(async_agent_query_router))
 
 
 def _tiny_image_b64():

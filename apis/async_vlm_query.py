@@ -16,12 +16,12 @@ from apis.schemas import QueryRequest
 from tasks.vlm_query import vlm_query_task
 from utils import redis_store, request_id, response
 
-logger = logging.getLogger("apis.predict_vlm_query")
+logger = logging.getLogger("apis.async_vlm_query")
 
-predict_vlm_query_router = APIRouter()
+async_vlm_query_router = APIRouter()
 
 
-@predict_vlm_query_router.post("/predict/vlm/query")
+@async_vlm_query_router.post("/predict/vlm/query")
 def submit_vlm_query(request: Request, payload: QueryRequest):
     image_b64 = payload.image
     image_url = payload.url
@@ -46,7 +46,7 @@ def submit_vlm_query(request: Request, payload: QueryRequest):
     return response.success({"task_id": task.id})
 
 
-@predict_vlm_query_router.get("/predict/vlm/query/{task_id}")
+@async_vlm_query_router.get("/predict/vlm/query/{task_id}")
 def poll_vlm_query(task_id: str):
     logger.info("vlm query poll: task_id=%s", task_id)
     try:

@@ -16,12 +16,12 @@ from apis.schemas import QueryRequest
 from tasks.agent_query import agent_query_task
 from utils import redis_store, request_id, response
 
-logger = logging.getLogger("apis.predict_agent_query")
+logger = logging.getLogger("apis.async_agent_query")
 
-predict_agent_query_router = APIRouter()
+async_agent_query_router = APIRouter()
 
 
-@predict_agent_query_router.post("/predict/agent/query")
+@async_agent_query_router.post("/predict/agent/query")
 def submit_agent_query(request: Request, payload: QueryRequest):
     image_b64 = payload.image
     image_url = payload.url
@@ -46,7 +46,7 @@ def submit_agent_query(request: Request, payload: QueryRequest):
     return response.success({"task_id": task.id})
 
 
-@predict_agent_query_router.get("/predict/agent/query/{task_id}")
+@async_agent_query_router.get("/predict/agent/query/{task_id}")
 def poll_agent_query(task_id: str):
     logger.info("agent query poll: task_id=%s", task_id)
     try:

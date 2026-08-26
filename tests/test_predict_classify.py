@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from engines.base import BasePredictor, ClassificationResult
-from apis.predict_classify import predict_classify_router
+from apis.sync_classify import sync_classify_router
 from tasks import classification
 
 
@@ -29,7 +29,7 @@ class FakePredictor(BasePredictor):
 def client(monkeypatch, app_factory):
     # The task owns its predictor; swap it out for the fake one.
     monkeypatch.setattr(classification, "get_predictor", lambda model=None: FakePredictor())
-    return TestClient(app_factory(predict_classify_router))
+    return TestClient(app_factory(sync_classify_router))
 
 
 def _tiny_image_b64():

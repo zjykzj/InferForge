@@ -10,7 +10,7 @@ from fastapi import APIRouter
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
 
-from apis.predict import predict_router
+from apis.sync_detect import sync_detect_router
 from engines.base import BasePredictor, DetectionResult
 from tasks import detection
 from tasks import vlm
@@ -41,7 +41,7 @@ def _tiny_image_b64():
 @pytest.fixture()
 def client(monkeypatch, app_factory):
     monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
-    return TestClient(app_factory(predict_router))
+    return TestClient(app_factory(sync_detect_router))
 
 
 def test_metrics_endpoint(client):

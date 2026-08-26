@@ -32,7 +32,7 @@
 | Pydantic | 请求体结构校验（schemas.py） |
 | requests | URL 下载图片、下载异常类型判断 |
 
-**文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/predict.py`（同步检测）、`apis/predict_segment.py`（同步分割；由 `INFERFORGE_SEG=1` 启用）、`apis/predict_classify.py`（同步分类；由 `INFERFORGE_CLS=1` 启用）、`apis/health.py`（健康探针）、`apis/predict_callback.py`（异步回调）、`apis/predict_query.py`（异步轮询；由 `INFERFORGE_ASYNC=1` 开关启用）、`apis/predict_vlm_query.py`（VLM 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` 同时启用）、`apis/predict_agent_query.py`（Agent 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_AGENT=1` 同时启用）
+**文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/sync_detect.py`（同步检测）、`apis/sync_segment.py`（同步分割；由 `INFERFORGE_SEG=1` 启用）、`apis/sync_classify.py`（同步分类；由 `INFERFORGE_CLS=1` 启用）、`apis/health.py`（健康探针）、`apis/async_detect_callback.py`（异步回调）、`apis/async_detect_query.py`（异步轮询；由 `INFERFORGE_ASYNC=1` 开关启用）、`apis/async_vlm_query.py`（VLM 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` 同时启用）、`apis/async_agent_query.py`（Agent 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_AGENT=1` 同时启用）
 
 **健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问**已启用能力**的 predictor 是否已加载（检测恒启用；分割/分类在对应开关开启时纳入检查——接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §6）。
 
@@ -142,7 +142,7 @@ app -> apis -> tasks -> engines
 ```
  1. app.py  RequestIdMiddleware  生成 request_id（12 位 hex，ContextVar 注入请求上下文）
  2. apis/schemas.py              Pydantic 结构校验（image/url 二选一；失败 → 200 + code=1 envelope）
- 3. apis/predict.py              记录请求日志（来源、输入类型）
+ 3. apis/sync_detect.py          记录请求日志（来源、输入类型）
  4. tasks/detection.py           开始计时，解析输入
  5. utils/image.py               base64 → BGR numpy（记录 shape）
  6. engines/yolo.py              letterbox 预处理
@@ -151,7 +151,7 @@ app -> apis -> tasks -> engines
  9. engines/yolo.py              draw_detections 绘图
 10. utils/image.py               BGR → JPEG base64
 11. tasks/detection.py           组装 detections 列表（记录总数与总耗时）
-12. apis/predict.py              成功 → code=0；异常 → 对应业务码
+12. apis/sync_detect.py          成功 → code=0；异常 → 对应业务码
 13. app.py  中间件出口            响应头回传 X-Request-ID（覆盖一切响应）
 ```
 
@@ -162,7 +162,7 @@ app -> apis -> tasks -> engines
 ### 异步回调流程（POST /predict/callback）
 
 ```
- 1. apis/predict_callback.py    校验参数（callback_url 必填）→ delay() 提交任务
+ 1. apis/async_detect_callback.py 校验参数（callback_url 必填）→ delay() 提交任务
  2. RabbitMQ                    任务排队
  3. Celery worker               消费任务：懒加载模型 → run_detection（复用同步编排）
  4. worker                      成功 → code=0 envelope；业务失败 → code=1/2/3 envelope
@@ -174,8 +174,8 @@ app -> apis -> tasks -> engines
 ### 异步查询流程（POST /predict/query + GET /predict/query/<task_id>）
 
 ```
- 1. apis/predict_query.py    校验参数（image/url 二选一）→ delay() 提交任务
- 2. apis/predict_query.py    Redis 写 pending 占位（SET NX，防 worker 抢先完成的竞态）
+ 1. apis/async_detect_query.py 校验参数（image/url 二选一）→ delay() 提交任务
+ 2. apis/async_detect_query.py Redis 写 pending 占位（SET NX，防 worker 抢先完成的竞态）
  3. RabbitMQ                  任务排队
  4. Celery worker             消费任务：懒加载模型 → run_detection（复用同步编排）
  5. worker                    成功 → code=0 envelope；业务失败 → code=1/2/3 envelope
@@ -190,7 +190,7 @@ app -> apis -> tasks -> engines
 与检测异步轮询链路同构，差异在 worker 的第 4 步：
 
 ```
- 1. apis/predict_vlm_query.py 校验参数 → delay() 提交任务（与检测 query 完全一致）
+ 1. apis/async_vlm_query.py 校验参数 → delay() 提交任务（与检测 query 完全一致）
  2. RabbitMQ                  任务排队
  3. Celery worker             消费任务 → run_vlm（tasks/vlm.py）
  4. worker                    图片解码校验（code 1/2 阶梯，付费前校验）→ JPEG data URL
@@ -210,7 +210,7 @@ app -> apis -> tasks -> engines
 与 VLM 链路同构，差异在 worker 内的编排（见 [agent.md](agent.md)）：
 
 ```
- 1. apis/predict_agent_query.py 校验参数 → delay() 提交任务（与检测 query 完全一致）
+ 1. apis/async_agent_query.py 校验参数 → delay() 提交任务（与检测 query 完全一致）
  2. RabbitMQ                  任务排队
  3. Celery worker             消费任务 → run_hair_count（tasks/agent.py）
  4. worker                    图片解码校验（code 1/2 阶梯，付费前）→ JPEG bytes

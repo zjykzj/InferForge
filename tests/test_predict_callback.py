@@ -7,7 +7,7 @@ import pytest
 import requests
 from fastapi.testclient import TestClient
 
-from apis.predict_callback import predict_callback_router
+from apis.async_detect_callback import async_detect_callback_router
 from engines import registry
 from engines.base import BasePredictor, DetectionResult
 from tasks import detection
@@ -48,7 +48,7 @@ def fake_delay(monkeypatch):
 @pytest.fixture()
 def client(monkeypatch, app_factory, fake_delay):
     monkeypatch.setattr(detection, "get_predictor", lambda model=None: FakePredictor())
-    return TestClient(app_factory(predict_callback_router))
+    return TestClient(app_factory(async_detect_callback_router))
 
 
 def _tiny_image_b64():

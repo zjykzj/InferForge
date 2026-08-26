@@ -40,7 +40,7 @@ from fastapi.exceptions import RequestValidationError  # noqa: E402
 
 from apis.health import health_router  # noqa: E402
 from apis.metrics import metrics_router  # noqa: E402
-from apis.predict import predict_router  # noqa: E402
+from apis.sync_detect import sync_detect_router  # noqa: E402
 from utils import auth, metrics, rate_limit, request_id, response, switches  # noqa: E402
 from utils.logger import setup_logging  # noqa: E402
 
@@ -144,17 +144,17 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(metrics_router)
-    app.include_router(predict_router)
+    app.include_router(sync_detect_router)
 
     if _seg_enabled():
-        from apis.predict_segment import predict_segment_router
+        from apis.sync_segment import sync_segment_router
 
-        app.include_router(predict_segment_router)
+        app.include_router(sync_segment_router)
         logger.info("segment api enabled")
     if _cls_enabled():
-        from apis.predict_classify import predict_classify_router
+        from apis.sync_classify import sync_classify_router
 
-        app.include_router(predict_classify_router)
+        app.include_router(sync_classify_router)
         logger.info("classify api enabled")
 
     if _async_enabled():
@@ -164,21 +164,21 @@ def create_app() -> FastAPI:
                 "api by default, use INFERFORGE_ASYNC=1 instead"
             )
         try:
-            from apis.predict_callback import predict_callback_router
-            from apis.predict_query import predict_query_router
+            from apis.async_detect_callback import async_detect_callback_router
+            from apis.async_detect_query import async_detect_query_router
 
-            app.include_router(predict_callback_router)
-            app.include_router(predict_query_router)
+            app.include_router(async_detect_callback_router)
+            app.include_router(async_detect_query_router)
             logger.info("async apis enabled (callback + query)")
             if _llm_enabled():
-                from apis.predict_vlm_query import predict_vlm_query_router
+                from apis.async_vlm_query import async_vlm_query_router
 
-                app.include_router(predict_vlm_query_router)
+                app.include_router(async_vlm_query_router)
                 logger.info("vlm query api enabled")
             if _agent_enabled():
-                from apis.predict_agent_query import predict_agent_query_router
+                from apis.async_agent_query import async_agent_query_router
 
-                app.include_router(predict_agent_query_router)
+                app.include_router(async_agent_query_router)
                 logger.info("agent query api enabled")
         except ImportError:
             logger.warning(

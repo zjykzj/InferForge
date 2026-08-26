@@ -111,7 +111,7 @@ else:
 
 1. 在 `utils/response.py` docstring 与本文档 §2 登记新码语义
 2. apis 层调用 `response.error(msg, code=N)`
-3. 在对应测试文件（`tests/test_predict.py` / `tests/test_predict_query.py` / `tests/test_predict_vlm_query.py`）补充对应断言
+3. 在对应测试文件（`tests/test_sync_detect.py` / `tests/test_async_detect_query.py` / `tests/test_async_vlm_query.py`）补充对应断言
 
 ## 4. 方案比较：永远 200 vs HTTP 状态码
 

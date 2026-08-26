@@ -2,9 +2,9 @@
 """Manual API testing client for POST /predict/callback (async).
 
 Usage:
-    python3 scripts/test_predict_callback.py --image assets/bus.jpg \
+    python3 scripts/test_async_detect_callback.py --image assets/bus.jpg \
         --callback-url http://localhost:9000/result
-    python3 scripts/test_predict_callback.py --url https://ultralytics.com/images/bus.jpg \
+    python3 scripts/test_async_detect_callback.py --url https://ultralytics.com/images/bus.jpg \
         --callback-url http://localhost:9000/result
 """
 import argparse

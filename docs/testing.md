@@ -12,7 +12,7 @@
 | **成长** | 算法/工具逻辑增多 | + 单元测试（边界）、集成测试（真实模型 + 真实图片） |
 | **工业级** | SLO 运营 | + 端到端、压测、精度一致性、长稳 |
 
-当前处于基础阶段，`tests/test_predict.py` / `tests/test_predict_segment.py` / `tests/test_predict_classify.py` / `tests/test_predict_callback.py` / `tests/test_predict_query.py` 即本阶段交付物（§3 以 test_predict.py 为例详解；分割/分类冒烟套件与其同构，另加 mask PNG 往返断言 / ImageNet 类名接线断言）。引擎纯函数（decode_seg / process_mask / preprocess / topk / 输出头识别）的单测已先行落地于 `tests/test_yolo_seg_engine.py` / `tests/test_yolo_cls_engine.py`——算法逻辑已随能力增多，单测不再等到"稳定后"。
+当前处于基础阶段，`tests/test_sync_detect.py` / `tests/test_sync_segment.py` / `tests/test_sync_classify.py` / `tests/test_async_detect_callback.py` / `tests/test_async_detect_query.py` 即本阶段交付物（§3 以 test_sync_detect.py 为例详解；分割/分类冒烟套件与其同构，另加 mask PNG 往返断言 / ImageNet 类名接线断言）。引擎纯函数（decode_seg / process_mask / preprocess / topk / 输出头识别）的单测已先行落地于 `tests/test_yolo_seg_engine.py` / `tests/test_yolo_cls_engine.py`——算法逻辑已随能力增多，单测不再等到"稳定后"。
 
 ## 2. 测试分层（金字塔）
 
@@ -38,7 +38,7 @@
 
 ### 3.2 覆盖范围
 
-`test_predict.py` 实际走通的链路（`→` 为真实代码）：
+`test_sync_detect.py` 实际走通的链路（`→` 为真实代码）：
 
 ```
 HTTP 请求 → FastAPI 路由（Pydantic 结构校验 → code=1 envelope）→ run_detection 编排
@@ -70,7 +70,7 @@ HTTP 请求 → FastAPI 路由（Pydantic 结构校验 → code=1 envelope）→
 
 ```bash
 pytest tests/ -v        # 全部冒烟测试
-pytest tests/test_predict.py::test_predict_with_base64  # 单用例
+pytest tests/test_sync_detect.py::test_predict_with_base64  # 单用例
 ```
 
 ## 4. 后续测试计划
@@ -80,7 +80,7 @@ pytest tests/test_predict.py::test_predict_with_base64  # 单用例
 | 单元测试 | `engines/yolo.py` 的 letterbox/decode/nms 边界：空输出、全零置信度、IoU=0/1、极端宽高比图片；分割/分类引擎的纯函数单测已先行落地（`test_yolo_seg_engine.py` / `test_yolo_cls_engine.py`） | 检测引擎单测待算法稳定后补 |
 | 集成测试 | 真实 `yolov8n.onnx` + 真实图片：检测数/坐标合理性；精度与官方导出结果一致（mAP 不下降）；分割 mask 与分类 top-k 同法 | 模型落地后 |
 | 回归测试 | 同一批冒烟测试在替换后的接口层实现下全数通过——验证接口层可替换 | 接口层替换时 |
-| 异步任务测试 | task_id 生命周期、任务失败重试、长任务不阻塞短任务 | 已部分落地：`test_predict_query.py` 覆盖 task_id 生命周期（提交/处理中/完成/不存在）与 Redis 故障路径 |
+| 异步任务测试 | task_id 生命周期、任务失败重试、长任务不阻塞短任务 | 已部分落地：`test_async_detect_query.py` 覆盖 task_id 生命周期（提交/处理中/完成/不存在）与 Redis 故障路径 |
 | 压测 | locust 压测 + 扩展比验证 | 部署上线前 |
 
 ## 5. 编码约定

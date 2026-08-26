@@ -46,8 +46,8 @@ cp /path/to/yolov8n.onnx models/
 INFERFORGE_PRELOAD=1 ./start.sh             # ... or load them at startup (readiness ready immediately)
 
 # 4. Test the API
-python3 scripts/test_predict.py --image assets/bus.jpg                              # local image (base64)
-python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg        # remote url
+python3 scripts/test_sync_detect.py --image assets/bus.jpg                              # local image (base64)
+python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg        # remote url
 
 # 5. Auto-generated API docs (Swagger UI): http://localhost:8000/docs
 # 6. Prometheus metrics: http://localhost:8000/metrics (optional — see docs/metrics.md)
@@ -66,8 +66,8 @@ cp /path/to/yolov8n-cls.onnx models/
 INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
 
 # 3. Test
-python3 scripts/test_predict_segment.py --image assets/bus.jpg --save result_seg.jpg   # segment
-python3 scripts/test_predict_classify.py --image assets/bus.jpg                        # classify (top-5)
+python3 scripts/test_sync_segment.py --image assets/bus.jpg --save result_seg.jpg   # segment
+python3 scripts/test_sync_classify.py --image assets/bus.jpg                        # classify (top-5)
 ```
 
 Optional: multi-model routing — copy the example registry and pick models per request (no registry file means single-model behavior, exactly as above):
@@ -76,8 +76,8 @@ Optional: multi-model routing — copy the example registry and pick models per 
 cp models/registry.example.yaml models/registry.yaml     # edit it to list your models
 ./start.sh                                               # preflight checks every registered model
 
-python3 scripts/test_predict.py --image assets/bus.jpg --model yolov8n          # explicit model
-python3 scripts/test_predict.py --image assets/bus.jpg                            # default model (no field)
+python3 scripts/test_sync_detect.py --image assets/bus.jpg --model yolov8n          # explicit model
+python3 scripts/test_sync_detect.py --image assets/bus.jpg                            # default model (no field)
 # details: docs/model-registry.md
 ```
 
@@ -101,7 +101,7 @@ Push style — server POSTs the result to your `callback_url`:
 
 ```bash
 python3 scripts/callback_receiver.py                                            # receiver (saves to outputs/callbacks/)
-python3 scripts/test_predict_callback.py --image assets/bus.jpg \
+python3 scripts/test_async_detect_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                                   # result is POSTed back
 ```
 
@@ -109,7 +109,7 @@ Pull style — submit a task, poll until the result is ready (result cached in R
 
 ```bash
 redis-server &                                                                  # start redis (result store)
-python3 scripts/test_predict_query.py --image assets/bus.jpg                    # submit + poll until done
+python3 scripts/test_async_detect_query.py --image assets/bus.jpg                    # submit + poll until done
 ```
 
 VLM (image understanding via a remote LLM, async-only) — add `INFERFORGE_LLM=1` on top of async; the worker calls the remote model:
@@ -120,7 +120,7 @@ INFERFORGE_LLM_MODEL=your-model \
 INFERFORGE_LLM_API_KEY=your-key \
 INFERFORGE_LLM_BASE_URL=https://your-llm-endpoint/v1 \
 ./start_celery.sh                                                               # start worker (remote call happens here)
-python3 scripts/test_vlm_query.py --image assets/bus.jpg                        # submit + poll until the answer arrives
+python3 scripts/test_async_vlm_query.py --image assets/bus.jpg                        # submit + poll until the answer arrives
 ```
 
 The prompt is fixed server-side (`INFERFORGE_LLM_PROMPT` overrides it); clients submit an image only. See [api](docs/api.md) §10.

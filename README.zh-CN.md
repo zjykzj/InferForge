@@ -46,8 +46,8 @@ cp /path/to/yolov8n.onnx models/
 INFERFORGE_PRELOAD=1 ./start.sh             # ... 或启动即加载（就绪检查立即 ready）
 
 # 4. 测试接口
-python3 scripts/test_predict.py --image assets/bus.jpg                              # 本地图片（base64）
-python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg        # 在线 URL
+python3 scripts/test_sync_detect.py --image assets/bus.jpg                              # 本地图片（base64）
+python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg        # 在线 URL
 
 # 5. 自动生成的接口文档（Swagger UI）：http://localhost:8000/docs
 # 6. Prometheus 指标：http://localhost:8000/metrics（可选，见 docs/metrics.md）
@@ -66,8 +66,8 @@ cp /path/to/yolov8n-cls.onnx models/
 INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
 
 # 3. 测试
-python3 scripts/test_predict_segment.py --image assets/bus.jpg --save result_seg.jpg   # 分割
-python3 scripts/test_predict_classify.py --image assets/bus.jpg                        # 分类（top-5）
+python3 scripts/test_sync_segment.py --image assets/bus.jpg --save result_seg.jpg   # 分割
+python3 scripts/test_sync_classify.py --image assets/bus.jpg                        # 分类（top-5）
 ```
 
 可选：多模型路由——复制示例注册表后按请求选模型（没有注册表文件时保持单模型行为，与上文完全一致）：
@@ -76,8 +76,8 @@ python3 scripts/test_predict_classify.py --image assets/bus.jpg                 
 cp models/registry.example.yaml models/registry.yaml     # 编辑它，列出你的模型
 ./start.sh                                               # preflight 检查每个注册模型
 
-python3 scripts/test_predict.py --image assets/bus.jpg --model yolov8n          # 显式指定模型
-python3 scripts/test_predict.py --image assets/bus.jpg                            # 不带 model 字段 → 缺省模型
+python3 scripts/test_sync_detect.py --image assets/bus.jpg --model yolov8n          # 显式指定模型
+python3 scripts/test_sync_detect.py --image assets/bus.jpg                            # 不带 model 字段 → 缺省模型
 # 详见 docs/model-registry.md
 ```
 
@@ -101,7 +101,7 @@ INFERFORGE_ASYNC=1 ./start.sh                                                   
 
 ```bash
 python3 scripts/callback_receiver.py                                            # 启动回调接收器（结果保存到 outputs/callbacks/）
-python3 scripts/test_predict_callback.py --image assets/bus.jpg \
+python3 scripts/test_async_detect_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                                   # 结果完成后 POST 回调
 ```
 
@@ -109,7 +109,7 @@ python3 scripts/test_predict_callback.py --image assets/bus.jpg \
 
 ```bash
 redis-server &                                                                  # 启动 redis（结果存储）
-python3 scripts/test_predict_query.py --image assets/bus.jpg                    # 提交 + 轮询直到完成
+python3 scripts/test_async_detect_query.py --image assets/bus.jpg                    # 提交 + 轮询直到完成
 ```
 
 VLM（图片理解，远程调用 LLM，仅异步形态）—— 在异步基础上再加 `INFERFORGE_LLM=1`，worker 侧配置远程模型：
@@ -120,7 +120,7 @@ INFERFORGE_LLM_MODEL=your-model \
 INFERFORGE_LLM_API_KEY=your-key \
 INFERFORGE_LLM_BASE_URL=https://your-llm-endpoint/v1 \
 ./start_celery.sh                                                               # 启动 worker（远程调用发生在 worker）
-python3 scripts/test_vlm_query.py --image assets/bus.jpg                        # 提交 + 轮询直到文本答案返回
+python3 scripts/test_async_vlm_query.py --image assets/bus.jpg                        # 提交 + 轮询直到文本答案返回
 ```
 
 提示词由服务端固定（`INFERFORGE_LLM_PROMPT` 可覆盖），客户端只传图片。详见 [api](docs/api.md) §10。

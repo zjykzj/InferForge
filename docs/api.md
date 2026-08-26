@@ -133,7 +133,7 @@ if d['data']['segments']:
 "
 ```
 
-自动化客户端：`python3 scripts/test_predict_segment.py --image assets/bus.jpg --save result_seg.jpg`
+自动化客户端：`python3 scripts/test_sync_segment.py --image assets/bus.jpg --save result_seg.jpg`
 
 ## 3. 同步分类接口：POST /predict/classify
 
@@ -174,7 +174,7 @@ curl -s -X POST http://localhost:8000/predict/classify \
   -H "Content-Type: application/json" -d @/tmp/payload.json | python3 -m json.tool
 ```
 
-自动化客户端：`python3 scripts/test_predict_classify.py --image assets/bus.jpg`
+自动化客户端：`python3 scripts/test_sync_classify.py --image assets/bus.jpg`
 
 ## 4. 异步回调接口：POST /predict/callback
 
@@ -261,7 +261,7 @@ curl -s -X POST http://localhost:8000/predict/query \
 curl -s http://localhost:8000/predict/query/<task_id>
 ```
 
-自动化客户端可直接用 `python3 scripts/test_predict_query.py --image assets/bus.jpg`（自带轮询循环）。
+自动化客户端可直接用 `python3 scripts/test_async_detect_query.py --image assets/bus.jpg`（自带轮询循环）。
 
 ## 6. 健康检查接口：GET /health + GET /health/ready
 
@@ -318,7 +318,7 @@ INFERFORGE_API_KEY=your-secret ./start.sh
 # 客户端：带 header 调用（payload 同 §1）
 curl -H "X-API-Key: your-secret" -H "Content-Type: application/json" \
   -d '{"image": "<base64>"}' http://localhost:8000/predict
-python3 scripts/test_predict.py --image assets/bus.jpg    # 脚本自动读取 INFERFORGE_API_KEY
+python3 scripts/test_sync_detect.py --image assets/bus.jpg    # 脚本自动读取 INFERFORGE_API_KEY
 ```
 
 - 鉴权失败：**HTTP 401 + `{"code": 7, "message": "unauthorized"}`**（协议层例外，见 [status-codes.md](status-codes.md)）
@@ -427,7 +427,7 @@ curl -s -X POST http://localhost:8000/predict/vlm/query \
 curl -s http://localhost:8000/predict/vlm/query/<task_id>
 ```
 
-自动化客户端：`python3 scripts/test_vlm_query.py --image assets/bus.jpg`（自带轮询循环）。
+自动化客户端：`python3 scripts/test_async_vlm_query.py --image assets/bus.jpg`（自带轮询循环）。
 
 ## 11. Agent 异步接口：POST /predict/agent/query
 

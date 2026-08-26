@@ -36,10 +36,10 @@ python3 app.py    # 开发模式：uvicorn 单进程（不检查模型文件，�
 
 ```bash
 # 本地图片（base64 上传）
-python3 scripts/test_predict.py --image assets/bus.jpg
+python3 scripts/test_sync_detect.py --image assets/bus.jpg
 
 # 在线图片（URL 下载）
-python3 scripts/test_predict.py --url https://ultralytics.com/images/bus.jpg
+python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg
 
 # 冒烟测试（无需模型文件、无需服务）
 pytest tests/ -v
@@ -61,8 +61,8 @@ cp /path/to/yolov8n-cls.onnx models/
 INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
 
 # 验证
-python3 scripts/test_predict_segment.py --image assets/bus.jpg --save result_seg.jpg
-python3 scripts/test_predict_classify.py --image assets/bus.jpg
+python3 scripts/test_sync_segment.py --image assets/bus.jpg --save result_seg.jpg
+python3 scripts/test_sync_classify.py --image assets/bus.jpg
 ```
 
 预期：打印 `code: 0` 与检测列表；首次请求会触发模型懒加载（多几十毫秒属正常）。
@@ -108,7 +108,7 @@ python3 scripts/callback_receiver.py
 ### 2.4 验证
 
 ```bash
-python3 scripts/test_predict_callback.py --image assets/bus.jpg \
+python3 scripts/test_async_detect_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result
 ```
 
@@ -164,8 +164,8 @@ INFERFORGE_ASYNC=1 ./start.sh
 ### 3.4 验证
 
 ```bash
-python3 scripts/test_predict_query.py --image assets/bus.jpg
-python3 scripts/test_predict_query.py --image assets/bus.jpg --save result.jpg   # 另存绘图结果到本地
+python3 scripts/test_async_detect_query.py --image assets/bus.jpg
+python3 scripts/test_async_detect_query.py --image assets/bus.jpg --save result.jpg   # 另存绘图结果到本地
 ```
 
 预期：提交返回 `task_id` → 轮询打印若干次 `code: 5`（处理中）→ 最终 `code: 0` + 检测列表。结果暂存期间可直接查看：
@@ -209,10 +209,10 @@ curl http://localhost:8000/health     # 存活探针（就绪探针 /health/read
 端口全部映射到宿主机，客户端脚本与本地部署完全一致：
 
 ```bash
-python3 scripts/test_predict.py --image assets/bus.jpg                    # 同步
-python3 scripts/test_predict_callback.py --image assets/bus.jpg \
+python3 scripts/test_sync_detect.py --image assets/bus.jpg                    # 同步
+python3 scripts/test_async_detect_callback.py --image assets/bus.jpg \
   --callback-url http://localhost:9000/result                             # 回调
-python3 scripts/test_predict_query.py --image assets/bus.jpg              # 轮询
+python3 scripts/test_async_detect_query.py --image assets/bus.jpg              # 轮询
 ```
 
 RabbitMQ 管理界面：http://localhost:15672（guest/guest）。

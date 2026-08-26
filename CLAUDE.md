@@ -32,11 +32,11 @@ INFERFORGE_ASYNC=1 ./start.sh                       # run service with the async
 INFERFORGE_ASYNC=1 INFERFORGE_LLM=1 ./start.sh      # + vlm apis (worker needs INFERFORGE_LLM_MODEL/API_KEY)
 ./start_celery.sh                                   # run async worker (requires RabbitMQ + celery)
 docker compose up -d                                # full stack in containers (needs models/yolov8n.onnx)
-python3 scripts/test_predict.py --image assets/bus.jpg          # test the sync API
-python3 scripts/test_predict_callback.py --image assets/bus.jpg \  # test the async callback API
+python3 scripts/test_sync_detect.py --image assets/bus.jpg          # test the sync API
+python3 scripts/test_async_detect_callback.py --image assets/bus.jpg \  # test the async callback API
   --callback-url http://localhost:9000/result
-python3 scripts/test_predict_query.py --image assets/bus.jpg     # test the async query API
-python3 scripts/test_vlm_query.py --image assets/bus.jpg         # test the vlm query API (vlm/agent are query-only)
+python3 scripts/test_async_detect_query.py --image assets/bus.jpg     # test the async query API
+python3 scripts/test_async_vlm_query.py --image assets/bus.jpg         # test the vlm query API (vlm/agent are query-only)
 python3 scripts/callback_receiver.py                # receive async results (saves to outputs/callbacks/)
 python3 scripts/run_detection.py --image assets/bus.jpg          # task layer directly, no web (sync detection)
 INFERFORGE_LLM_MODEL=m INFERFORGE_LLM_API_KEY=k \
@@ -46,11 +46,11 @@ python3 scripts/run_agent.py --image assets/zidane.jpg           # task layer di
 python3 scripts/benchmark.py --mode detect --image assets/bus.jpg --concurrency 4 --requests 100   # load test /predict
 python3 scripts/mock_llm.py --delay 0.1             # local OpenAI-compatible fake for vlm benchmarking
 INFERFORGE_ASYNC=1 INFERFORGE_AGENT=1 ./start.sh    # + agent apis (hair-count demo; worker needs INFERFORGE_LLM_* + the model)
-python3 scripts/test_predict_query.py --image assets/zidane.jpg   # submit + poll the hair-count result
+python3 scripts/test_async_detect_query.py --image assets/zidane.jpg   # submit + poll the hair-count result
 INFERFORGE_SEG=1 ./start.sh                        # + sync segment api (needs models/yolov8n-seg.onnx)
 INFERFORGE_CLS=1 ./start.sh                        # + sync classify api (needs models/yolov8n-cls.onnx)
-python3 scripts/test_predict_segment.py --image assets/bus.jpg    # test the sync segment API
-python3 scripts/test_predict_classify.py --image assets/bus.jpg   # test the sync classify API
+python3 scripts/test_sync_segment.py --image assets/bus.jpg    # test the sync segment API
+python3 scripts/test_sync_classify.py --image assets/bus.jpg   # test the sync classify API
 python3 scripts/run_segment.py --image assets/bus.jpg             # task layer directly, no web (segment)
 python3 scripts/run_classify.py --image assets/bus.jpg            # task layer directly, no web (classify)
 python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py

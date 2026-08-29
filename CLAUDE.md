@@ -87,14 +87,16 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 
 ## Git Operations
 
-Git workflows are defined as project skills. Use the corresponding skill for each task:
+Git workflows are defined as skills from the **maestro** plugin (the former local `.claude/skills` were removed). Use the corresponding skill for each task:
 
-- **`/commit`** — commit message format, `Co-Authored-By` line, and conventional commit types. Invoke for every `git commit`.
-- **`/release`** — version bump checklist, version bump commit, annotated tag, push, and GitHub Release body template. Invoke when publishing a new release.
+- **`maestro:commit`** — commit message format, `Co-Authored-By` line, Conventional Commit types, and CHANGELOG.md maintenance. Invoke for every `git commit`.
+- **`maestro:release`** — version bump checklist, version bump commit, annotated tag, push, and GitHub Release body. Invoke when publishing a new release.
+- **`maestro:claude`** — authoring and maintenance of this CLAUDE.md. Invoke when updating this file.
+- **`maestro:spec`** — spec-first development (`specs/`). Invoke before implementing a feature or behavior change that affects a documented contract.
 
 ### AI Model Configuration
 
-The AI model used in this project is **DeepSeek-V4-Pro**. Configured in skills as:
+The AI model used in this project is **DeepSeek-V4-Pro**. Read by the `maestro:commit` / `maestro:release` skills for the `Co-Authored-By` line:
 
 ```
 {{AI_MODEL_NAME}} = DeepSeek-V4-Pro
@@ -107,12 +109,12 @@ Version bump locations for this project:
 
 | # | File | Field |
 |---|------|-------|
-| 1 | `VERSION` | `1.1.0` single line |
-| 2 | `CHANGELOG.md` | `## [1.1.0] - YYYY-MM-DD` section header |
+| 1 | `VERSION` | `1.2.0` single line |
+| 2 | `CHANGELOG.md` | `## [1.2.0] - YYYY-MM-DD` section header |
 
-Verify with: `grep -n "1.1.0" VERSION CHANGELOG.md`
+Verify with: `grep -n "1.2.0" VERSION CHANGELOG.md`
 
-Repository URL for the `/release` skill:
+Repository URL (read by `maestro:release` for the GitHub Release body):
 
 ```
 {{REPO_URL}} = https://github.com/zjykzj/InferForge

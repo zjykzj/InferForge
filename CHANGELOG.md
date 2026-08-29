@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Agent: the detection tool is registry-driven — the `model` request field picks a registered detect model (submit-time code 10 rejection + worker drift re-check, like detection), class names come from that model's `classes` table (per-model `classes` files honored; the hardcoded COCO table could crash or mislabel with custom detect models), and `INFERFORGE_AGENT_TARGET_CLASS` (default `person`) selects the target class (not in the table -> code 3 naming the variable, checked before the paid call); docs updated (agent.md, api.md, stack.md)
 
+### Docs
+
+- **CLAUDE.md skill pointers**: git workflow skills now reference the maestro plugin (`maestro:commit` / `maestro:release` / `maestro:claude` / `maestro:spec`) instead of the removed local `.claude/skills`; Release Configuration examples refreshed from 1.1.0 to 1.2.0
+
 ## [1.2.0] - 2026-08-25
 
 ### Added

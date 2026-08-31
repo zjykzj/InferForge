@@ -85,37 +85,16 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 - The compose stack bind-mounts `./models` and `./logs` — put yolov8n.onnx in `models/` first; the Docker image never bakes the model. In-container broker/redis urls are overridden in `docker-compose.yml` (the localhost defaults won't work).
 - Docs language: `docs/` in Chinese, READMEs bilingual. Docs describe current implementation only — no version planning. Professional terms stay in English (envelope, contract, composition root, …) — don't coin Chinese translations; established terms (线程池、灰度、幂等) stay Chinese.
 
-## Git Operations
+## Maestro Configuration
 
-Git workflows are defined as skills from the **maestro** plugin (the former local `.claude/skills` were removed). Use the corresponding skill for each task:
-
-- **`maestro:commit`** — commit message format, `Co-Authored-By` line, Conventional Commit types, and CHANGELOG.md maintenance. Invoke for every `git commit`.
-- **`maestro:release`** — version bump checklist, version bump commit, annotated tag, push, and GitHub Release body. Invoke when publishing a new release.
-- **`maestro:claude`** — authoring and maintenance of this CLAUDE.md. Invoke when updating this file.
-- **`maestro:spec`** — spec-first development (`specs/`). Invoke before implementing a feature or behavior change that affects a documented contract.
-
-### AI Model Configuration
-
-The AI model used in this project is **DeepSeek-V4-Pro**. Read by the `maestro:commit` / `maestro:release` skills for the `Co-Authored-By` line:
-
-```
 {{AI_MODEL_NAME}} = DeepSeek-V4-Pro
 {{AI_MODEL_EMAIL}} = noreply@deepseek.com
-```
+{{REPO_URL}} = https://github.com/zjykzj/InferForge
+{{PACKAGE_NAME}} = none
 
-### Release Configuration
-
-Version bump locations for this project:
+### Version Bump Locations
 
 | # | File | Field |
 |---|------|-------|
-| 1 | `VERSION` | `1.2.0` single line |
-| 2 | `CHANGELOG.md` | `## [1.2.0] - YYYY-MM-DD` section header |
-
-Verify with: `grep -n "1.2.0" VERSION CHANGELOG.md`
-
-Repository URL (read by `maestro:release` for the GitHub Release body):
-
-```
-{{REPO_URL}} = https://github.com/zjykzj/InferForge
-```
+| 1 | `VERSION` | `X.Y.Z` single line |
+| 2 | `CHANGELOG.md` | `## [X.Y.Z] - YYYY-MM-DD` section header |

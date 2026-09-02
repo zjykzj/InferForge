@@ -678,3 +678,7 @@ archive/
 result*.jpg
 result*.json
 outputs/
+
+# Gallery data (embedding search/dupcheck)
+gallery/
+data/

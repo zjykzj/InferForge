@@ -56,6 +56,8 @@ from tasks import detection_callback  # noqa: E402,F401
 from tasks import detection_query  # noqa: E402,F401
 from tasks import vlm_query  # noqa: E402,F401
 from tasks import agent_query  # noqa: E402,F401
+from tasks import search_query  # noqa: E402,F401
+from tasks import search_check_query  # noqa: E402,F401
 
 
 @setup_logging.connect

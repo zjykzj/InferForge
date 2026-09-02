@@ -26,6 +26,9 @@ def no_async_switch(monkeypatch):
     monkeypatch.delenv("INFERFORGE_AGENT", raising=False)
     monkeypatch.delenv("INFERFORGE_SEG", raising=False)
     monkeypatch.delenv("INFERFORGE_CLS", raising=False)
+    monkeypatch.delenv("INFERFORGE_PIPELINE", raising=False)
+    monkeypatch.delenv("INFERFORGE_DEDUP", raising=False)
+    monkeypatch.delenv("INFERFORGE_SEARCH", raising=False)
     # create_app() reads these at construction; a dev .env (loaded by app.py)
     # could otherwise leak into test apps built via create_app()
     monkeypatch.delenv("INFERFORGE_API_KEY", raising=False)
@@ -165,6 +168,43 @@ def test_pipeline_enabled_registers_router(no_async_switch, monkeypatch):
     routes = _route_paths(create_app())
     assert "/predict/pipeline" in routes
     assert "/predict/classify" not in routes  # each switch is independent
+
+
+def test_dedup_disabled_by_default(no_async_switch):
+    routes = _route_paths(create_app())
+    assert "/predict/dedup" not in routes
+
+
+def test_dedup_enabled_registers_router(no_async_switch, monkeypatch):
+    monkeypatch.setenv("INFERFORGE_DEDUP", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/dedup" in routes
+    assert "/predict/pipeline" not in routes  # each switch is independent
+
+
+def test_search_disabled_without_async(no_async_switch, monkeypatch):
+    # search needs the worker (gallery db single-process exclusive)
+    monkeypatch.setenv("INFERFORGE_SEARCH", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/search/query" not in routes
+    assert "/predict/search/check" not in routes
+
+
+def test_search_enabled_registers_query_apis(no_async_switch, monkeypatch):
+    pytest.importorskip("redis")  # full async mode needs redis installed
+    monkeypatch.setenv("INFERFORGE_ASYNC", "1")
+    monkeypatch.setenv("INFERFORGE_SEARCH", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/search/query" in routes
+    assert "/predict/search/check" in routes  # query-only: no callback variant
+
+
+def test_async_alone_leaves_search_out(no_async_switch, monkeypatch):
+    pytest.importorskip("redis")
+    monkeypatch.setenv("INFERFORGE_ASYNC", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/search/query" not in routes
+    assert "/predict/search/check" not in routes
 
 
 # --- request-body ceiling ---

@@ -56,11 +56,8 @@ python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg
 可选：启用同步分割 / 分类能力（默认关，检测不受影响）：
 
 ```bash
-# 1. 导出并放置模型（同检测）
-yolo export model=yolov8n-seg.pt format=onnx
-yolo export model=yolov8n-cls.pt format=onnx
-cp /path/to/yolov8n-seg.onnx models/
-cp /path/to/yolov8n-cls.onnx models/
+# 1. 导出并放置模型（subprocess 调 yolo CLI——不 import ultralytics；导出后自动形状校验）
+python3 scripts/export_yolo.py --task segment --task classify
 
 # 2. 带开关启动（可只开一个；start.sh 只检查已启用能力的模型文件）
 INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
@@ -75,6 +72,24 @@ python3 scripts/test_sync_classify.py --image assets/bus.jpg                    
 ```bash
 INFERFORGE_PIPELINE=1 ./start.sh
 python3 scripts/test_sync_pipeline.py --image assets/bus.jpg --save result_pipeline.jpg   # 管线（检测 → 分类）
+```
+
+可选：图像 embedding——批量近重复检测（同步）+ gallery 检索 / 查重（异步 query-only，需 worker 与预建索引，见 docs/embedding.md）。先将 DINOv2-small 导出 ONNX 放入 models/：
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu   # 一次性导出依赖
+python3 scripts/export_dinov2.py                                                # -> models/dino2-small.onnx
+```
+
+```bash
+# 同步批内去重：一批图里找出互为近似重复的分组（阈值 INFERFORGE_DUP_THRESHOLD，默认 0.95）
+INFERFORGE_DEDUP=1 ./start.sh
+python3 scripts/test_sync_dedup.py --image assets/bus.jpg --image assets/bus.jpg --image assets/zidane.jpg   # 去重
+
+# 异步 gallery 检索 / 查重（worker-only：milvus-lite 索引单进程独占）
+python3 scripts/build_gallery.py                # 先建索引——worker 必须已停止（gallery/ -> data/gallery.db）
+INFERFORGE_ASYNC=1 INFERFORGE_SEARCH=1 ./start.sh
+python3 scripts/run_search.py --image assets/bus.jpg --check    # task 层直测（检索 / 查重）
 ```
 
 可选：多模型路由——复制示例注册表后按请求选模型（没有注册表文件时保持单模型行为，与上文完全一致）：

@@ -7,7 +7,7 @@ surfaces as code=1/2 via the endpoint try/except. Model failures become
 """
 from typing import Optional
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 
 class ImageSourceRequest(BaseModel):
@@ -37,6 +37,43 @@ class PipelineRequest(ImageSourceRequest):
     """ImageSourceRequest without `model`: the pipeline always composes the
     detect + classify DEFAULTS (see docs/api.md) — there is no per-request
     model routing to ask for."""
+
+
+class SearchRequest(ImageSourceRequest):
+    """ImageSourceRequest plus an optional top-k size for the gallery search.
+    No `model` field: the gallery index is bound to the embed default model
+    (see docs/embedding.md §5)."""
+
+    top_k: int = Field(default=5, ge=1, le=50)
+
+
+class CheckRequest(ImageSourceRequest):
+    """ImageSourceRequest without any extra fields: the gallery duplicate
+    check always answers top-1 against the shared threshold
+    (INFERFORGE_DUP_THRESHOLD). No `model` field (see SearchRequest)."""
+
+
+class DedupSource(BaseModel):
+    """One image source within a dedup batch: exactly one of image/url."""
+
+    image: Optional[str] = None
+    url: Optional[str] = None
+
+    @model_validator(mode="after")
+    def _exactly_one_source(self):
+        if self.image and self.url:
+            raise ValueError("provide either 'image' or 'url', not both")
+        if not self.image and not self.url:
+            raise ValueError("provide either 'image' or 'url'")
+        return self
+
+
+class DedupRequest(BaseModel):
+    """A batch of image sources for near-duplicate detection. Group ids in
+    the response are 0-based positions of this list. No `model` field (see
+    SearchRequest)."""
+
+    images: list[DedupSource] = Field(min_length=2, max_length=50)
 
 
 class CallbackRequest(PredictRequest):

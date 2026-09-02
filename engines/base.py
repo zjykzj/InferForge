@@ -63,9 +63,19 @@ class ClassificationResult:
         return len(self.scores)
 
 
-# The concrete return type of BasePredictor.predict: one of the three, chosen
+@dataclass
+class EmbeddingResult:
+    """Raw inference output of an embedding predictor."""
+
+    vector: np.ndarray     # (D,) L2-normalized float embedding
+
+    def __len__(self) -> int:
+        return len(self.vector)
+
+
+# The concrete return type of BasePredictor.predict: one of the four, chosen
 # by the capability each predictor implements.
-PredictResult = DetectionResult | SegmentationResult | ClassificationResult
+PredictResult = DetectionResult | SegmentationResult | ClassificationResult | EmbeddingResult
 
 
 class BasePredictor(ABC):

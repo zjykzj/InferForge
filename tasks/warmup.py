@@ -17,7 +17,7 @@ registered weight.
 """
 import logging
 
-from tasks import classification, detection, segmentation
+from tasks import classification, detection, embedding, segmentation
 from utils import switches
 
 logger = logging.getLogger("tasks.warmup")
@@ -48,11 +48,15 @@ def preload_web() -> None:
         # Pipeline composes the classify default, so it needs the classify
         # model warmed up even when the classify api itself is off.
         _load("classify", classification.preload)
+    if switches.switch_on("INFERFORGE_DEDUP"):
+        _load("embed", embedding.preload)
 
 
 def preload_worker() -> None:
-    """Celery worker startup: only the local-model capability the async
-    tasks actually use (detection)."""
+    """Celery worker startup: only the local-model capabilities the async
+    tasks actually use (detection; embed when the search apis are on)."""
     if not switches.switch_on("INFERFORGE_PRELOAD"):
         return
     _load("detect", detection.preload)
+    if switches.switch_on("INFERFORGE_SEARCH"):
+        _load("embed", embedding.preload)

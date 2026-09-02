@@ -34,7 +34,7 @@
 
 **文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/sync_detect.py`（同步检测）、`apis/sync_segment.py`（同步分割；由 `INFERFORGE_SEG=1` 启用）、`apis/sync_classify.py`（同步分类；由 `INFERFORGE_CLS=1` 启用）、`apis/health.py`（健康探针）、`apis/async_detect_callback.py`（异步回调）、`apis/async_detect_query.py`（异步轮询；由 `INFERFORGE_ASYNC=1` 开关启用）、`apis/async_vlm_query.py`（VLM 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` 同时启用）、`apis/async_agent_query.py`（Agent 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_AGENT=1` 同时启用）
 
-**健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问**已启用能力**的 predictor 是否已加载（检测恒启用；分割/分类在对应开关开启时纳入检查——分类在 `INFERFORGE_CLS` 或 `INFERFORGE_PIPELINE` 任一开启时纳入，因为 pipeline 组合使用分类缺省模型；接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §7）。
+**健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问**已启用能力**的 predictor 是否已加载（检测恒启用；分割/分类在对应开关开启时纳入检查——分类在 `INFERFORGE_CLS` 或 `INFERFORGE_PIPELINE` 任一开启时纳入，因为 pipeline 组合使用分类缺省模型；去重在 `INFERFORGE_DEDUP` 开启时纳入 embed 缺省模型——检索/查重是 worker-only，web 不探测；接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §8）。
 
 ### 2.2 任务层（`tasks/`）
 
@@ -46,14 +46,14 @@
 - 组合任务例外：`tasks/pipeline.py` 与 `tasks/agent.py` 不持有 predictor，而是复用其他任务的缓存（pipeline 组合检测 + 分类两个引擎，agent 组合检测 + 远程 LLM）——一个引擎可被多个业务场景消费
 - 模型清单来自**模型注册表** `engines/registry.py`（见 [model-registry.md](model-registry.md)）：请求的 `model` 字段在 task 层解析为具体 predictor；没有 `models/registry.yaml` 时，从 `INFERFORGE_MODEL_PATH` / `INFERFORGE_SEG_MODEL_PATH` / `INFERFORGE_CLS_MODEL_PATH` 合成单模型注册表（惰性读取，向后兼容）
 - 编排步骤：解析输入图 → 调用预测器 → 组装结果列表（detections / segments / classifications）→ 绘图（检测/分割）→ 编码输出
-- `tasks/warmup.py`：`INFERFORGE_PRELOAD=1` 的启动预热编排——web 与 worker 各自调用，只预热各自服务的能力的**缺省模型**（web：detect + 开关内的 seg/cls/pipeline——pipeline 开启时预热分类缺省模型；worker：仅 detect）；逐能力 try/except，单个模型加载失败只记日志、该能力维持 not-ready（readiness 才是真相来源）
+- `tasks/warmup.py`：`INFERFORGE_PRELOAD=1` 的启动预热编排——web 与 worker 各自调用，只预热各自服务的能力的**缺省模型**（web：detect + 开关内的 seg/cls/pipeline——pipeline 开启时预热分类缺省模型，dedup 开启时预热 embed；worker：detect + search 开启时的 embed）；逐能力 try/except，单个模型加载失败只记日志、该能力维持 not-ready（readiness 才是真相来源）
 
 | 库 | 用途 |
 |----|------|
 | threading | 预测器懒加载的 double-checked locking |
 | celery | 异步任务：经 RabbitMQ 投递、worker 执行 |
 
-**文件**：`tasks/detection.py`（同步检测编排）、`tasks/segmentation.py`（同步分割编排：mask 编码为每实例整图二值 PNG）、`tasks/classification.py`（同步分类编排：top-5 文本结果）、`tasks/pipeline.py`（组合管线编排：detect → 目标类过滤 → crop → classify，复用检测/分类 predictor 缓存，目标类由 `INFERFORGE_PIPELINE_TARGETS` 配置）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试——callback 交付模式的参照实现）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）、`tasks/vlm.py`（VLM 编排：图片校验 → JPEG data URL → 远程 LLM chat completions；openai 惰性导入 + 懒加载 client 单例；LLMUpstreamError → code 9 语义）、`tasks/vlm_query.py`、`tasks/agent.py`（Agent 编排：Pydantic AI Agent + 检测引擎工具——detect_persons 定位个体、LLM 逐人判断属性；惰性导入 + 每次任务新建 client）、`tasks/agent_query.py`
+**文件**：`tasks/detection.py`（同步检测编排）、`tasks/segmentation.py`（同步分割编排：mask 编码为每实例整图二值 PNG）、`tasks/classification.py`（同步分类编排：top-5 文本结果）、`tasks/pipeline.py`（组合管线编排：detect → 目标类过滤 → crop → classify，复用检测/分类 predictor 缓存，目标类由 `INFERFORGE_PIPELINE_TARGETS` 配置）、`tasks/embedding.py`（embedding 能力：predictor 缓存 + `encode()` + 近重复阈值 `dup_threshold()`，检索/查重/去重共享）、`tasks/search.py`（gallery 检索 + 查重：milvus-lite 懒加载，`search_gallery` 为薄索引封装）、`tasks/dedup.py`（批内近重复检测：N×N cosine + union-find）、`tasks/search_query.py` / `tasks/search_check_query.py`（异步检索/查重任务：复用 run_search / run_dupcheck，result envelope 写 Redis）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试——callback 交付模式的参照实现）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）、`tasks/vlm.py`（VLM 编排：图片校验 → JPEG data URL → 远程 LLM chat completions；openai 惰性导入 + 懒加载 client 单例；LLMUpstreamError → code 9 语义）、`tasks/vlm_query.py`、`tasks/agent.py`（Agent 编排：Pydantic AI Agent + 检测引擎工具——detect_persons 定位个体、LLM 逐人判断属性；惰性导入 + 每次任务新建 client）、`tasks/agent_query.py`
 
 VLM/Agent 为 **query-only** 形态：callback 推送以检测任务为参照实现，按任务性质选择性启用——LLM/Agent 类任务的调用方是主动业务系统（提交后轮询拿结果、需要幂等重查），query 是主路。
 
@@ -63,11 +63,12 @@ VLM/Agent 为 **query-only** 形态：callback 推送以检测任务为参照实
 
 **逻辑**：
 
-- `BasePredictor` 定义 contract：`load(model_path)` / `predict(image) -> PredictResult`（`DetectionResult` / `SegmentationResult` / `ClassificationResult` 三选一，结果类型按能力而定）；接口层和任务层只认识它
+- `BasePredictor` 定义 contract：`load(model_path)` / `predict(image) -> PredictResult`（`DetectionResult` / `SegmentationResult` / `ClassificationResult` / `EmbeddingResult` 四选一，结果类型按能力而定）；接口层和任务层只认识它
 - `YoloPredictor` 实现（检测）：letterbox 预处理 → ONNX 推理 → decode `(1,84,8400)` → NumPy NMS → OpenCV 绘图
 - `YoloSegPredictor` 实现（分割）：同检测链路 + 双输出头按形状识别（`(1,116,8400)` 分割头 + `(1,32,160,160)` prototype 头）→ 系数矩阵乘 + sigmoid + 阈值 → 整图二值 mask → 半透明叠加绘图
 - `YoloClsPredictor` 实现（分类）：短边缩放 224（PIL bilinear，与模型训练 transform 对齐——cv2 插值核与之差异可测，会拉平置信度）→ 中心裁 224 → ONNX 推理（输出已是 softmax 概率，引擎不再二次 softmax）→ top-5 取值（ImageNet-1k 类名表见 `engines/imagenet_classes.py`，1000 条标准顺序）
-- 三个引擎均为**注册表就绪**形态：构造函数不带模型路径，`load(path)` 注入——多模型注册表（`engines/registry.py`）据此按需加载任意数量的引擎实例；注册表本身是**纯元数据**（不持有 predictor、不加载权重），predictor 缓存仍在 task 层
+- `DinoV2Predictor` 实现（embedding）：resize 224（bilinear）→ ImageNet 归一化 → ONNX 推理 → CLS token → L2 归一化 384 维向量（检索/查重/去重三个业务场景共享，见 [embedding.md](embedding.md)）
+- 四个引擎均为**注册表就绪**形态：构造函数不带模型路径，`load(path)` 注入——多模型注册表（`engines/registry.py`）据此按需加载任意数量的引擎实例；注册表本身是**纯元数据**（不持有 predictor、不加载权重），predictor 缓存仍在 task 层
 - `engines/base.py` 的 `class_label()`：类别表与权重不匹配时降级为 `class_N` 标签 + warning，不让单个越界 class id 打挂整个请求（注册表可配每模型类别表后，这类错配更常见）
 - onnxruntime **延迟导入**（仅 `load()` 内 import），测试无需真实模型
 - 前后处理为**自研实现**（参考公开论文/文档），不依赖 ultralytics 库——ultralytics 为 AGPL-3.0 协议，直接使用会传染本项目协议
@@ -78,7 +79,7 @@ VLM/Agent 为 **query-only** 形态：callback 推送以检测任务为参照实
 | OpenCV | 缩放/padding、绘制检测框、图像编解码 |
 | NumPy | decode 与 NMS 的向量化计算 |
 
-**文件**：`engines/base.py`（contract + 三个结果类型 + `class_label` 安全查表）、`engines/yolo.py`（检测）、`engines/yolo_seg.py`（分割）、`engines/yolo_cls.py`（分类）、`engines/imagenet_classes.py`（ImageNet-1k 类名表）、`engines/registry.py`（模型注册表：YAML 解析 + env 回退 + 缺省推导）
+**文件**：`engines/base.py`（contract + 四个结果类型 + `class_label` 安全查表）、`engines/yolo.py`（检测）、`engines/yolo_seg.py`（分割）、`engines/yolo_cls.py`（分类）、`engines/dinov2.py`（embedding）、`engines/imagenet_classes.py`（ImageNet-1k 类名表）、`engines/registry.py`（模型注册表：YAML 解析 + env 回退 + 缺省推导）
 
 ### 2.4 横切层（`utils/`）
 

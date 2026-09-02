@@ -13,7 +13,7 @@ import logging
 
 from fastapi import APIRouter
 
-from tasks import classification, detection, segmentation
+from tasks import classification, detection, embedding, segmentation
 from utils import response, switches
 
 logger = logging.getLogger("apis.health")
@@ -51,6 +51,12 @@ def readiness():
         ready = ready and segmentation.default_model_loaded()
     if switches.switch_on("INFERFORGE_CLS") or switches.switch_on("INFERFORGE_PIPELINE"):
         ready = ready and classification.default_model_loaded()
+    if switches.switch_on("INFERFORGE_DEDUP"):
+        # Dedup is the only embed capability this process serves: search is
+        # worker-only (the gallery db is single-process exclusive), so
+        # probing embed on INFERFORGE_SEARCH alone would keep the web
+        # perpetually 503 — it never loads the embed model.
+        ready = ready and embedding.default_model_loaded()
     if ready:
         return response.success({"status": "ready"})
     return response.error("model not loaded", code=6, http_status=503)

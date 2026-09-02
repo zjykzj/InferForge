@@ -5,11 +5,13 @@ algorithms — tasks own their predictors, apis own their tasks; the startup
 model warmup (INFERFORGE_PRELOAD=1) is delegated to tasks.warmup.
 
 Health probe endpoints (/health, /health/ready) and the sync predict api are
-always registered. The sync segment, classify and pipeline apis are
+always registered. The sync segment, classify, pipeline and dedup apis are
 registered behind their own env switches (INFERFORGE_SEG=1 /
-INFERFORGE_CLS=1 / INFERFORGE_PIPELINE=1, off by default, no extra services
-— see tasks/segmentation.py + tasks/classification.py + tasks/pipeline.py).
-The pipeline api composes the detect + classify registry defaults.
+INFERFORGE_CLS=1 / INFERFORGE_PIPELINE=1 / INFERFORGE_DEDUP=1, off by
+default, no extra services — see tasks/segmentation.py +
+tasks/classification.py + tasks/pipeline.py + tasks/dedup.py). The pipeline
+api composes the detect + classify registry defaults; dedup is stateless
+batch near-duplicate detection (no gallery, no worker).
 Async APIs are registered behind an explicit env switch:
 INFERFORGE_ASYNC=1 registers both the callback and query apis (requires
 celery + rabbitmq + redis — one deployment shape, callback vs query is a
@@ -92,6 +94,18 @@ def _pipeline_enabled() -> bool:
     return _switch_on("INFERFORGE_PIPELINE")
 
 
+def _dedup_enabled() -> bool:
+    # Sync batch near-duplicate detection; stateless (no gallery, no worker).
+    return _switch_on("INFERFORGE_DEDUP")
+
+
+def _search_enabled() -> bool:
+    # Gallery search + duplicate check apis; async-shaped — they need the
+    # worker (the milvus-lite gallery db is single-process exclusive), so
+    # this switch only takes effect together with async mode.
+    return _switch_on("INFERFORGE_SEARCH")
+
+
 def _read_version() -> str:
     try:
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")
@@ -169,6 +183,11 @@ def create_app() -> FastAPI:
 
         app.include_router(sync_pipeline_router)
         logger.info("pipeline api enabled")
+    if _dedup_enabled():
+        from apis.sync_dedup import sync_dedup_router
+
+        app.include_router(sync_dedup_router)
+        logger.info("dedup api enabled")
 
     if _async_enabled():
         if _switch_on("INFERFORGE_QUERY") and not _switch_on("INFERFORGE_ASYNC"):
@@ -193,6 +212,13 @@ def create_app() -> FastAPI:
 
                 app.include_router(async_agent_query_router)
                 logger.info("agent query api enabled")
+            if _search_enabled():
+                from apis.async_search_query import async_search_query_router
+                from apis.async_search_check import async_search_check_router
+
+                app.include_router(async_search_query_router)
+                app.include_router(async_search_check_router)
+                logger.info("search apis enabled (query + check)")
         except ImportError:
             logger.warning(
                 "INFERFORGE_ASYNC=1 but celery or redis is not installed — "
@@ -208,6 +234,12 @@ def create_app() -> FastAPI:
             logger.warning(
                 "INFERFORGE_AGENT=1 but INFERFORGE_ASYNC is off — agent api "
                 "disabled (it needs the async stack)"
+            )
+        if _search_enabled():
+            logger.warning(
+                "INFERFORGE_SEARCH=1 but INFERFORGE_ASYNC is off — search "
+                "apis disabled (they need the worker: the gallery db is "
+                "single-process exclusive)"
             )
         logger.info("async api disabled (set INFERFORGE_ASYNC=1 to enable)")
 

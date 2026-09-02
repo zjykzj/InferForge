@@ -17,10 +17,10 @@ pip install -r requirements.txt
 ### 1.3 准备模型
 
 ```bash
-# ONNX 导出方式之一（仅使用导出工具，不复制其代码，不影响本项目协议）：
-yolo export model=yolov8n.pt format=onnx
-
-cp /path/to/yolov8n.onnx models/
+# ONNX 导出（仅使用导出工具，不复制其代码，不影响本项目协议；脚本为 subprocess 调用 yolo CLI，
+# 不 import ultralytics；导出后自动做输出形状校验，模型直接落在 models/）
+pip install ultralytics          # 一次性导出依赖
+python3 scripts/export_yolo.py --task detect
 ```
 
 ### 1.4 启动服务
@@ -51,11 +51,8 @@ curl http://localhost:8000/metrics
 ### 1.6 可选：启用分割 / 分类 / 组合管线（同步，默认关）
 
 ```bash
-# 导出并放置模型（同检测：仅使用导出工具，不复制其代码）
-yolo export model=yolov8n-seg.pt format=onnx
-yolo export model=yolov8n-cls.pt format=onnx
-cp /path/to/yolov8n-seg.onnx models/
-cp /path/to/yolov8n-cls.onnx models/
+# 导出并放置模型（同检测：仅使用导出工具，不复制其代码；导出后自动形状校验）
+python3 scripts/export_yolo.py --task segment --task classify
 
 # 带开关启动（可只开一个；start.sh 只检查已启用能力的模型文件）
 INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
@@ -70,6 +67,10 @@ python3 scripts/test_sync_pipeline.py --image assets/bus.jpg --save result_pipel
 
 # 目标类默认 car,truck,bus，可用环境变量改（类名必须在检测模型类名表内，否则启动时报配置错误）
 INFERFORGE_PIPELINE_TARGETS=dog,cat,bird ./start.sh
+
+# 批内去重（embedding 能力；先导出 DINOv2-small ONNX 放入 models/）
+INFERFORGE_DEDUP=1 ./start.sh
+python3 scripts/test_sync_dedup.py --image assets/bus.jpg --image assets/bus.jpg --image assets/zidane.jpg
 ```
 
 预期：打印 `code: 0` 与检测列表；首次请求会触发模型懒加载（多几十毫秒属正常）。
@@ -191,6 +192,24 @@ redis-cli TTL inferforge:result:<task_id>   # 剩余存活秒数（≤ 3600）
 | 轮询返回 code=3 | Redis 掉线 |
 | 轮询一直 code=5 | worker 未启动（`./start_celery.sh`） |
 | 轮询返回 code=4 | task_id 错误，或结果已过期（默认 3600s，`INFERFORGE_RESULT_TTL` 可调） |
+
+### 3.6 检索 / 查重（需先建 gallery 索引）
+
+检索（以图搜图）与查重（素材入库防重）同为 worker-only 的 query 形态——milvus-lite 索引文件单进程独占，只有 worker 能打开（原理见 [embedding.md](embedding.md) §5）：
+
+```bash
+# 1. 建索引（worker 必须已停止；gallery 目录默认 gallery/，索引默认 data/gallery.db）
+mkdir -p gallery && cp assets/bus.jpg assets/zidane.jpg gallery/
+python3 scripts/build_gallery.py
+
+# 2. 起服务（web 加 INFERFORGE_SEARCH=1；worker 需 pymilvus[milvus-lite]，见 requirements-async.txt）
+INFERFORGE_ASYNC=1 INFERFORGE_SEARCH=1 ./start.sh
+./start_celery.sh
+
+# 3. 直测 task 层（不起 web）
+python3 scripts/run_search.py --image assets/bus.jpg            # 检索 top-5
+python3 scripts/run_search.py --image assets/bus.jpg --check    # 查重判定
+```
 
 ## 4. 场景四：Docker Compose 一键全栈
 

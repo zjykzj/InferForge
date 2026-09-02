@@ -32,7 +32,7 @@ from utils.errors import ModelNotFound, RegistryConfigError
 
 logger = logging.getLogger("engines.registry")
 
-CAPABILITIES = ("detect", "segment", "classify")
+CAPABILITIES = ("detect", "segment", "classify", "embed")
 
 DEFAULT_REGISTRY_FILE = os.path.join("models", "registry.yaml")
 
@@ -44,12 +44,16 @@ _ENV_FALLBACK = (
     ("yolov8n", "detect", "INFERFORGE_MODEL_PATH", "yolov8n.onnx"),
     ("yolov8n-seg", "segment", "INFERFORGE_SEG_MODEL_PATH", "yolov8n-seg.onnx"),
     ("yolov8n-cls", "classify", "INFERFORGE_CLS_MODEL_PATH", "yolov8n-cls.onnx"),
+    ("dino2-small", "embed", "INFERFORGE_EMBED_MODEL_PATH", "dino2-small.onnx"),
 )
 
 _BUILTIN_CLASS_NAMES = {
     "detect": COCO_CLASS_NAMES,
     "segment": COCO_CLASS_NAMES,
     "classify": IMAGENET_CLASS_NAMES,
+    # Embed models have no class table (they output vectors, not labels);
+    # the class_names property is never accessed by embed call sites.
+    "embed": (),
 }
 
 

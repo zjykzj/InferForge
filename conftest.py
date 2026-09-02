@@ -12,6 +12,7 @@ defaults:
   detect: yolov8n
   segment: yolov8n-seg
   classify: yolov8n-cls
+  embed: dino2-small
 
 models:
   yolov8n:
@@ -23,6 +24,9 @@ models:
   yolov8n-cls:
     capability: classify
     path: models/yolov8n-cls.onnx
+  dino2-small:
+    capability: embed
+    path: models/dino2-small.onnx
 """
 
 

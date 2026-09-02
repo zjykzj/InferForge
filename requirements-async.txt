@@ -11,3 +11,9 @@ openai>=3.0,<4.0
 # OpenAIChatModel) and V2 has NO built-in HTTP retries — the retries extra
 # (tenacity + httpx2 transport) supplies them, configured in _build_agent().
 pydantic-ai-slim[openai,retries]>=2.33,<3.0
+# Search/dupcheck tasks (worker-only): milvus-lite is the embedded single-file
+# vector db holding the gallery index (docs/embedding.md §5) — imported lazily
+# inside tasks/search.py so the web process and tests never need it. The db
+# file is single-process exclusive: only the celery worker opens it, and
+# scripts/build_gallery.py must run with the worker stopped.
+pymilvus[milvus-lite]>=2.4,<3.0

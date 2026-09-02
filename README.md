@@ -56,11 +56,8 @@ python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg
 Optional: enable the sync segment / classify capabilities (off by default; detection is unaffected):
 
 ```bash
-# 1. Export and place the models (same as detection)
-yolo export model=yolov8n-seg.pt format=onnx
-yolo export model=yolov8n-cls.pt format=onnx
-cp /path/to/yolov8n-seg.onnx models/
-cp /path/to/yolov8n-cls.onnx models/
+# 1. Export and place the models (subprocess yolo CLI — never imports ultralytics; auto shape-verified)
+python3 scripts/export_yolo.py --task segment --task classify
 
 # 2. Start with the switches (either one works; start.sh only checks enabled models)
 INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
@@ -75,6 +72,24 @@ Optional: compose them — the sync pipeline api (detect → crop → fine-grain
 ```bash
 INFERFORGE_PIPELINE=1 ./start.sh
 python3 scripts/test_sync_pipeline.py --image assets/bus.jpg --save result_pipeline.jpg   # pipeline (detect → classify)
+```
+
+Optional: image embedding — batch near-duplicate detection (sync), plus gallery search / duplicate check (async query-only; needs the worker and a built gallery index, see docs/embedding.md). Export a DINOv2-small ONNX into models/ first:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu   # one-off export dep
+python3 scripts/export_dinov2.py                                                # -> models/dino2-small.onnx
+```
+
+```bash
+# sync batch dedup: find near-duplicate groups within one batch (threshold via INFERFORGE_DUP_THRESHOLD, default 0.95)
+INFERFORGE_DEDUP=1 ./start.sh
+python3 scripts/test_sync_dedup.py --image assets/bus.jpg --image assets/bus.jpg --image assets/zidane.jpg   # dedup
+
+# async gallery search / dupcheck (worker-only: the milvus-lite index is single-process exclusive)
+python3 scripts/build_gallery.py                # build the index first — worker must be STOPPED (gallery/ -> data/gallery.db)
+INFERFORGE_ASYNC=1 INFERFORGE_SEARCH=1 ./start.sh
+python3 scripts/run_search.py --image assets/bus.jpg --check    # task layer directly (search / dupcheck)
 ```
 
 Optional: multi-model routing — copy the example registry and pick models per request (no registry file means single-model behavior, exactly as above):

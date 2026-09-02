@@ -34,6 +34,7 @@ CAPABILITY_SWITCH = {
     "segment": "INFERFORGE_SEG",
     # A tuple = enabled when ANY of the switches is on.
     "classify": ("INFERFORGE_CLS", "INFERFORGE_PIPELINE"),
+    "embed": ("INFERFORGE_SEARCH", "INFERFORGE_DEDUP"),
 }
 
 

@@ -15,10 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Tooling: model export scripts**: scripts/export_dinov2.py (torch.hub → ONNX with a wrapper module pinning the single-input contract `images → (1,257,384)` — the hub backbone's dict output otherwise leaks a bogus `masks` graph input; static batch + legacy exporter for torch>=2.6; auto shape verification) and scripts/export_yolo.py (subprocess `yolo export` CLI — never imports ultralytics; per-task input shapes incl. cls 224; auto output-shape verification); READMEs/quick-start switch the manual `yolo export` + cp steps to these scripts
 
-### Fixed — the `model` request field picks a registered detect model (submit-time code 10 rejection + worker drift re-check, like detection), class names come from that model's `classes` table (per-model `classes` files honored; the hardcoded COCO table could crash or mislabel with custom detect models), and `INFERFORGE_AGENT_TARGET_CLASS` (default `person`) selects the target class (not in the table -> code 3 naming the variable, checked before the paid call); docs updated (agent.md, api.md, stack.md)
+### Fixed
+
+- Agent: the detection tool is registry-driven — the `model` request field picks a registered detect model (submit-time code 10 rejection + worker drift re-check, like detection), class names come from that model's `classes` table (per-model `classes` files honored; the hardcoded COCO table could crash or mislabel with custom detect models), and `INFERFORGE_AGENT_TARGET_CLASS` (default `person`) selects the target class (not in the table -> code 3 naming the variable, checked before the paid call); docs updated (agent.md, api.md, stack.md)
 
 ### Docs
 
+- **README Testing sections + coverage policy**: README bilingual gains a "Testing / 测试" section (test + coverage commands, model-free/service-free rationale, link to docs/testing.md); docs/testing.md §3.4 documents the coverage command and the "coverage is informational, not gated" policy (scripts/ and defensive error branches are intentionally not unit-tested)
 - **CLAUDE.md skill pointers**: git workflow skills now reference the maestro plugin (`maestro:commit` / `maestro:release` / `maestro:claude` / `maestro:spec`) instead of the removed local `.claude/skills`; Release Configuration examples refreshed from 1.1.0 to 1.2.0
 
 ## [1.2.0] - 2026-08-25

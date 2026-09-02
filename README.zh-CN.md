@@ -185,6 +185,19 @@ RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compos
 
 带逐篇说明的完整索引：[docs/README.md](docs/README.md)。
 
+## 测试
+
+测试刻意**免模型、免服务**：通过 FakePredictor seam 注入假预测器，从不加载权重、不访问网络——CI 跑的是同一套命令。
+
+```bash
+pytest tests/ -v                                  # 全量测试（无需模型文件、无需 RabbitMQ/Redis）
+pip install pytest-cov
+pytest tests/ -q --cov=app --cov=apis --cov=tasks --cov=engines --cov=utils
+python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py
+```
+
+覆盖率（基线约 81%）只作参考、不作门禁：scripts/ 与防御性错误分支刻意不做单测。测试策略细节（seam、异步 fake、注册表隔离）见 [docs/testing.md](docs/testing.md)。
+
 ## 致谢
 
 - **Web 与服务** — [FastAPI](https://fastapi.tiangolo.com/) · [Uvicorn](https://www.uvicorn.org/) · [Gunicorn](https://gunicorn.org/)

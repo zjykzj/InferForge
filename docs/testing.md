@@ -71,7 +71,13 @@ HTTP 请求 → FastAPI 路由（Pydantic 结构校验 → code=1 envelope）→
 ```bash
 pytest tests/ -v        # 全部冒烟测试
 pytest tests/test_sync_detect.py::test_predict_with_base64  # 单用例
+
+# 覆盖率（可选，信息性度量）
+pip install pytest-cov
+pytest tests/ -q --cov=app --cov=apis --cov=tasks --cov=engines --cov=utils
 ```
+
+覆盖率（基线约 81%）**只作参考、不作门禁**：scripts/ 按约定只做 py_compile 不单测，防御性错误分支（except 兜底、懒加载单例等）刻意不追求覆盖——覆盖率是找逻辑死角的排查工具，不是目标数字。
 
 ## 4. 后续测试计划
 

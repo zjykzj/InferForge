@@ -185,6 +185,19 @@ Optional monitoring stack (Prometheus + Grafana): `docker compose -f docker-comp
 
 Full index with one-line descriptions: [docs/README.md](docs/README.md).
 
+## Testing
+
+Model-free and service-free by design: tests inject FakePredictor seams and never load weights or hit the network — CI runs the same commands.
+
+```bash
+pytest tests/ -v                                  # full suite (no models, no RabbitMQ/Redis needed)
+pip install pytest-cov
+pytest tests/ -q --cov=app --cov=apis --cov=tasks --cov=engines --cov=utils
+python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py
+```
+
+Coverage (~81% baseline) is informational, not gated: scripts/ and defensive error branches are intentionally not unit-tested. Test strategy details (seams, async fakes, registry isolation): [docs/testing.md](docs/testing.md).
+
 ## Acknowledgments
 
 - **Web & serving** — [FastAPI](https://fastapi.tiangolo.com/) · [Uvicorn](https://www.uvicorn.org/) · [Gunicorn](https://gunicorn.org/)

@@ -44,7 +44,9 @@ def preload_web() -> None:
     _load("detect", detection.preload)
     if switches.switch_on("INFERFORGE_SEG"):
         _load("segment", segmentation.preload)
-    if switches.switch_on("INFERFORGE_CLS"):
+    if switches.switch_on("INFERFORGE_CLS") or switches.switch_on("INFERFORGE_PIPELINE"):
+        # Pipeline composes the classify default, so it needs the classify
+        # model warmed up even when the classify api itself is off.
         _load("classify", classification.preload)
 
 

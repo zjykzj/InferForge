@@ -74,10 +74,10 @@ vlm / agent 接口不接注册表：它们调用远程 LLM，没有本地模型�
 
 ## 5. 与 capability 开关的关系
 
-注册表与 `INFERFORGE_SEG` / `INFERFORGE_CLS` 开关**并存、职责分离**：
+注册表与 `INFERFORGE_SEG` / `INFERFORGE_CLS` / `INFERFORGE_PIPELINE` 开关**并存、职责分离**：
 
 - 开关决定「哪些 HTTP 路由存在」（`app.py` 注册路由、`/health/ready` 探测范围）
-- 注册表决定「请求路由到哪个模型」
+- 注册表决定「请求路由到哪个模型」（`INFERFORGE_PIPELINE` 开启时，管线请求固定使用 detect + classify 两个 capability 的**缺省**模型——组合关系由注册表的 `defaults` 决定）
 
 两者正交：开关开着但注册表里没有该 capability 的模型 → preflight 放行，请求时 `code=10`；开关关着但注册表里有模型 → 路由不存在（404），模型不会白加载。`/health/ready` 只探测各启用 capability 的**缺省**模型——要求全部注册模型都加载会让服务永远 not-ready（冷门模型在首次请求时才预热）。
 

@@ -22,6 +22,7 @@ def client(monkeypatch, app_factory):
     # a dev .env could otherwise leak in).
     monkeypatch.delenv("INFERFORGE_SEG", raising=False)
     monkeypatch.delenv("INFERFORGE_CLS", raising=False)
+    monkeypatch.delenv("INFERFORGE_PIPELINE", raising=False)
     monkeypatch.setattr(detection, "_predictors", {})
     monkeypatch.setattr(segmentation, "_predictors", {})
     monkeypatch.setattr(classification, "_predictors", {})
@@ -81,6 +82,16 @@ def test_readiness_requires_cls_model_when_enabled(client, monkeypatch):
     assert resp.json()["code"] == 6
 
 
+def test_readiness_requires_cls_model_when_pipeline_enabled(client, monkeypatch):
+    # the pipeline composes the classify default: readiness probes classify
+    # even though INFERFORGE_CLS is off
+    monkeypatch.setenv("INFERFORGE_PIPELINE", "1")
+    _mark_loaded(monkeypatch, detection, "detect")
+    resp = client.get("/health/ready")
+    assert resp.status_code == 503  # pipeline enabled but classify not loaded
+    assert resp.json()["code"] == 6
+
+
 def test_readiness_ignores_disabled_capabilities(client, monkeypatch):
     # switches off: only detection's predictor state matters
     _mark_loaded(monkeypatch, detection, "detect")
@@ -94,6 +105,7 @@ def test_readiness_registered_by_app_factory(monkeypatch):
     monkeypatch.delenv("INFERFORGE_QUERY", raising=False)
     monkeypatch.delenv("INFERFORGE_SEG", raising=False)
     monkeypatch.delenv("INFERFORGE_CLS", raising=False)
+    monkeypatch.delenv("INFERFORGE_PIPELINE", raising=False)
     from app import create_app
 
     resp = TestClient(create_app()).get("/health/ready")

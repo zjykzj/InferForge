@@ -1,6 +1,6 @@
 # 接口调用文档（API）
 
-> 接口说明与 curl 调用指南。最后更新：2026-08-24
+> 接口说明与 curl 调用指南。最后更新：2026-09-02
 
 ## 1. 当前接口：POST /predict
 
@@ -176,11 +176,83 @@ curl -s -X POST http://localhost:8000/predict/classify \
 
 自动化客户端：`python3 scripts/test_sync_classify.py --image assets/bus.jpg`
 
-## 4. 异步回调接口：POST /predict/callback
+## 4. 同步管线接口：POST /predict/pipeline
+
+组合管线示例（detect → crop → classify）：先用 COCO 检测器定位目标（车/卡车/公交等，`INFERFORGE_PIPELINE_TARGETS` 可配），再把每个目标裁剪出来交给 ImageNet-1k 分类器，输出细粒度标签（如检测 `bus` → 识别 `school bus`）。需 `INFERFORGE_PIPELINE=1` 启动，且 detect 与 classify 两个 capability 的**缺省模型**文件就位（`models/yolov8n.onnx` + `models/yolov8n-cls.onnx`，见 README 快速开始）。
+
+管线任务**不持有任何 predictor**：它复用检测与分类两个 task 的 predictor 缓存（组合模式，与 agent 任务复用检测引擎同理，见 [architecture.md](architecture.md)）。
+
+### 4.1 请求参数
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:---:|------|
+| `image` | string | 二选一 | base64 编码的图片（同检测接口） |
+| `url` | string | 二选一 | 图片 URL（同检测接口） |
+
+**没有 `model` 字段**：组合固定使用两个 capability 的缺省模型，由 `models/registry.yaml` 的 `defaults` 决定；任一 capability 未登记模型返回 code=10。
+
+环境变量（服务端配置，非请求参数）：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `INFERFORGE_PIPELINE_TARGETS` | `car,truck,bus` | 逗号分隔的目标类名，必须在检测模型的类名表内；不在表内 → code=3 并点名该变量 |
+
+### 4.2 响应结构
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "image": "<base64 标注图 JPEG>",
+    "items": [
+      {
+        "bbox": [16.0, 142.0, 772.0, 691.0],
+        "detect_class": "bus",
+        "fine_class": "school bus",
+        "fine_confidence": 0.8713,
+        "fine_top5": [
+          {"class_id": 779, "class": "school bus", "confidence": 0.8713},
+          {"class_id": 874, "class": "trolleybus", "confidence": 0.0562}
+        ]
+      }
+    ]
+  }
+}
+```
+
+- `items`：目标类过滤后的检测框，每个框先裁剪（框宽高各向外扩 10%，越界裁掉）再送入分类器
+- `detect_class` / `fine_class`：检测模型类名表的类名 → 分类模型类名表（ImageNet-1k）的 top-1
+- `fine_top5`：裁剪图的 top-5 分类，字段同 §3 分类接口
+- 无目标命中时 `items` 为空数组、`image` 为原图（此时**不会加载**分类模型——懒加载只发生在第一张裁剪图需要分类时）
+- `bbox` / 舍入规则、`X-Request-ID`、业务状态码语义均同 §1；错误码 1/2/3/10 同检测接口，code=3 额外覆盖 `INFERFORGE_PIPELINE_TARGETS` 配置错误
+
+### 4.3 curl 示例
+
+```bash
+python3 -c "import base64,json; json.dump({'image': base64.b64encode(open('assets/bus.jpg','rb').read()).decode()}, open('/tmp/payload.json','w'))"
+curl -s -X POST http://localhost:8000/predict/pipeline \
+  -H "Content-Type: application/json" -d @/tmp/payload.json -o result_pipeline.json
+
+# 解析响应（打印 items + 保存标注图）
+python3 -c "
+import base64, json
+d = json.load(open('result_pipeline.json'))
+for it in d['data']['items']:
+    print(it['detect_class'], '->', it['fine_class'], it['fine_confidence'])
+open('result_pipeline.jpg', 'wb').write(base64.b64decode(d['data']['image']))
+"
+```
+
+自动化客户端：`python3 scripts/test_sync_pipeline.py --image assets/bus.jpg --save result_pipeline.jpg`
+
+task 层直测（不起 web）：`python3 scripts/run_pipeline.py --image assets/bus.jpg`
+
+## 5. 异步回调接口：POST /predict/callback
 
 提交检测任务后立即返回，检测完成时服务端把结果 POST 到调用方提供的 `callback_url`。需要 Celery + RabbitMQ + Redis，且 web 以 `INFERFORGE_ASYNC=1` 启动（见 README 快速开始）。
 
-### 4.1 请求参数
+### 5.1 请求参数
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:---:|------|
@@ -189,7 +261,7 @@ curl -s -X POST http://localhost:8000/predict/classify \
 | `url` | string | 二选一 | 图片 URL（同同步接口） |
 | `model` | string | 否 | 注册的模型名；缺省用 detect 缺省模型，未登记在提交时即返回 code=10（不会入队） |
 
-### 4.2 响应与回调
+### 5.2 响应与回调
 
 ```json
 // 提交响应（立即返回）
@@ -212,11 +284,11 @@ curl -X POST http://localhost:8000/predict/callback \
   -d '{"image": "<base64>", "callback_url": "http://localhost:9000/result"}'
 ```
 
-## 5. 异步轮询接口：POST /predict/query + GET /predict/query/&lt;task_id&gt;
+## 6. 异步轮询接口：POST /predict/query + GET /predict/query/&lt;task_id&gt;
 
 提交检测任务后立即返回 `task_id`，worker 把 result envelope 写入 Redis，调用方**主动轮询**拉取结果。需要 Celery + RabbitMQ + Redis，且 web 以 `INFERFORGE_ASYNC=1` 启动。
 
-### 5.1 请求参数（提交）
+### 6.1 请求参数（提交）
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:---:|------|
@@ -224,7 +296,7 @@ curl -X POST http://localhost:8000/predict/callback \
 | `url` | string | 二选一 | 图片 URL（同同步接口） |
 | `model` | string | 否 | 注册的模型名；缺省用 detect 缺省模型，未登记在提交时即返回 code=10（不会入队） |
 
-### 5.2 提交响应
+### 6.2 提交响应
 
 ```json
 // 成功（立即返回）
@@ -233,7 +305,7 @@ curl -X POST http://localhost:8000/predict/callback \
 {"code": 3, "message": "failed to submit task", "data": null}
 ```
 
-### 5.3 轮询响应（GET /predict/query/<task_id>）
+### 6.3 轮询响应（GET /predict/query/<task_id>）
 
 | 场景 | 响应 |
 |------|------|
@@ -243,13 +315,13 @@ curl -X POST http://localhost:8000/predict/callback \
 | 完成（业务失败） | `{"code": 1/2/3/10, "message": "...", "data": null}`（与提交时的错误语义一致） |
 | Redis 掉线 / 存储值损坏 | `{"code": 3, "message": "internal server error", "data": null}` |
 
-### 5.4 语义
+### 6.4 语义
 
 - 轮询**幂等**：result envelope 写入 Redis 后原样返回，多次轮询结果一致，无重试副作用
 - 结果带 TTL（默认 3600s，`INFERFORGE_RESULT_TTL` 可调）：过期后轮询返回 code=4；code=4 同时覆盖「从未提交 / 已过期 / 结果写入失败」三种情形
 - 无回调重试概念：worker 只写 Redis 不联系调用方；Redis 写入失败时任务报错（`logs/celery.log` 可见）
 
-### 5.5 curl 示例
+### 6.5 curl 示例
 
 ```bash
 # 提交（payload 文件方式避免 base64 超长）
@@ -263,11 +335,11 @@ curl -s http://localhost:8000/predict/query/<task_id>
 
 自动化客户端可直接用 `python3 scripts/test_async_detect_query.py --image assets/bus.jpg`（自带轮询循环）。
 
-## 6. 健康检查接口：GET /health + GET /health/ready
+## 7. 健康检查接口：GET /health + GET /health/ready
 
 供 K8s / Docker / 负载均衡等基础设施探活使用的端点，业务调用方一般无需关心。始终注册，无需环境变量开关。
 
-### 6.1 存活检查：GET /health
+### 7.1 存活检查：GET /health
 
 进程活着即返回 200，不做任何实际工作（不加载模型、不查外部依赖）：
 
@@ -275,9 +347,9 @@ curl -s http://localhost:8000/predict/query/<task_id>
 {"code": 0, "message": "success", "data": {"status": "ok"}}
 ```
 
-### 6.2 就绪检查：GET /health/ready
+### 7.2 就绪检查：GET /health/ready
 
-检查当前 worker 进程**已启用能力**的**缺省模型**是否已加载（检测恒启用；分割/分类在对应开关开启时纳入检查；多模型注册表下只探缺省模型，见 [model-registry.md](model-registry.md)）：
+检查当前 worker 进程**已启用能力**的**缺省模型**是否已加载（检测恒启用；分割/分类在对应开关开启时纳入检查——分类在 `INFERFORGE_CLS` 或 `INFERFORGE_PIPELINE` 任一开启时纳入，因为 pipeline 组合使用分类缺省模型；多模型注册表下只探缺省模型，见 [model-registry.md](model-registry.md)）：
 
 | 场景 | HTTP | 响应 |
 |------|:---:|------|
@@ -290,14 +362,14 @@ curl -s http://localhost:8000/predict/query/<task_id>
 - 健康检查是**唯一**返回非 200 HTTP 状态码的接口（探针只读状态码）；业务接口永远返回 200，见 [status-codes.md](status-codes.md) §2 例外说明
 - 多 worker 部署（默认 gunicorn 2 workers）下就绪状态**每进程独立**：各 worker 各自持有 predictor，负载均衡需逐实例探活
 
-### 6.3 curl 示例
+### 7.3 curl 示例
 
 ```bash
 curl -i http://localhost:8000/health
 curl -i http://localhost:8000/health/ready    # 冷启动期间返回 HTTP/1.1 503
 ```
 
-## 7. 指标暴露接口：GET /metrics
+## 8. 指标暴露接口：GET /metrics
 
 Prometheus 文本格式的指标端点，**不走 `{code, message, data}` envelope**（协议端点例外，见 [status-codes.md](status-codes.md)）：
 
@@ -307,7 +379,7 @@ curl http://localhost:8000/metrics
 
 指标清单、multiprocess 聚合与监控栈接入见 [metrics.md](metrics.md)。
 
-## 8. 访问控制：鉴权与限流（可选，默认关闭）
+## 9. 访问控制：鉴权与限流（可选，默认关闭）
 
 设置 `INFERFORGE_API_KEY` 后，除豁免路径外所有接口要求 `X-API-Key` header：
 
@@ -339,11 +411,11 @@ INFERFORGE_RATE_LIMIT=60 ./start.sh
 - 已知近似：计数在进程内存，gunicorn 多 worker 下有效配额约为 N × worker 数——单机部署可接受；严格配额接 Redis 共享计数（见 [security.md](security.md)）
 - 豁免路径同鉴权：探针、文档与指标端点不限流
 
-## 9. 参数设计规范（推理接口的通用模式）
+## 10. 参数设计规范（推理接口的通用模式）
 
 后续新增推理接口（分类、分割、异步等）遵循同一套参数模式，保证调用方心智一致：
 
-### 9.1 输入载体：三选一
+### 10.1 输入载体：三选一
 
 | 参数 | 形式 | 适用场景 |
 |------|------|---------|
@@ -353,7 +425,7 @@ INFERFORGE_RATE_LIMIT=60 ./start.sh
 
 规则：同一接口最多提供两种载体（如 image + url），**至少一种、至多一种**，冲突即 code=1。
 
-### 9.2 推理参数
+### 10.2 推理参数
 
 可选的阈值/行为覆盖，不传用服务端默认值：
 
@@ -364,7 +436,7 @@ INFERFORGE_RATE_LIMIT=60 ./start.sh
 | `iou_thres` | float | NMS IoU 阈值（默认 0.45）（规划） |
 | `with_image` | bool | 是否返回绘图 base64（默认 true；纯取坐标的调用方省流量）（规划） |
 
-### 9.3 异步模式
+### 10.3 异步模式
 
 长耗时推理（大模型/Agent）不适合同步等待，参数模式变为：
 
@@ -373,18 +445,18 @@ POST /predict/query → {"code": 0, "data": {"task_id": "..."}}
 GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processing 状态）
 ```
 
-已落地：见 §5 异步轮询接口（POST /predict/query + GET 轮询）。同步/异步并存时，由接口路径区分而非参数区分——调用方一眼可知行为。
+已落地：见 §6 异步轮询接口（POST /predict/query + GET 轮询）。同步/异步并存时，由接口路径区分而非参数区分——调用方一眼可知行为。
 
-## 10. VLM 异步接口：POST /predict/vlm/query
+## 11. VLM 异步接口：POST /predict/vlm/query
 
-图片理解（VLM）异步接口：输入一张图片，worker 内部组装**固定服务端提示词**并**远程调用 LLM**（OpenAI 兼容 chat completions），返回文本答案。**仅 query 轮询形态**——远程调用秒级到几十秒，没有同步版本（长连接易超时且客户端重试会重复计费）；callback 推送模式以检测任务（§4）为参照，VLM/Agent 类任务按需再启用。
+图片理解（VLM）异步接口：输入一张图片，worker 内部组装**固定服务端提示词**并**远程调用 LLM**（OpenAI 兼容 chat completions），返回文本答案。**仅 query 轮询形态**——远程调用秒级到几十秒，没有同步版本（长连接易超时且客户端重试会重复计费）；callback 推送模式以检测任务（§5）为参照，VLM/Agent 类任务按需再启用。
 
 启用前置：
 
 - web：`INFERFORGE_ASYNC=1 INFERFORGE_LLM=1` 启动（仅 `INFERFORGE_LLM=1` 时告警并跳过注册）
 - worker：`INFERFORGE_LLM_MODEL`（必填）、`INFERFORGE_LLM_API_KEY`（必填）、`INFERFORGE_LLM_BASE_URL`（可选）、`INFERFORGE_LLM_PROMPT`（可选，覆盖默认提示词）
 
-### 10.1 请求参数
+### 11.1 请求参数
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:---:|------|
@@ -393,7 +465,7 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 
 提示词完全由服务端固定（默认 "Please describe this image in detail."），客户端**不传**文本参数。
 
-### 10.2 响应与结果 envelope
+### 11.2 响应与结果 envelope
 
 ```json
 // 提交响应（立即返回，同检测异步）
@@ -407,7 +479,7 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 {"code": 3, "message": "...", "data": null}    // 配置缺失（点名环境变量）/ 内部错误
 ```
 
-### 10.3 语义
+### 11.3 语义
 
 - 轮询**幂等**：result envelope 写入 Redis 后原样返回，多次轮询无副作用；结果带 TTL（默认 3600s）
 - 远程调用的基础设施重试由 openai SDK 内置（连接 / 429 / 5xx，`max_retries=2`），worker 内不手写重试循环
@@ -415,7 +487,7 @@ GET  /predict/query/<task_id> → 查询结果（完成前返回 code=5 processi
 - v1 无结果缓存：重复提交同一图片会重复调用远程 LLM（缓存留待后续版本）
 - worker 为 I/O 密集：`./start_celery.sh -c N` 提升并发（`worker_prefetch_multiplier` 保持 1，见 [architecture.md](architecture.md)）
 
-### 10.4 curl 示例
+### 11.4 curl 示例
 
 ```bash
 # 提交（payload 文件方式避免 base64 超长）
@@ -429,7 +501,7 @@ curl -s http://localhost:8000/predict/vlm/query/<task_id>
 
 自动化客户端：`python3 scripts/test_async_vlm_query.py --image assets/bus.jpg`（自带轮询循环）。
 
-## 11. Agent 异步接口：POST /predict/agent/query
+## 12. Agent 异步接口：POST /predict/agent/query
 
 图片人物发型统计（Pydantic AI 编排示例）：输入一张图片，worker 内 Agent 先调用**本地检测引擎**（工具）定位每个人，再由**远程 LLM** 逐人判断是否有头发，返回结构化结果。与 VLM 一致为**仅 query 轮询形态**，没有同步版本。
 
@@ -439,7 +511,7 @@ curl -s http://localhost:8000/predict/vlm/query/<task_id>
 - worker：`INFERFORGE_LLM_MODEL` / `INFERFORGE_LLM_API_KEY`（必填，与 VLM 共用）、`INFERFORGE_LLM_BASE_URL`（可选）、`INFERFORGE_AGENT_INSTRUCTIONS`（可选，覆盖默认指令）
 - 本地模型：`models/yolov8n.onnx`（检测工具需要）
 
-### 11.1 请求参数
+### 12.1 请求参数
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:---:|------|
@@ -449,7 +521,7 @@ curl -s http://localhost:8000/predict/vlm/query/<task_id>
 
 指令与输出 schema 完全由服务端固定，客户端**不传**任何业务参数。
 
-### 11.2 响应与结果 envelope
+### 12.2 响应与结果 envelope
 
 ```json
 // 提交响应（立即返回，同检测异步）
@@ -472,7 +544,7 @@ curl -s http://localhost:8000/predict/vlm/query/<task_id>
 {"code": 3, "message": "...", "data": null}    // 配置缺失（点名变量）/ 检测工具失败 / 内部错误
 ```
 
-### 11.3 语义
+### 12.3 语义
 
 - 轮询**幂等**：result envelope 写入 Redis 后原样返回，多次轮询无副作用
 - 传输重试在 Pydantic AI 的 transport 层（429/5xx/连接，3 次，尊重 Retry-After）——语义对齐 VLM 的 SDK 重试；结构化输出验证失败由框架自动让模型修正重试
@@ -480,7 +552,7 @@ curl -s http://localhost:8000/predict/vlm/query/<task_id>
 - 检测工具失败（本地引擎异常）→ code 3，与上游 LLM 失败（code 9）语义分开
 - 编排细节、schema 与泛化方法见 [agent.md](agent.md)
 
-### 11.4 curl 示例
+### 12.4 curl 示例
 
 ```bash
 # 提交（payload 文件方式避免 base64 超长）
@@ -492,7 +564,7 @@ curl -s -X POST http://localhost:8000/predict/agent/query \
 curl -s http://localhost:8000/predict/agent/query/<task_id>
 ```
 
-## 12. 测试规范引用
+## 13. 测试规范引用
 
 - 响应格式与业务码：[status-codes.md](status-codes.md)
 - 分层与异步数据流：[architecture.md](architecture.md)

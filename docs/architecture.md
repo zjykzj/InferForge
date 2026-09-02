@@ -34,7 +34,7 @@
 
 **文件**：`app.py`、`apis/schemas.py`（请求体模型）、`apis/sync_detect.py`（同步检测）、`apis/sync_segment.py`（同步分割；由 `INFERFORGE_SEG=1` 启用）、`apis/sync_classify.py`（同步分类；由 `INFERFORGE_CLS=1` 启用）、`apis/health.py`（健康探针）、`apis/async_detect_callback.py`（异步回调）、`apis/async_detect_query.py`（异步轮询；由 `INFERFORGE_ASYNC=1` 开关启用）、`apis/async_vlm_query.py`（VLM 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_LLM=1` 同时启用）、`apis/async_agent_query.py`（Agent 异步轮询，由 `INFERFORGE_ASYNC=1` + `INFERFORGE_AGENT=1` 同时启用）
 
-**健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问**已启用能力**的 predictor 是否已加载（检测恒启用；分割/分类在对应开关开启时纳入检查——接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §6）。
+**健康探针**：`GET /health`（存活）与 `GET /health/ready`（就绪）供 K8s / 负载均衡探活，始终注册。就绪检查向任务层询问**已启用能力**的 predictor 是否已加载（检测恒启用；分割/分类在对应开关开启时纳入检查——分类在 `INFERFORGE_CLS` 或 `INFERFORGE_PIPELINE` 任一开启时纳入，因为 pipeline 组合使用分类缺省模型；接口层不接触 predictor 本身），未加载时返回 503 + code=6——这是唯一使用非 200 HTTP 状态码的地方（探针只读状态码，见 [api.md](api.md) §7）。
 
 ### 2.2 任务层（`tasks/`）
 
@@ -43,16 +43,17 @@
 **逻辑**：
 
 - 一个任务一个文件；每个任务**持有自己的预测器**（懒加载 + double-checked locking，按注册模型名缓存为 dict），API 层看不到预测器
+- 组合任务例外：`tasks/pipeline.py` 与 `tasks/agent.py` 不持有 predictor，而是复用其他任务的缓存（pipeline 组合检测 + 分类两个引擎，agent 组合检测 + 远程 LLM）——一个引擎可被多个业务场景消费
 - 模型清单来自**模型注册表** `engines/registry.py`（见 [model-registry.md](model-registry.md)）：请求的 `model` 字段在 task 层解析为具体 predictor；没有 `models/registry.yaml` 时，从 `INFERFORGE_MODEL_PATH` / `INFERFORGE_SEG_MODEL_PATH` / `INFERFORGE_CLS_MODEL_PATH` 合成单模型注册表（惰性读取，向后兼容）
 - 编排步骤：解析输入图 → 调用预测器 → 组装结果列表（detections / segments / classifications）→ 绘图（检测/分割）→ 编码输出
-- `tasks/warmup.py`：`INFERFORGE_PRELOAD=1` 的启动预热编排——web 与 worker 各自调用，只预热各自服务的能力的**缺省模型**（web：detect + 开关内的 seg/cls；worker：仅 detect）；逐能力 try/except，单个模型加载失败只记日志、该能力维持 not-ready（readiness 才是真相来源）
+- `tasks/warmup.py`：`INFERFORGE_PRELOAD=1` 的启动预热编排——web 与 worker 各自调用，只预热各自服务的能力的**缺省模型**（web：detect + 开关内的 seg/cls/pipeline——pipeline 开启时预热分类缺省模型；worker：仅 detect）；逐能力 try/except，单个模型加载失败只记日志、该能力维持 not-ready（readiness 才是真相来源）
 
 | 库 | 用途 |
 |----|------|
 | threading | 预测器懒加载的 double-checked locking |
 | celery | 异步任务：经 RabbitMQ 投递、worker 执行 |
 
-**文件**：`tasks/detection.py`（同步检测编排）、`tasks/segmentation.py`（同步分割编排：mask 编码为每实例整图二值 PNG）、`tasks/classification.py`（同步分类编排：top-5 文本结果）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试——callback 交付模式的参照实现）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）、`tasks/vlm.py`（VLM 编排：图片校验 → JPEG data URL → 远程 LLM chat completions；openai 惰性导入 + 懒加载 client 单例；LLMUpstreamError → code 9 语义）、`tasks/vlm_query.py`、`tasks/agent.py`（Agent 编排：Pydantic AI Agent + 检测引擎工具——detect_persons 定位个体、LLM 逐人判断属性；惰性导入 + 每次任务新建 client）、`tasks/agent_query.py`
+**文件**：`tasks/detection.py`（同步检测编排）、`tasks/segmentation.py`（同步分割编排：mask 编码为每实例整图二值 PNG）、`tasks/classification.py`（同步分类编排：top-5 文本结果）、`tasks/pipeline.py`（组合管线编排：detect → 目标类过滤 → crop → classify，复用检测/分类 predictor 缓存，目标类由 `INFERFORGE_PIPELINE_TARGETS` 配置）、`tasks/detection_callback.py`（异步回调任务：复用 run_detection，结果 POST 到 callback_url，网络失败指数退避重试——callback 交付模式的参照实现）、`tasks/detection_query.py`（异步轮询任务：复用 run_detection，result envelope 写入 Redis，无重试）、`tasks/vlm.py`（VLM 编排：图片校验 → JPEG data URL → 远程 LLM chat completions；openai 惰性导入 + 懒加载 client 单例；LLMUpstreamError → code 9 语义）、`tasks/vlm_query.py`、`tasks/agent.py`（Agent 编排：Pydantic AI Agent + 检测引擎工具——detect_persons 定位个体、LLM 逐人判断属性；惰性导入 + 每次任务新建 client）、`tasks/agent_query.py`
 
 VLM/Agent 为 **query-only** 形态：callback 推送以检测任务为参照实现，按任务性质选择性启用——LLM/Agent 类任务的调用方是主动业务系统（提交后轮询拿结果、需要幂等重查），query 是主路。
 

@@ -155,6 +155,18 @@ def test_both_capabilities_register(no_async_switch, monkeypatch):
     assert "/predict" in routes  # detection is unaffected by either switch
 
 
+def test_pipeline_disabled_by_default(no_async_switch):
+    routes = _route_paths(create_app())
+    assert "/predict/pipeline" not in routes
+
+
+def test_pipeline_enabled_registers_router(no_async_switch, monkeypatch):
+    monkeypatch.setenv("INFERFORGE_PIPELINE", "1")
+    routes = _route_paths(create_app())
+    assert "/predict/pipeline" in routes
+    assert "/predict/classify" not in routes  # each switch is independent
+
+
 # --- request-body ceiling ---
 
 

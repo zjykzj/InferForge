@@ -70,6 +70,13 @@ python3 scripts/test_sync_segment.py --image assets/bus.jpg --save result_seg.jp
 python3 scripts/test_sync_classify.py --image assets/bus.jpg                        # 分类（top-5）
 ```
 
+可选：组合它们——同步管线接口（检测 → 裁剪 → 细粒度分类，如检测 `bus` → 识别 `school bus`）。复用上面两个模型；目标类用 `INFERFORGE_PIPELINE_TARGETS` 配置（默认 `car,truck,bus`）：
+
+```bash
+INFERFORGE_PIPELINE=1 ./start.sh
+python3 scripts/test_sync_pipeline.py --image assets/bus.jpg --save result_pipeline.jpg   # 管线（检测 → 分类）
+```
+
 可选：多模型路由——复制示例注册表后按请求选模型（没有注册表文件时保持单模型行为，与上文完全一致）：
 
 ```bash

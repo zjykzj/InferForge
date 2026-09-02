@@ -5,9 +5,11 @@ algorithms — tasks own their predictors, apis own their tasks; the startup
 model warmup (INFERFORGE_PRELOAD=1) is delegated to tasks.warmup.
 
 Health probe endpoints (/health, /health/ready) and the sync predict api are
-always registered. The sync segment and classify apis are registered behind
-their own env switches (INFERFORGE_SEG=1 / INFERFORGE_CLS=1, off by default,
-no extra services — see tasks/segmentation.py + tasks/classification.py).
+always registered. The sync segment, classify and pipeline apis are
+registered behind their own env switches (INFERFORGE_SEG=1 /
+INFERFORGE_CLS=1 / INFERFORGE_PIPELINE=1, off by default, no extra services
+— see tasks/segmentation.py + tasks/classification.py + tasks/pipeline.py).
+The pipeline api composes the detect + classify registry defaults.
 Async APIs are registered behind an explicit env switch:
 INFERFORGE_ASYNC=1 registers both the callback and query apis (requires
 celery + rabbitmq + redis — one deployment shape, callback vs query is a
@@ -84,6 +86,12 @@ def _cls_enabled() -> bool:
     return _switch_on("INFERFORGE_CLS")
 
 
+def _pipeline_enabled() -> bool:
+    # Sync detect->crop->classify api; composes the detect + classify
+    # defaults (see create_app()).
+    return _switch_on("INFERFORGE_PIPELINE")
+
+
 def _read_version() -> str:
     try:
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "VERSION")
@@ -156,6 +164,11 @@ def create_app() -> FastAPI:
 
         app.include_router(sync_classify_router)
         logger.info("classify api enabled")
+    if _pipeline_enabled():
+        from apis.sync_pipeline import sync_pipeline_router
+
+        app.include_router(sync_pipeline_router)
+        logger.info("pipeline api enabled")
 
     if _async_enabled():
         if _switch_on("INFERFORGE_QUERY") and not _switch_on("INFERFORGE_ASYNC"):

@@ -70,6 +70,13 @@ python3 scripts/test_sync_segment.py --image assets/bus.jpg --save result_seg.jp
 python3 scripts/test_sync_classify.py --image assets/bus.jpg                        # classify (top-5)
 ```
 
+Optional: compose them — the sync pipeline api (detect → crop → fine-grained classify, e.g. detect `bus` → classify `school bus`). Reuses the two models above; target classes via `INFERFORGE_PIPELINE_TARGETS` (default `car,truck,bus`):
+
+```bash
+INFERFORGE_PIPELINE=1 ./start.sh
+python3 scripts/test_sync_pipeline.py --image assets/bus.jpg --save result_pipeline.jpg   # pipeline (detect → classify)
+```
+
 Optional: multi-model routing — copy the example registry and pick models per request (no registry file means single-model behavior, exactly as above):
 
 ```bash

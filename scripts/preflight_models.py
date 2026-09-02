@@ -2,10 +2,12 @@
 
 Enumerates the model registry (engines.registry) for the ENABLED capabilities
 only — detection is always on, segment/classify behind their env switches
-(utils.switches is the single source of truth for "on"). Every registered
-model of an enabled capability must have its weights file on disk, because
-any of them can be routed to at request time. A missing or unparseable
-registry YAML also fails here, before gunicorn ever starts.
+(utils.switches is the single source of truth for "on"). Classify is enabled
+by EITHER INFERFORGE_CLS or INFERFORGE_PIPELINE: the pipeline api composes
+the classify default, so its weights must exist even without INFERFORGE_CLS.
+Every registered model of an enabled capability must have its weights file
+on disk, because any of them can be routed to at request time. A missing or
+unparseable registry YAML also fails here, before gunicorn ever starts.
 
 Called by start.sh; the error format mirrors its historical preflight.
 """
@@ -30,16 +32,23 @@ from utils.switches import switch_on
 CAPABILITY_SWITCH = {
     "detect": None,             # always enabled
     "segment": "INFERFORGE_SEG",
-    "classify": "INFERFORGE_CLS",
+    # A tuple = enabled when ANY of the switches is on.
+    "classify": ("INFERFORGE_CLS", "INFERFORGE_PIPELINE"),
 }
 
 
 def enabled_capabilities():
-    return [
-        capability
-        for capability, switch in CAPABILITY_SWITCH.items()
-        if switch is None or switch_on(switch)
-    ]
+    enabled = []
+    for capability, switch in CAPABILITY_SWITCH.items():
+        if switch is None:
+            enabled.append(capability)
+        elif isinstance(switch, str):
+            if switch_on(switch):
+                enabled.append(capability)
+        else:  # tuple of switches: any on enables the capability
+            if any(switch_on(s) for s in switch):
+                enabled.append(capability)
+    return enabled
 
 
 def main():

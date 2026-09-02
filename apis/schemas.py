@@ -10,14 +10,12 @@ from typing import Optional
 from pydantic import BaseModel, model_validator
 
 
-class PredictRequest(BaseModel):
-    """Exactly one of image (base64) or url, plus an optional registered model
-    name (see docs/model-registry.md). Messages mirror the task-layer errors
-    so callers see identical text."""
+class ImageSourceRequest(BaseModel):
+    """Exactly one of image (base64) or url. Shared by every request schema;
+    messages mirror the task-layer errors so callers see identical text."""
 
     image: Optional[str] = None
     url: Optional[str] = None
-    model: Optional[str] = None  # absent -> the capability's default model
 
     @model_validator(mode="after")
     def _exactly_one_source(self):
@@ -26,6 +24,19 @@ class PredictRequest(BaseModel):
         if not self.image and not self.url:
             raise ValueError("provide either 'image' or 'url'")
         return self
+
+
+class PredictRequest(ImageSourceRequest):
+    """ImageSourceRequest plus an optional registered model name (see
+    docs/model-registry.md)."""
+
+    model: Optional[str] = None  # absent -> the capability's default model
+
+
+class PipelineRequest(ImageSourceRequest):
+    """ImageSourceRequest without `model`: the pipeline always composes the
+    detect + classify DEFAULTS (see docs/api.md) — there is no per-request
+    model routing to ask for."""
 
 
 class CallbackRequest(PredictRequest):

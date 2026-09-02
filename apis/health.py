@@ -34,10 +34,12 @@ def readiness():
 
     Detection is always enabled; segment/classify are probed only when their
     env switch is on (read at request time, matching app.py's router
-    registration). With lazy loading the predictors stay unloaded until the
-    first prediction warms this worker up, so a fresh deployment reports
-    not-ready (503) until then — the load balancer routes around it in the
-    meantime.
+    registration). Classify is probed when EITHER the classify or the
+    pipeline switch is on — the pipeline composes the classify default, so
+    it needs that model loaded even without INFERFORGE_CLS. With lazy
+    loading the predictors stay unloaded until the first prediction warms
+    this worker up, so a fresh deployment reports not-ready (503) until
+    then — the load balancer routes around it in the meantime.
 
     Only the DEFAULT model of each capability is probed: with a multi-model
     registry, requiring every registered model to be loaded would keep the
@@ -47,7 +49,7 @@ def readiness():
     ready = detection.default_model_loaded()
     if switches.switch_on("INFERFORGE_SEG"):
         ready = ready and segmentation.default_model_loaded()
-    if switches.switch_on("INFERFORGE_CLS"):
+    if switches.switch_on("INFERFORGE_CLS") or switches.switch_on("INFERFORGE_PIPELINE"):
         ready = ready and classification.default_model_loaded()
     if ready:
         return response.success({"status": "ready"})

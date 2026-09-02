@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Pipeline task (detect → crop → classify)**: sync api /predict/pipeline behind INFERFORGE_PIPELINE=1 — composes the detect + classify registry DEFAULTS (no `model` request field; tasks/pipeline.py owns no predictors, reusing tasks.detection/tasks.classification caches), target classes via INFERFORGE_PIPELINE_TARGETS (default car,truck,bus; a class outside the detect model's class table → code 3 naming the variable), per-box crop (10% margin, clipped) classified to top-5 — payload items carry detect_class + fine_class/fine_confidence/fine_top5 plus the annotated image; the classifier loads lazily on the first kept crop; readiness/preflight/warmup treat classify as enabled when EITHER INFERFORGE_CLS or INFERFORGE_PIPELINE is on; apis/schemas.py gains an ImageSourceRequest base (shared image/url validation) + PipelineRequest; scripts/run_pipeline.py + test_sync_pipeline.py; smoke tests (tests/test_sync_pipeline.py, app/health switch tests); docs updated (api.md §4 + renumbered sections, architecture.md, model-registry.md, stack.md, quick-start.md, READMEs, CLAUDE.md)
+
 ### Fixed
 
 - Agent: the detection tool is registry-driven — the `model` request field picks a registered detect model (submit-time code 10 rejection + worker drift re-check, like detection), class names come from that model's `classes` table (per-model `classes` files honored; the hardcoded COCO table could crash or mislabel with custom detect models), and `INFERFORGE_AGENT_TARGET_CLASS` (default `person`) selects the target class (not in the table -> code 3 naming the variable, checked before the paid call); docs updated (agent.md, api.md, stack.md)

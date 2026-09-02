@@ -48,7 +48,7 @@ pytest tests/ -v
 curl http://localhost:8000/metrics
 ```
 
-### 1.6 可选：启用分割 / 分类（同步，默认关）
+### 1.6 可选：启用分割 / 分类 / 组合管线（同步，默认关）
 
 ```bash
 # 导出并放置模型（同检测：仅使用导出工具，不复制其代码）
@@ -63,11 +63,18 @@ INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
 # 验证
 python3 scripts/test_sync_segment.py --image assets/bus.jpg --save result_seg.jpg
 python3 scripts/test_sync_classify.py --image assets/bus.jpg
+
+# 组合管线（detect → crop → classify，复用检测 + 分类两个缺省模型）
+INFERFORGE_PIPELINE=1 ./start.sh
+python3 scripts/test_sync_pipeline.py --image assets/bus.jpg --save result_pipeline.jpg
+
+# 目标类默认 car,truck,bus，可用环境变量改（类名必须在检测模型类名表内，否则启动时报配置错误）
+INFERFORGE_PIPELINE_TARGETS=dog,cat,bird ./start.sh
 ```
 
 预期：打印 `code: 0` 与检测列表；首次请求会触发模型懒加载（多几十毫秒属正常）。
 
-### 1.6 日志
+### 1.7 日志
 
 ```bash
 tail -f logs/app.log          # JSON 行，带 request_id 全链路

@@ -30,9 +30,24 @@ InferForge/
 └── tests/         # 冒烟测试——无模型依赖，CI 自动执行
 ```
 
+## 能力总览
+
+| 能力 | 形态 | 开关 | 模型 |
+|---|---|---|---|
+| 检测 | 同步 + 异步 | 常开；`INFERFORGE_ASYNC` 增加异步接口 | `yolov8n.onnx` |
+| 分割 | 仅同步 | `INFERFORGE_SEG` | `yolov8n-seg.onnx` |
+| 分类 | 仅同步 | `INFERFORGE_CLS` | `yolov8n-cls.onnx` |
+| 管线 | 仅同步 | `INFERFORGE_PIPELINE` | 复用检测 + 分类 |
+| 去重 | 仅同步 | `INFERFORGE_DEDUP` | `dino2-small.onnx` |
+| 检索 / 查重 | 仅异步（query） | `INFERFORGE_SEARCH` | embed + `data/gallery.db` |
+| VLM | 仅异步（query） | `INFERFORGE_LLM` | 远程 LLM |
+| Agent | 仅异步（query） | `INFERFORGE_AGENT` | 检测 + 远程 LLM |
+
+开关均为可选环境变量（检测常开）；开关只决定路由是否存在，不决定加载哪个模型（那是注册表的职责，见 [model-registry](docs/model-registry.md)）。所有异步能力都建立在同一套 §异步基础设施 之上；检索 / VLM / Agent 无 callback 形态。
+
 ## 快速开始
 
-### 同步
+最小编程路径：同步检测。
 
 ```bash
 # 1. 安装依赖
@@ -53,7 +68,40 @@ python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg
 # 6. Prometheus 指标：http://localhost:8000/metrics（可选，见 docs/metrics.md）
 ```
 
-可选：启用同步分割 / 分类能力（默认关，检测不受影响）：
+配置也可以写进 `.env` 文件（`cp .env.example .env` 后填写——shell 已导出的环境变量优先）。其余能力见 §能力。
+
+## 异步基础设施
+
+异步只有一种部署形态——Celery + RabbitMQ + Redis，所有异步能力（检测、检索/查重、VLM、Agent）都共享它。投递方式按请求选择：callback（服务端把结果 POST 到你的 `callback_url`）或 query（提交后轮询直到结果就绪——结果缓存到 Redis）。搭建一次即可：
+
+```bash
+pip install -r requirements-async.txt
+INFERFORGE_ASYNC=1 ./start.sh                                                   # 启动 web（注册检测的异步接口）
+./start_celery.sh                                                               # 启动 worker
+```
+
+`INFERFORGE_ASYNC=1` 注册的是检测接口；检索 / VLM / Agent 在此基础上叠加各自开关（见对应章节）。两种投递方式的用法见 §检测。
+
+## 能力
+
+### 1. 检测
+
+同步形态见上方快速开始。异步形态无需额外开关——§异步基础设施 注册的即是检测接口，callback 还是 query 按请求选择：
+
+```bash
+# 推送式 —— 服务端把结果 POST 到你的 callback_url
+python3 scripts/callback_receiver.py                                            # 启动回调接收器（结果保存到 outputs/callbacks/）
+python3 scripts/test_async_detect_callback.py --image assets/bus.jpg \
+  --callback-url http://localhost:9000/result                                   # 结果完成后 POST 回调
+
+# 拉取式 —— 提交任务，轮询直到结果就绪（结果缓存到 Redis）
+redis-server &                                                                  # 启动 redis（结果存储）
+python3 scripts/test_async_detect_query.py --image assets/bus.jpg                    # 提交 + 轮询直到完成
+```
+
+### 2. 分割 / 分类
+
+仅同步形态（默认关，检测不受影响）：
 
 ```bash
 # 1. 导出并放置模型（subprocess 调 yolo CLI——不 import ultralytics；导出后自动形状校验）
@@ -67,74 +115,44 @@ python3 scripts/test_sync_segment.py --image assets/bus.jpg --save result_seg.jp
 python3 scripts/test_sync_classify.py --image assets/bus.jpg                        # 分类（top-5）
 ```
 
-可选：组合它们——同步管线接口（检测 → 裁剪 → 细粒度分类，如检测 `bus` → 识别 `school bus`）。复用上面两个模型；目标类用 `INFERFORGE_PIPELINE_TARGETS` 配置（默认 `car,truck,bus`）：
+### 3. 管线
+
+仅同步形态。组合上面两个模型——检测 → 裁剪 → 细粒度分类（如检测 `bus` → 识别 `school bus`）；目标类用 `INFERFORGE_PIPELINE_TARGETS` 配置（默认 `car,truck,bus`）：
 
 ```bash
 INFERFORGE_PIPELINE=1 ./start.sh
 python3 scripts/test_sync_pipeline.py --image assets/bus.jpg --save result_pipeline.jpg   # 管线（检测 → 分类）
 ```
 
-可选：图像 embedding——批量近重复检测（同步）+ gallery 检索 / 查重（异步 query-only，需 worker 与预建索引，见 docs/embedding.md）。先将 DINOv2-small 导出 ONNX 放入 models/：
+### 4. Embedding
+
+同一个 DINOv2-small 引擎支撑三个业务任务：去重（同步）与 gallery 检索 / 查重（异步 query-only、worker 专属——milvus-lite 索引单进程独占）。先将 DINOv2-small 导出 ONNX 放入 models/：
 
 ```bash
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu   # 一次性导出依赖
 python3 scripts/export_dinov2.py                                                # -> models/dino2-small.onnx
 ```
 
+同步批内去重——一批图里找出互为近似重复的分组（阈值 `INFERFORGE_DUP_THRESHOLD`，默认 0.95）：
+
 ```bash
-# 同步批内去重：一批图里找出互为近似重复的分组（阈值 INFERFORGE_DUP_THRESHOLD，默认 0.95）
 INFERFORGE_DEDUP=1 ./start.sh
 python3 scripts/test_sync_dedup.py --image assets/bus.jpg --image assets/bus.jpg --image assets/zidane.jpg   # 去重
+```
 
-# 异步 gallery 检索 / 查重（worker-only：milvus-lite 索引单进程独占）
+异步 gallery 检索 / 查重（建立在 §异步基础设施 之上）：
+
+```bash
 python3 scripts/build_gallery.py                # 先建索引——worker 必须已停止（gallery/ -> data/gallery.db）
 INFERFORGE_ASYNC=1 INFERFORGE_SEARCH=1 ./start.sh
 python3 scripts/run_search.py --image assets/bus.jpg --check    # task 层直测（检索 / 查重）
 ```
 
-可选：多模型路由——复制示例注册表后按请求选模型（没有注册表文件时保持单模型行为，与上文完全一致）：
+详见 [embedding](docs/embedding.md)。
 
-```bash
-cp models/registry.example.yaml models/registry.yaml     # 编辑它，列出你的模型
-./start.sh                                               # preflight 检查每个注册模型
+### 5. VLM
 
-python3 scripts/test_sync_detect.py --image assets/bus.jpg --model yolov8n          # 显式指定模型
-python3 scripts/test_sync_detect.py --image assets/bus.jpg                            # 不带 model 字段 → 缺省模型
-# 详见 docs/model-registry.md
-```
-
-运行冒烟测试：
-
-```bash
-pytest tests/ -v
-```
-
-### 异步
-
-异步只有一种部署形态 —— Celery + RabbitMQ + Redis。`INFERFORGE_ASYNC=1` 一次注册全部异步接口，回调还是轮询按请求选择：
-
-```bash
-pip install -r requirements-async.txt
-INFERFORGE_ASYNC=1 ./start.sh                                                   # 启动 web（启用异步接口）
-./start_celery.sh                                                               # 启动 worker
-```
-
-推送式 —— 服务端把结果 POST 到你的 `callback_url`：
-
-```bash
-python3 scripts/callback_receiver.py                                            # 启动回调接收器（结果保存到 outputs/callbacks/）
-python3 scripts/test_async_detect_callback.py --image assets/bus.jpg \
-  --callback-url http://localhost:9000/result                                   # 结果完成后 POST 回调
-```
-
-拉取式 —— 提交任务，轮询直到结果就绪（结果缓存到 Redis）：
-
-```bash
-redis-server &                                                                  # 启动 redis（结果存储）
-python3 scripts/test_async_detect_query.py --image assets/bus.jpg                    # 提交 + 轮询直到完成
-```
-
-VLM（图片理解，远程调用 LLM，仅异步形态）—— 在异步基础上再加 `INFERFORGE_LLM=1`，worker 侧配置远程模型：
+图片理解——worker 调用远程 OpenAI 兼容 LLM，仅异步 query-only。在 §异步基础设施 之上再加 `INFERFORGE_LLM=1`：
 
 ```bash
 INFERFORGE_LLM=1 INFERFORGE_ASYNC=1 ./start.sh                                  # 启动 web（注册 /predict/vlm/*）
@@ -147,9 +165,9 @@ python3 scripts/test_async_vlm_query.py --image assets/bus.jpg                  
 
 提示词由服务端固定（`INFERFORGE_LLM_PROMPT` 可覆盖），客户端只传图片。详见 [api](docs/api.md) §10。
 
-配置也可以写进 `.env` 文件（`cp .env.example .env` 后填写——shell 已导出的环境变量优先）。
+### 6. Agent
 
-Agent（Pydantic AI 编排示例——检测工具 + LLM 属性判断，仅异步形态）—— 在异步基础上再加 `INFERFORGE_AGENT=1`，worker 侧复用 `INFERFORGE_LLM_*` 配置并需要本地模型：
+Pydantic AI 编排示例——检测工具 + LLM 属性判断，仅异步 query-only。在 §异步基础设施 之上再加 `INFERFORGE_AGENT=1`，worker 复用 `INFERFORGE_LLM_*` 配置并需要本地模型：
 
 ```bash
 INFERFORGE_AGENT=1 INFERFORGE_ASYNC=1 ./start.sh                                  # 启动 web（注册 /predict/agent/*）
@@ -163,9 +181,22 @@ curl -s -X POST http://localhost:8000/predict/agent/query \                     
 
 示例统计图中人物有头发/无头发的人数（zidane.jpg → 2 人 1:1）；换属性字段 + 指令 + 工具即可换成任意属性任务。详见 [agent](docs/agent.md)。
 
-### Docker
+## 模型注册表
 
-容器化一键起全栈 —— web + worker + RabbitMQ + Redis，本机零安装：
+多模型路由——复制示例注册表后按请求选模型（没有注册表文件时保持单模型行为，与上文完全一致）：
+
+```bash
+cp models/registry.example.yaml models/registry.yaml     # 编辑它，列出你的模型
+./start.sh                                               # preflight 检查每个注册模型
+
+python3 scripts/test_sync_detect.py --image assets/bus.jpg --model yolov8n          # 显式指定模型
+python3 scripts/test_sync_detect.py --image assets/bus.jpg                            # 不带 model 字段 → 缺省模型
+# 详见 docs/model-registry.md
+```
+
+## Docker
+
+容器化一键起全栈——web + worker + RabbitMQ + Redis，本机零安装：
 
 ```bash
 cp /path/to/yolov8n.onnx models/    # 模型 bind mount 进容器，不进镜像
@@ -175,15 +206,7 @@ curl http://localhost:8000/health   # 存活探针
 
 RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compose down` 停止全部容器（加 `-v` 连数据卷一起删除）。详见 [quick-start](docs/quick-start.md) §4。
 
-可选监控栈（Prometheus + Grafana）：`docker compose -f docker-compose.yml -f deploy/docker-compose.monitoring.yml up -d` —— 见 [metrics](docs/metrics.md)。
-
-## 文档
-
-- **工程文档** — concepts · quick-start · architecture · add-engine · api · deployment · benchmark
-- **技术栈文档** — stack · fastapi-migration
-- **规范文档** — status-codes · logging · metrics · testing · security · forking-contract
-
-带逐篇说明的完整索引：[docs/README.md](docs/README.md)。
+可选监控栈（Prometheus + Grafana）：`docker compose -f docker-compose.yml -f deploy/docker-compose.monitoring.yml up -d`——见 [metrics](docs/metrics.md)。
 
 ## 测试
 
@@ -198,13 +221,24 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 
 覆盖率（基线约 81%）只作参考、不作门禁：scripts/ 与防御性错误分支刻意不做单测。测试策略细节（seam、异步 fake、注册表隔离）见 [docs/testing.md](docs/testing.md)。
 
+## 文档
+
+| 分类 | 文档 |
+|---|---|
+| 工程 | [concepts](docs/concepts.md) · [quick-start](docs/quick-start.md) · [architecture](docs/architecture.md) · [add-engine](docs/add-engine.md) · [api](docs/api.md) · [deployment](docs/deployment.md) · [benchmark](docs/benchmark.md) |
+| 技术栈 | [stack](docs/stack.md) · [fastapi-migration](docs/fastapi-migration.md) |
+| 规范 | [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) · [forking-contract](docs/forking-contract.md) |
+
+带逐篇说明的完整索引：[docs/README.md](docs/README.md)。
+
 ## 致谢
 
-- **Web 与服务** — [FastAPI](https://fastapi.tiangolo.com/) · [Uvicorn](https://www.uvicorn.org/) · [Gunicorn](https://gunicorn.org/)
-- **推理引擎** — [ONNX Runtime](https://onnxruntime.ai/) · [OpenCV](https://opencv.org/) · [NumPy](https://numpy.org/)
-- **异步任务** — [Celery](https://docs.celeryq.dev/) · [RabbitMQ](https://www.rabbitmq.com/) · [Redis](https://redis.io/)
-- **LLM 与 Agent** — [OpenAI SDK](https://github.com/openai/openai-python) · [Pydantic AI](https://ai.pydantic.dev/)
-- **演示模型** — [Ultralytics YOLOv8n](https://docs.ultralytics.com/)
+| 分类 | 依赖 |
+|---|---|
+| 🌐 Web 与服务 | [FastAPI](https://fastapi.tiangolo.com/) · [Uvicorn](https://www.uvicorn.org/) · [Gunicorn](https://gunicorn.org/) · [prometheus_client](https://github.com/prometheus/client_python) |
+| ⚡ 异步任务 | [Celery](https://docs.celeryq.dev/) · [RabbitMQ](https://www.rabbitmq.com/) · [Redis](https://redis.io/) |
+| 🧠 推理、图像与检索 | [ONNX Runtime](https://onnxruntime.ai/) · [OpenCV](https://opencv.org/) · [Milvus Lite](https://milvus.io/) |
+| 🤖 LLM 与 Agent | [OpenAI SDK](https://github.com/openai/openai-python) · [Pydantic AI](https://ai.pydantic.dev/) |
 
 ## 开源协议
 

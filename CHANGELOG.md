@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **READMEs restructured by capability**: the sync/async split is demoted to an in-chapter annotation — a capability overview table with a merged Form column (sync only / async query-only / sync + async), a minimal-path Quick Start, a dedicated Async Infrastructure section, six numbered capability chapters (Detection, Segment/Classify, Pipeline, Embedding, VLM, Agent), and the model registry moved to its own section; Documentation and Acknowledgments converted to tables, acknowledgments regrouped by layer (NumPy and demo models dropped, Milvus Lite grouped with the engine stack)
+
 ## [1.3.0] - 2026-09-02
 
 ### Added

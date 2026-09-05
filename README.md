@@ -225,9 +225,10 @@ Coverage (~81% baseline) is informational, not gated: scripts/ and defensive err
 
 | Category | Docs |
 |---|---|
-| Engineering | [concepts](docs/concepts.md) · [quick-start](docs/quick-start.md) · [architecture](docs/architecture.md) · [forking-contract](docs/forking-contract.md) · [add-engine](docs/add-engine.md) · [model-registry](docs/model-registry.md) · [api](docs/api.md) · [agent](docs/agent.md) · [embedding](docs/embedding.md) · [benchmark](docs/benchmark.md) · [deployment](docs/deployment.md) |
+| Guides | [quick-start](docs/quick-start.md) · [architecture](docs/architecture.md) · [api](docs/api.md) · [model-registry](docs/model-registry.md) · [agent](docs/agent.md) · [embedding](docs/embedding.md) · [benchmark](docs/benchmark.md) · [deployment](docs/deployment.md) |
+| Knowledge | [concepts](docs/concepts.md) · [release-strategies](docs/release-strategies.md) |
+| Standards | [forking-contract](docs/forking-contract.md) · [add-engine](docs/add-engine.md) · [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
 | Tech stack | [stack](docs/stack.md) · [fastapi-migration](docs/fastapi-migration.md) |
-| Standards | [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
 
 Full index with one-line descriptions: [docs/README.md](docs/README.md).
 

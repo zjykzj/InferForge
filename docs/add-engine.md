@@ -58,6 +58,8 @@ class BasePredictor(ABC):
 
 ## 4. TensorRT / Triton 接入说明
 
+> 本节为接入说明（领域知识）：本工程当前未内置 TensorRT / Triton 后端——BasePredictor contract 保证它们可按此接入，不构成本工程当前实现的一部分。
+
 | 后端 | 接入本质 | 注意点 |
 |------|---------|--------|
 | **TensorRT**（本地推理） | 与 onnxruntime 同构：`load()` 里建 engine/context，`predict()` 里跑 inference | 输入输出张量约定不变，contract 照旧；engine 文件同理放 `models/` |

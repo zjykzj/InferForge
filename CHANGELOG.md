@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Fork-development workflow (bootstrap + recipes)**: three new dev-spec docs — docs/bootstrap.md (from-template project init: copy/rename checklist, demo-capability trimming with the 8-point removal surface, config init, baseline acceptance, fork knowledge-layer inheritance), docs/add-capability.md (growth playbook sync→async→query-only, shape decision table, capability footprint file set, per-shape implementation steps with canonical references, contract-derivation path for capabilities the template has no reference for), docs/modify-service.md (layer location → green/yellow/red zone check, engine-swap path, regression acceptance); docs/forking-contract.md gains §5 (fork knowledge-layer maintenance) + new scenario rows, docs/README.md gains a task→entry map for development agents, CLAUDE.md gains a fork-workflow pointer
+- **Architecture guard tests + template footprint checker**: tests/test_architecture.py turns the red-zone axioms into CI checks (one-way dependency direction app→apis→tasks→engines via ast import scan, heavy deps never at module level, envelope always-200/422-never-leaks, status-code double registration response.py docstring ↔ status-codes.md); scripts/check_capability.py verifies per-capability footprints (registry parses, preflight CAPABILITY_SWITCH coverage, core task/api/test/script file sets, every preflight switch read in app.py) — both ship with forks; CI gains a footprint-check step
+- **Agent-facing development skills**: .claude/skills/ inferforge-bootstrap / inferforge-add-capability / inferforge-modify-service — thin procedure shells over the new docs (ordered steps + per-step canonical references + done criteria)
+
 ### Changed
 
 - **Docs reclassified into four categories**: docs/README.md becomes a two-level index (使用指南 / 领域知识 / 开发规范 / 技术栈与原理) with a boundary-marker convention for knowledge sections living inside implementation docs; new knowledge doc release-strategies.md (release-strategy spectrum — big-bang/rolling/blue-green/canary/feature flag, split mechanisms, canary vs A/B, observation/rollback, relation to model versioning — with implementation-status notes); deployment.md §0 slimmed to a pointer to it (section numbering preserved); knowledge-boundary annotations added (agent.md §4, add-engine.md §4, logging.md §5-6 roadmap, testing.md §4 roadmap); bilingual README doc tables synced to the four categories

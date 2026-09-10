@@ -1,6 +1,6 @@
 # 分叉契约（Forking Contract）
 
-> 本仓库是**模板，不是库**：使用方式是 fork/clone 后把代码变成你自己的服务，任意修改、完全拥有。但模板上游会持续演进——本文约定哪些区域你"随便改"、哪些区域"改前想清楚"、以及合并上游更新时冲突怎么取舍。分层背景见 [architecture.md](architecture.md)。最后更新：2026-08-22
+> 本仓库是**模板，不是库**：使用方式是 fork/clone 后把代码变成你自己的服务，任意修改、完全拥有。但模板上游会持续演进——本文约定哪些区域你"随便改"、哪些区域"改前想清楚"、以及合并上游更新时冲突怎么取舍。初始化新工程的操作流程见 [bootstrap.md](bootstrap.md)；分层背景见 [architecture.md](architecture.md)。最后更新：2026-09-10
 
 ## 1. 模板的本质
 
@@ -24,6 +24,9 @@
 
 | 我想做的事 | 属于哪个区 | 建议做法 |
 |-----------|-----------|---------|
+| 初始化新工程（改名、裁剪 demo 能力） | 全仓一次性 | 按 [bootstrap.md](bootstrap.md) §3/§4 清单走 |
+| 新增一个业务能力 | 绿区 | 按 [add-capability.md](add-capability.md) 选形态后逐层实现 |
+| 修改已有服务 | 按场景定位 | 按 [modify-service.md](modify-service.md) §1 定位到层 |
 | 换个检测算法（TensorRT/Triton/新模型） | 绿区 | 按 [add-engine.md](add-engine.md) 新增引擎 + 改 task 持有 |
 | 加一个新接口 / 改参数校验 | 绿区 | 改 `apis/`；结构校验放 `schemas.py`，语义校验放 task 层 |
 | envelope 里加业务字段（如 `data.cost_ms`） | 黄区 | 改 `utils/response.py` + 同步 [status-codes.md](status-codes.md)；记录改动，合并上游时保留 |
@@ -45,3 +48,11 @@
 | 红区冲突 | 不应该发生——发生了说明你或上游破坏了 contract，去提 issue/PR 对齐 |
 
 **能干净合并的前提**：分层把变更关在单一层内（见 [architecture.md](architecture.md) §3 替换原则）——上游换 Web 框架不动 `tasks/`/`engines/`，你换算法不动 `utils/`。双方都守层，冲突就少。
+
+## 5. fork 知识层的维护
+
+fork 继承的 `CLAUDE.md`/`docs/` 描述的是**模板基线**，不是新工程的现状：
+
+- 新工程每沉淀一条业务规则（新增状态码、新能力、部署差异），同步更新**新工程自己**的 `CLAUDE.md`/`docs/`——它们是活文档，随业务生长（操作清单见 [bootstrap.md](bootstrap.md) §7）
+- 不回改模板：模板文档只描述基线；改进模板向上游提 issue/PR
+- fork 代码与模板文档逐渐漂移是预期状态；合并上游时文档冲突按 §4 取舍

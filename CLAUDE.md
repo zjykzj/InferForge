@@ -21,6 +21,7 @@ Authoritative details live in [docs/architecture.md](docs/architecture.md); the 
 - Tasks own their predictors; the API layer never touches them.
 - HTTP always returns 200; business status in `{code, message, data}` (see docs/status-codes.md). Pydantic validation failures must fold into the envelope via `utils.response.validation_error_handler` (code=1) — FastAPI's default 422 must never leak.
 - Engine pre/post processing is self-written — never import ultralytics (AGPL-3.0).
+- Fork workflow: this repo is a template — development happens in forks of it, never here. Init a new project via `docs/bootstrap.md` (copy/rename, capability trimming, baseline acceptance); add capabilities via `docs/add-capability.md` (shape decision → footprint → per-layer steps); modify existing code via `docs/modify-service.md` (layer location → green/yellow/red zone check); upstream merge strategy is in `docs/forking-contract.md`. `docs/README.md` carries the task→entry map; `tests/test_architecture.py` + `scripts/check_capability.py` ship with the fork and turn the red-zone axioms into CI feedback there.
 
 ## Development Commands
 
@@ -64,6 +65,7 @@ python3 scripts/run_search.py --image assets/bus.jpg --check      # task layer d
 python3 scripts/export_dinov2.py                  # one-off: export DINOv2-small to ONNX (needs torch/torchvision, export-time only)
 python3 scripts/export_yolo.py                    # one-off: export yolov8n detect/seg/cls to ONNX (subprocess yolo CLI, NO ultralytics import)
 python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py
+python3 scripts/check_capability.py             # template footprint lint (capability file sets)
 ```
 
 ## Critical Details

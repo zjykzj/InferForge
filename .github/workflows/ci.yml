@@ -31,6 +31,9 @@ jobs:
       - name: Compile check
         run: python -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py conftest.py celery_app.py
 
+      - name: Template footprint check
+        run: python scripts/check_capability.py
+
       - name: Docs link check
         shell: bash
         run: |

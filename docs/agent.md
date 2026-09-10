@@ -1,6 +1,6 @@
 # Agent 编排指南（Agent）
 
-> Pydantic AI 接入示例：检测引擎 + LLM Agent 的编排模式、泛化方法与工具约定。零基础读者建议先读 [concepts.md](concepts.md) 与 [add-engine.md](add-engine.md)。最后更新：2026-08-24
+> Pydantic AI 接入示例：检测引擎 + LLM Agent 的编排模式、泛化方法与工具约定。零基础读者建议先读 [concepts.md](concepts.md) 与 [add-engine.md](workflow/add-engine.md)。最后更新：2026-08-24
 
 ## 1. 示例功能：图片人物发型统计
 
@@ -85,7 +85,7 @@ class HairCountResult(BaseModel):
 | 指令 | 改 `DEFAULT_AGENT_INSTRUCTIONS`（或 `INFERFORGE_AGENT_INSTRUCTIONS`） | 「judge whether they wear glasses」 |
 | 工具 | 改/换 `_detect_persons`（检测引擎、返回字段） | 目标类改 `INFERFORGE_AGENT_TARGET_CLASS` 即可（类名表来自注册模型，`classes` 文件可覆盖）；复杂场景可换分类/分割引擎 |
 
-工具约定（对应 [add-engine.md](add-engine.md) 之于引擎层）：
+工具约定（对应 [add-engine.md](workflow/add-engine.md) 之于引擎层）：
 
 - 工具函数放 tasks 层（Agent 是编排不是内核）；重计算走本地引擎（`get_predictor`），轻逻辑可直接在工具内完成
 - 工具返回 Pydantic 模型（自动序列化给模型），字段带 `Field(description=...)`——描述直接影响模型调用正确率

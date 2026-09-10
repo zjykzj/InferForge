@@ -62,7 +62,7 @@ POST /predict/callback    {"image": ..., "model": "defect-det", "callback_url": 
 - capability 不匹配（拿 detect 模型调 `/predict/classify`）→ `code=10`
 - 每个进程内，按模型名缓存已加载的 predictor（懒加载、常驻，无淘汰；模板场景模型数少，全部常驻是预期行为）
 
-路由在 **task 层**完成（`tasks/*.py` 各自持有按模型名索引的 predictor 缓存）；api 层只透传 `model` 字段，不感知 predictor（与 [add-engine.md](add-engine.md) 的约定一致）。
+路由在 **task 层**完成（`tasks/*.py` 各自持有按模型名索引的 predictor 缓存）；api 层只透传 `model` 字段，不感知 predictor（与 [add-engine.md](workflow/add-engine.md) 的约定一致）。
 
 vlm / agent 接口不接注册表：它们调用远程 LLM，没有本地模型。
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Template footprint checker: verify each registered capability matches the
-add-capability.md file-set convention (docs/add-capability.md §3).
+add-capability.md file-set convention (docs/workflow/add-capability.md §3).
 
 Static checks only — no model loads, no network, no services:
   A. the registry parses (load() enforces defaults/top-level rules)
@@ -114,7 +114,7 @@ def check():
                 if not any(capability in f for f in files):
                     errors.append(
                         "capability %r: no %s/ file matching its name "
-                        "(docs/add-capability.md §3)" % (capability, layer)
+                        "(docs/workflow/add-capability.md §3)" % (capability, layer)
                     )
 
     # D. every preflight switch is read somewhere in app.py

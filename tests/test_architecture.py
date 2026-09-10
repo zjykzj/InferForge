@@ -1,4 +1,4 @@
-"""Architecture guard tests: the red-zone axioms (docs/forking-contract.md §2)
+"""Architecture guard tests: the red-zone axioms (docs/workflow/forking-contract.md §2)
 as executable checks.
 
 These ship with the fork — a downstream agent that breaks a layering, envelope
@@ -64,7 +64,7 @@ def _imported_roots(node: ast.stmt) -> set[str]:
     module = node.module or ""
     if node.level == 0:
         return {module.split(".")[0]} if module else set()
-    return set()  # relative: checked separately by _relative_bases
+    return set()  # relative imports: nothing to check for module-level scans
 
 
 def _layer_files(layer: str) -> list[Path]:

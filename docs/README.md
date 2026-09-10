@@ -6,6 +6,8 @@
 >
 > 撰写约定：使用指南/规范文档中出现的**领域知识小节必须带边界标注**（`> 本节为领域知识，不描述本工程实现…`）并注明本工程的实现状态——范例见 [security.md](security.md) §2。
 
+## 文档分类
+
 - **使用指南**
   - [quick-start.md](quick-start.md)：快速开始——同步/异步（回调 + 轮询）场景的完整启动与验证
   - [architecture.md](architecture.md)：分层架构——各层职责、实现逻辑、依赖规则、技术栈
@@ -19,11 +21,11 @@
   - [concepts.md](concepts.md)：概念入门——Web 服务、任务队列、回调/轮询、Redis 的零基础科普
   - [release-strategies.md](release-strategies.md)：发布策略——环境模型、五种发布策略谱系（停服/滚动/蓝绿/canary/feature flag）、分流机制（canary vs A/B）、观测回滚、与模型版本管理的关系，附本工程实现状态标注
 - **开发规范**
-  - [forking-contract.md](forking-contract.md)：forking contract——模板使用方式、可改/慎改区域、合并上游更新的冲突取舍
-  - [bootstrap.md](bootstrap.md)：从模板创建新工程——复制与改名清单、demo 能力裁剪、配置初始化、底座验收与知识层继承
-  - [add-capability.md](add-capability.md)：新增业务能力——形态决策（同步/异步/query-only）、能力文件集、无参照时的契约推导
-  - [add-engine.md](add-engine.md)：新增推理引擎——BasePredictor contract、接入步骤（含 TensorRT/Triton）与验证清单
-  - [modify-service.md](modify-service.md)：修改已有服务——层级定位、绿黄红区、换算法与回归验收
+  - [forking-contract.md](workflow/forking-contract.md)：forking contract——模板使用方式、可改/慎改区域、合并上游更新的冲突取舍
+  - [bootstrap.md](workflow/bootstrap.md)：从模板创建新工程——复制与改名清单、demo 能力裁剪、配置初始化、底座验收与知识层继承
+  - [add-capability.md](workflow/add-capability.md)：新增业务能力——形态决策（同步/异步/query-only）、能力文件集、无参照时的契约推导
+  - [add-engine.md](workflow/add-engine.md)：新增推理引擎——BasePredictor contract、接入步骤（含 TensorRT/Triton）与验证清单
+  - [modify-service.md](workflow/modify-service.md)：修改已有服务——层级定位、绿黄红区、换算法与回归验收
   - [status-codes.md](status-codes.md)：业务状态码——`{code, message, data}` envelope 规范、方案比较
   - [logging.md](logging.md)：日志模块——分级纪律、trace_id、生产实践指南
   - [metrics.md](metrics.md)：指标规范——Prometheus 指标清单、multiprocess 聚合、监控栈接入
@@ -33,17 +35,13 @@
   - [stack.md](stack.md)：技术栈说明——FastAPI/Uvicorn/Gunicorn、Celery/RabbitMQ、Redis 与 OpenAI SDK/Pydantic AI 的选型理由、配置点与关键决策（全景，含环境变量总览）
   - [fastapi-migration.md](fastapi-migration.md)：Flask → FastAPI——两个框架对比、迁移理由与影响面（历史专题）
 
----
-
 ## 给开发 Agent 的入口（任务 → 入口映射）
 
 在新工程上开发时按"要做什么"直接进对应入口，不用通读全部文档：
 
-| 我要做 | 入口 |
-|--------|------|
-| 从模板初始化新工程 | [bootstrap.md](bootstrap.md) |
-| 新增一个业务能力 | [add-capability.md](add-capability.md)（§2 先选形态） |
-| 换算法 / 接新推理后端 | [add-engine.md](add-engine.md) |
-| 修改已有服务（业务/参数/算法） | [modify-service.md](modify-service.md)（§1 定位） |
-| 合并模板上游更新 | [forking-contract.md](forking-contract.md) §4 |
-| 理解"为什么这么设计" | [concepts.md](concepts.md) → [architecture.md](architecture.md) |
+- 从模板初始化新工程 → [bootstrap.md](workflow/bootstrap.md)
+- 新增一个业务能力 → [add-capability.md](workflow/add-capability.md)（§2 先选形态）
+- 换算法 / 接新推理后端 → [add-engine.md](workflow/add-engine.md)
+- 修改已有服务（业务/参数/算法） → [modify-service.md](workflow/modify-service.md)（§1 定位）
+- 合并模板上游更新 → [forking-contract.md](workflow/forking-contract.md) §4
+- 理解"为什么这么设计" → [concepts.md](concepts.md) → [architecture.md](architecture.md)

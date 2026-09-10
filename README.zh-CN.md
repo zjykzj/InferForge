@@ -14,7 +14,7 @@
 
 ## 关于
 
-InferForge 是推理后端之上的服务外壳：开箱即得生产配套——Web 接口、日志处理、异常处理、统一响应格式——模型几天内就能变成可部署的服务。但推理之上的业务层千差万别、无法一概而论，因此本项目刻意做成**模板而非框架**：fork 之后代码归你所有，任务与接口由你定义。分层架构保证每一层可独立替换——哪些可以改、哪些别乱动，见 [forking-contract](docs/forking-contract.md)。
+InferForge 是推理后端之上的服务外壳：开箱即得生产配套——Web 接口、日志处理、异常处理、统一响应格式——模型几天内就能变成可部署的服务。但推理之上的业务层千差万别、无法一概而论，因此本项目刻意做成**模板而非框架**：fork 之后代码归你所有，任务与接口由你定义。分层架构保证每一层可独立替换——哪些可以改、哪些别乱动，见 [forking-contract](docs/workflow/forking-contract.md)。
 
 ## 项目结构
 
@@ -227,7 +227,7 @@ python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/
 |---|---|
 | 使用指南 | [quick-start](docs/quick-start.md) · [architecture](docs/architecture.md) · [api](docs/api.md) · [model-registry](docs/model-registry.md) · [agent](docs/agent.md) · [embedding](docs/embedding.md) · [benchmark](docs/benchmark.md) · [deployment](docs/deployment.md) |
 | 领域知识 | [concepts](docs/concepts.md) · [release-strategies](docs/release-strategies.md) |
-| 规范 | [forking-contract](docs/forking-contract.md) · [add-engine](docs/add-engine.md) · [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
+| 规范 | [forking-contract](docs/workflow/forking-contract.md) · [bootstrap](docs/workflow/bootstrap.md) · [add-capability](docs/workflow/add-capability.md) · [add-engine](docs/workflow/add-engine.md) · [modify-service](docs/workflow/modify-service.md) · [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
 | 技术栈 | [stack](docs/stack.md) · [fastapi-migration](docs/fastapi-migration.md) |
 
 带逐篇说明的完整索引：[docs/README.md](docs/README.md)。

@@ -71,7 +71,7 @@ cp models/registry.example.yaml models/registry.yaml   # 注册你自己的模�
 ```
 
 - `.env` 由 `app.py`/`celery_app.py` 在 import 时加载（`override=False`：shell/compose 环境变量优先）
-- registry 缺省行为：没有 `registry.yaml` 时由 `INFERFORGE_*_MODEL_PATH` 合成单模型注册表——新工程建议一开始就建 registry 文件，多模型路由是模板的默认姿势（见 [model-registry.md](model-registry.md)）
+- registry 缺省行为：没有 `registry.yaml` 时由 `INFERFORGE_*_MODEL_PATH` 合成单模型注册表——新工程建议一开始就建 registry 文件，多模型路由是模板的默认姿势（见 [model-registry.md](../model-registry.md)）
 
 ## 6. 底座验收（开始业务开发的 done 定义）
 

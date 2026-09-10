@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           status=0
-          for f in docs/*.md deploy/*.md README.md README.zh-CN.md; do
+          for f in $(find docs deploy -name '*.md' | sort) README.md README.zh-CN.md; do
             # grep exits 1 when a file has no .md links — never fatal here
             links=$(grep -o ']([^)#]*\.md)' "$f" | sed 's/](//;s/)//' || true)
             while read -r link; do

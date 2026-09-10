@@ -1,19 +1,19 @@
 ---
 name: inferforge-add-capability
-description: 在 InferForge 新工程中新增一个业务能力（接口/任务/算法）。当需要新增同步接口、异步任务（callback/query）、query-only 任务，或实现模板没有参照的新功能时使用。完整知识与形态取舍见 docs/add-capability.md。
+description: 在 InferForge 新工程中新增一个业务能力（接口/任务/算法）。当需要新增同步接口、异步任务（callback/query）、query-only 任务，或实现模板没有参照的新功能时使用。完整知识与形态取舍见 docs/workflow/add-capability.md。
 ---
 
 # 新增业务能力
 
-完整知识与形态取舍见 `docs/add-capability.md`——本技能只规定流程与验收，不重复解释。
+完整知识与形态取舍见 `docs/workflow/add-capability.md`——本技能只规定流程与验收，不重复解释。
 
 ## Step 0：选形态（必做，不要跳过）
 
-按 `docs/add-capability.md` §2 决策表选：同步 / 异步 callback / 异步 query / query-only。模板没有同形态参照时走 §6 契约推导路径（从 `BasePredictor` + envelope + 分层公理组合，测试当契约）。
+按 `docs/workflow/add-capability.md` §2 决策表选：同步 / 异步 callback / 异步 query / query-only。模板没有同形态参照时走 §6 契约推导路径（从 `BasePredictor` + envelope + 分层公理组合，测试当契约）。
 
 ## 步骤
 
-1. **引擎**（新算法时）：`engines/<name>.py` 按 `docs/add-engine.md`（canonical：`engines/yolo.py`；重型依赖 import 在函数体内）
+1. **引擎**（新算法时）：`engines/<name>.py` 按 `docs/workflow/add-engine.md`（canonical：`engines/yolo.py`；重型依赖 import 在函数体内）
 2. **registry**：`models/registry.yaml` 加条目（capability + path + classes）+ `defaults`
 3. **task**：`tasks/<name>.py`（canonical：`tasks/detection.py`——`get_predictor` 懒加载三件套 + 编排函数 + `default_model_loaded`）
 4. **schemas + api**：结构校验进 `apis/schemas.py`；路由 `apis/sync_<name>.py`（canonical：`apis/sync_detect.py`；try/except 阶梯顺序固定：ModelNotFound → ValueError → RequestException → Exception）

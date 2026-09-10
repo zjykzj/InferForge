@@ -17,8 +17,8 @@
 
 ## 2. 修改流程
 
-1. **定位**：按 §1 表找到动手层；不确定时先读对应 canonical 参照与 [architecture.md](architecture.md) 分层说明
-2. **区检查**：确认改动落在哪个区。绿区直接做；黄区先读对应文档（改 envelope 读 [status-codes.md](status-codes.md)，改指标读 [metrics.md](metrics.md)）；红区停下重新评估
+1. **定位**：按 §1 表找到动手层；不确定时先读对应 canonical 参照与 [architecture.md](../architecture.md) 分层说明
+2. **区检查**：确认改动落在哪个区。绿区直接做；黄区先读对应文档（改 envelope 读 [status-codes.md](../status-codes.md)，改指标读 [metrics.md](../metrics.md)）；红区停下重新评估
 3. **改实现 + 同步改测试**：实现和测试同一次改动里完成——测试是契约，改行为就改测试。冒烟测试模仿 `tests/test_sync_detect.py` 的 seam（FakePredictor + monkeypatch）
 4. **契约类改动双注册**（漏一处 CI/文档检查会指出）：
    - 新增业务状态码 → `utils/response.py` 文档串 **和** `docs/status-codes.md` 两处注册，避开 0-10 已有语义

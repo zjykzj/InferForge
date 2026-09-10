@@ -12,7 +12,7 @@
 | 二 | 耗时/排队，需要"做完通知我"或"我自己查" | **异步** callback / query | Celery + broker、恰好一次投递、队列等待指标、结果 TTL | `detection_callback` / `detection_query` |
 | 三 | 依赖远程服务（LLM）或单进程独占资源（本地向量库） | **query-only**（无 sync、无 callback） | worker-only 依赖懒加载、远端调用指标 | `vlm_query` / `search_query` |
 
-每个机制的存在理由都写在其参照实现的 docstring 与 [architecture.md](architecture.md) 里——模仿前先读参照的"为什么"，避免照猫画虎。
+每个机制的存在理由都写在其参照实现的 docstring 与 [architecture.md](../architecture.md) 里——模仿前先读参照的"为什么"，避免照猫画虎。
 
 ## 2. Step 0：形态决策
 
@@ -35,7 +35,7 @@ callback 与 query 可以并存（检测能力就是双变体），选型是**�
 | # | 文件 | 作用 | canonical 参照 |
 |---|------|------|---------------|
 | 1 | `engines/<name>.py` | 算法实现（新算法时；复用现有引擎则跳过） | `engines/yolo.py`（步骤见 [add-engine.md](add-engine.md)） |
-| 2 | `models/registry.yaml` | capability + 模型条目（可多个）+ `defaults` | 见 [model-registry.md](model-registry.md) |
+| 2 | `models/registry.yaml` | capability + 模型条目（可多个）+ `defaults` | 见 [model-registry.md](../model-registry.md) |
 | 3 | `tasks/<name>.py` | 编排：懒加载 predictor、语义校验、指标 | `tasks/detection.py` |
 | 4 | `apis/schemas.py` | 请求模型（**结构**校验：形状/类型/二选一） | `PredictRequest` / `DedupRequest` |
 | 5 | `apis/sync_<name>.py` | 路由：转发 task 层、try/except 阶梯、组装 envelope | `apis/sync_detect.py` |

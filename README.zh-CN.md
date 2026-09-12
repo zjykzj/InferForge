@@ -38,9 +38,10 @@ git clone https://github.com/zjykzj/InferForge.git ~/InferForge
 cd ~/InferForge && claude
 > 初始化一个 web 服务到 /srv/my-service。
 
-Agent：assemble.py --target /srv/my-service → 生成身份文件
+Agent：逐个确认横切机制（metrics / 鉴权 / 限流 / 日志——默认都不要）→
+      assemble.py --target /srv/my-service → 生成身份文件
       （README / CLAUDE.md）→ 配置 → 底座验收全绿
-      → git init + 首次提交（默认装配 = 最小服务外壳 + 健康探针）
+      → git init + 首次提交（默认装配 = 契约内核 + 健康探针）
 ```
 
 ```bash

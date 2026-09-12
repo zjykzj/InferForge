@@ -14,11 +14,13 @@
 
 | 类别 | 语义 | 例子 |
 |------|------|------|
-| `base` | 总是装配：**最小服务外壳**——app 工厂、健康探针、envelope 等横切机制、契约测试；无业务能力、无模板身份文件 | `app.py`、`utils/*`、`apis/health.py` |
+| `base` | 总是装配：**契约内核**——app 工厂、envelope、健康探针、占位包、契约测试；无机制、无业务能力、无模板身份文件 | `app.py`、`utils/response.py`、`apis/health.py` |
+| `mechanisms` | 横切中间件组件，opt-in，逐个确认；每个组件自带文件 + **依赖声明** | metrics / auth / rate_limit / logging（request_id 属契约内核） |
 | `capabilities` | 能力文件集，opt-in；`requires` 自动展开依赖闭包 | detect / seg / cls / pipeline / embed / dedup / async / vlm / agent / search |
-| `shared` | 任一 `any_of` 能力选中即包含 | `serving-stack`（engines/registry/start.sh/preflight——模型服务设施）、`http-stack`（schemas/image——HTTP 业务能力共用）、export_yolo |
+| `shared` | 任一 `any_of` 名称选中即包含 | `serving-stack`（engines/registry/start.sh/preflight——模型服务设施）、`http-stack`（schemas/image——HTTP 业务能力共用）、export_yolo |
 | `features` | 部署/工具特性，opt-in | ci / docker / deploy / benchmark |
 | `template` | 模板身份与知识库，**永不装配**——新工程的身份文件由 bootstrap §3 **生成**，不是复制 | README / CHANGELOG / LICENSE / CLAUDE.md / docs / skills |
+| `generated` | 装配器**写入**而非拷贝的文件 | requirements.txt = 所选条目依赖声明的合并 |
 
 依赖展开表：`seg` → detect；`pipeline` → detect+cls；`dedup` → embed；`async` → detect；`vlm` → async；`agent` → detect+async；`search` → embed+async。
 
@@ -33,8 +35,8 @@
 python3 scripts/assemble.py --target /path/to/proj [--with a,b] [--features x,y] [--force]
 ```
 
-- 不带 `--with`：仅 base
-- 装配动作：按清单复制 → 对含标记的文件剔除未选能力块 → 选中能力时把装配后的 `registry.example.yaml` 写成 `models/registry.yaml`
+- 不带 `--with`：仅契约内核
+- 装配动作：按清单复制 → 对含标记的文件剔除未选名称块 → 选中能力时把装配后的 `registry.example.yaml` 写成 `models/registry.yaml` → **合并所选条目的依赖声明写入 requirements.txt**
 - 目标目录必须为空（`--force` 覆盖），可重复生成
 
 ## 5. 标记块约定
@@ -65,12 +67,12 @@ from apis.sync_detect import sync_detect_router
 
 ## 7. 扩展指南
 
-模板侧新增一个能力：
+模板侧新增一个能力（或机制）：
 
-1. 能力文件加进 manifest `capabilities`（`requires` 声明依赖）
+1. 文件加进 manifest `capabilities`（或 `mechanisms`），`requires` 声明依赖，`requirements` 声明 pip 依赖
 2. wiring 文件里的共享代码加标记块（配对）
 3. `pytest tests/test_bootstrap_manifest.py` 通过
-4. 用 assemble.py 生成含该能力的工程，其内 `pytest` 全绿——生成物自证
+4. 用 assemble.py 生成含该条目的工程，其内 `pytest` 全绿——生成物自证
 
 与 [add-capability.md](workflow/add-capability.md) §3 footprint 的关系：footprint 回答"一个能力由哪些文件构成"（业务侧约定），manifest 回答"这些文件在装配时如何选择"（模板侧登记）——新增能力时两处都要更新。
 

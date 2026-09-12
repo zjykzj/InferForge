@@ -30,17 +30,23 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from utils import metrics
+# @inferforge:metrics
+from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
 
 
 def success(data: Any = None) -> JSONResponse:
+    # @inferforge:metrics
     metrics.record_response(0)
+    # @inferforge:end:metrics
     return JSONResponse({"code": 0, "message": "success", "data": data})
 
 
 def error(message: str, code: int = 1, http_status: int = 200,
           headers: dict | None = None) -> JSONResponse:
+    # @inferforge:metrics
     metrics.record_response(code)
+    # @inferforge:end:metrics
     return JSONResponse({"code": code, "message": message, "data": None},
                         status_code=http_status, headers=headers)
 

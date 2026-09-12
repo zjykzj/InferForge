@@ -12,7 +12,9 @@ import cv2
 import numpy as np
 
 from engines.base import BasePredictor, DetectionResult, class_label
-from utils import metrics
+# @inferforge:metrics
+from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
 
 logger = logging.getLogger("engines.yolo")
 
@@ -165,9 +167,11 @@ class YoloPredictor(BasePredictor):
         boxes[:, [1, 3]] = np.clip((boxes[:, [1, 3]] - pad[1]) / ratio, 0, h)
         t_post = time.perf_counter()
 
+# @inferforge:metrics
         metrics.observe_phase("pre", t_pre - t_total)
         metrics.observe_phase("infer", t_infer - t_pre)
         metrics.observe_phase("post", t_post - t_infer)
+# @inferforge:end:metrics
 
         logger.info(
             "predict done: %d detections (pre=%.1fms, infer=%.1fms, post=%.1fms, total=%.1fms)",

@@ -3,55 +3,76 @@
 # scripts/assemble.py; guarded by tests/test_bootstrap_manifest.py
 # (every tracked repo file is claimed exactly once; marker blocks pair up).
 #
-# Selection model:
-#   base         — always copied: the MINIMAL serving shell — app factory,
-#                  health probes, metrics router, cross-cutting utils
-#                  (envelope, logging, request-id, auth, rate limit) and
-#                  the contract tests. NO capability, NO template identity
-#                  files (README/CHANGELOG/LICENSE/VERSION/CLAUDE.md are
-#                  GENERATED for the new project, never copied — see
-#                  bootstrap.md §3), NO docs (the template dir stays the
-#                  reference library) except docs/status-codes.md, which
-#                  is part of the envelope contract the guard tests check.
-#   capabilities — one file set each; opt-in via --with; `requires` expands
-#                  the dependency closure automatically.
-#   shared       — included when ANY of the listed capabilities is selected:
-#                  serving-stack (engines, registry, start.sh, preflight —
-#                  the model-serving infrastructure) and http-stack (request
-#                  schemas, image conversion — needed by every HTTP
-#                  business capability).
-#   features     — deployment/tooling extras; opt-in via --features.
-#   template     — template-identity assets and the knowledge library:
-#                  NEVER assembled. The template is the reference, not a
-#                  copy source — new projects get their identity files
-#                  GENERATED (bootstrap.md §3) and read the docs from the
-#                  template directory.
+# Three-layer model:
+#   base         — always copied: the CONTRACT KERNEL. app factory +
+#                  envelope + health probes + placeholder packages
+#                  (tasks/engines) + the contract guard tests. NO
+#                  mechanism, NO capability, NO template identity files.
+#   mechanisms   — cross-cutting middleware pieces, opt-in: metrics,
+#                  request_id, auth, rate_limit, logging. Each entry
+#                  carries its files AND its pip requirements — the
+#                  generated requirements.txt is the MERGE of selected
+#                  entries, never a copy of the template's.
+#   capabilities — business capabilities, opt-in; `requires` expands the
+#                  dependency closure automatically.
+#   shared       — included when ANY of the listed names is selected
+#                  (serving-stack: engines/registry/start.sh/preflight;
+#                  http-stack: schemas/image utils).
+#   features     — deployment/tooling extras, opt-in (ci/docker/deploy/
+#                  benchmark).
+#   template     — template identity + knowledge library: NEVER assembled
+#                  (new projects GENERATE identity per bootstrap.md §3).
+#   generated    — files assemble.py WRITES from manifest data instead of
+#                  copying (requirements.txt = merged dependency set).
 #
-# Wiring files (app.py, apis/health.py, engines/registry.py, ...) carry
-# `# @inferforge:<name>` ... `# @inferforge:end:<name>` marker blocks for
-# capability-specific code; assemble.py drops the blocks of unselected
-# capabilities so a generated project never references absent files.
+# Wiring files carry `# @inferforge:<name>` ... `# @inferforge:end:<name>`
+# marker blocks (capability/mechanism/feature names; compound a+b = AND);
+# assemble.py strips the blocks of unselected names.
 
 base:
-  - .env.example
-  - .gitignore
-  - app.py
-  - apis/__init__.py
-  - apis/health.py
-  - apis/metrics.py
-  - conftest.py
-  - requirements.txt
-  - tests/__init__.py
-  - tests/test_architecture.py
-  - tests/test_logger.py
-  - utils/__init__.py
-  - utils/auth.py
-  - utils/logger.py
-  - utils/metrics.py
-  - utils/rate_limit.py
-  - utils/request_id.py
-  - utils/response.py
-  - utils/switches.py
+  files:
+    - .env.example
+    - .gitignore
+    - apis/__init__.py
+    - apis/health.py
+    - app.py
+    - conftest.py
+    - engines/__init__.py
+    - tasks/__init__.py
+    - tests/__init__.py
+    - tests/test_architecture.py
+    - utils/__init__.py
+    - utils/request_id.py
+    - utils/response.py
+    - utils/switches.py
+  requirements:
+    - fastapi>=0.141,<1.0
+    - httpx>=0.28,<0.29
+    - pydantic>=2.13,<3.0
+    - pytest>=8.0
+    - python-dotenv>=1.0,<2.0
+    - uvicorn>=0.52,<1.0
+
+mechanisms:
+  metrics:
+    files:
+      - apis/metrics.py
+      - tests/test_metrics.py
+      - utils/metrics.py
+    requirements:
+      - prometheus_client>=0.21,<1.0
+  auth:
+    files:
+      - tests/test_auth.py
+      - utils/auth.py
+  rate_limit:
+    files:
+      - tests/test_rate_limit.py
+      - utils/rate_limit.py
+  logging:
+    files:
+      - tests/test_logger.py
+      - utils/logger.py
 
 capabilities:
   detect:
@@ -64,13 +85,14 @@ capabilities:
       - scripts/test_sync_detect.py
       - tasks/detection.py
       - tasks/warmup.py
-      - tests/test_auth.py
       - tests/test_health.py
-      - tests/test_metrics.py
       - tests/test_preload.py
-      - tests/test_rate_limit.py
       - tests/test_registry.py
       - tests/test_sync_detect.py
+    requirements:
+      - numpy>=1.26
+      - onnxruntime>=1.17
+      - opencv-python>=4.9
   seg:
     requires: [detect]
     files:
@@ -92,6 +114,9 @@ capabilities:
       - tasks/classification.py
       - tests/test_sync_classify.py
       - tests/test_yolo_cls_engine.py
+    requirements:
+      - numpy>=1.26
+      - onnxruntime>=1.17
   pipeline:
     requires: [detect, cls]
     files:
@@ -107,6 +132,9 @@ capabilities:
       - engines/dinov2.py
       - scripts/export_dinov2.py
       - tasks/embedding.py
+    requirements:
+      - numpy>=1.26
+      - onnxruntime>=1.17
   dedup:
     requires: [embed]
     files:
@@ -169,21 +197,25 @@ capabilities:
 shared:
   - any_of: [detect, seg, cls, embed]
     files:
-      - engines/__init__.py
       - engines/base.py
       - engines/registry.py
-      - utils/errors.py
       - gunicorn.conf.py
       - models/.gitkeep
       - models/registry.example.yaml
       - scripts/check_capability.py
       - scripts/preflight_models.py
       - start.sh
-      - tasks/__init__.py
+      - utils/errors.py
+    requirements:
+      - PyYAML>=6.0,<7.0
+      - gunicorn>=21.2,<24.0
   - any_of: [detect, seg, cls, pipeline, embed, dedup, async, vlm, agent, search]
     files:
       - apis/schemas.py
       - utils/image.py
+    requirements:
+      - Pillow>=10.0
+      - requests>=2.31
   - any_of: [detect, seg, cls]
     files:
       - scripts/export_yolo.py
@@ -238,3 +270,6 @@ features:
       - docs/benchmark.md
       - scripts/benchmark.py
       - scripts/mock_llm.py
+
+generated:
+  - requirements.txt

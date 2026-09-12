@@ -3,14 +3,26 @@ import pytest
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
-from apis.metrics import metrics_router
+# @inferforge:metrics
+from apis.metrics import metrics_router  # noqa: E402
+# @inferforge:end:metrics
 # engines/registry ships with the serving-stack shared set — a base-only
 # assembly (no capabilities) has no registry to isolate.
 try:
     from engines import registry
 except ImportError:  # pragma: no cover — depends on assembly selection
     registry = None
-from utils import auth, metrics, rate_limit, request_id, response
+from utils import response
+# @inferforge:metrics
+from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
+# @inferforge:rate_limit
+from utils import rate_limit  # noqa: E402
+# @inferforge:end:rate_limit
+# @inferforge:auth
+from utils import auth  # noqa: E402
+# @inferforge:end:auth
+from utils import request_id  # noqa: E402
 
 _DEFAULT_REGISTRY = """\
 defaults:
@@ -84,12 +96,20 @@ def app_factory():
     def _make(*routers):
         app = FastAPI()
         # Same order as create_app: LAST added = outermost.
+        # @inferforge:metrics
         app.add_middleware(metrics.MetricsMiddleware)
+        # @inferforge:end:metrics
+        # @inferforge:rate_limit
         app.add_middleware(rate_limit.RateLimitMiddleware)
+        # @inferforge:end:rate_limit
+        # @inferforge:auth
         app.add_middleware(auth.AuthMiddleware)
+        # @inferforge:end:auth
         app.add_middleware(request_id.RequestIdMiddleware)
         app.add_exception_handler(RequestValidationError, response.validation_error_handler)
+        # @inferforge:metrics
         app.include_router(metrics_router)
+        # @inferforge:end:metrics
         for router in routers:
             app.include_router(router)
         return app

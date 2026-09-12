@@ -22,7 +22,9 @@ import time
 from typing import Optional, Tuple
 
 from utils import image as image_utils
-from utils import metrics
+# @inferforge:metrics
+from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
 
 logger = logging.getLogger("tasks.vlm")
 
@@ -106,11 +108,15 @@ def _call_remote_llm(image_data_url: str, prompt: str) -> Tuple[str, str]:
             max_tokens=LLM_MAX_TOKENS,
         )
     except OpenAIError as exc:
+# @inferforge:metrics
         metrics.count_vlm_remote_error()
+# @inferforge:end:metrics
         logger.warning("upstream llm call failed after %.1fs: %s",
                        time.perf_counter() - started, exc)
         raise LLMUpstreamError(str(exc)) from exc
+# @inferforge:metrics
     metrics.observe_vlm_remote_call(time.perf_counter() - started)
+# @inferforge:end:metrics
     usage = getattr(resp, "usage", None)  # test fakes have no usage attribute
     if usage is not None:
         logger.info("llm usage: model=%s prompt_tokens=%s completion_tokens=%s total_tokens=%s",

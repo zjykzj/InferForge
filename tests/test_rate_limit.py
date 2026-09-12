@@ -7,9 +7,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apis.health import health_router
-from apis.sync_detect import sync_detect_router
+# @inferforge:detect
+from apis.sync_detect import sync_detect_router  # noqa: E402
+# @inferforge:end:detect
 
 
+# @inferforge:detect
 def _limited_app(monkeypatch, app_factory, limit, api_key=None):
     monkeypatch.setenv("INFERFORGE_RATE_LIMIT", str(limit))
     if api_key:
@@ -41,14 +44,6 @@ def test_over_limit_returns_429_envelope(monkeypatch, app_factory):
     assert resp.headers.get("X-Request-ID")  # rejection still carries the id
 
 
-def test_probes_exempt(monkeypatch, app_factory):
-    monkeypatch.setenv("INFERFORGE_RATE_LIMIT", "1")
-    client = TestClient(app_factory(health_router))
-    for _ in range(5):
-        assert client.get("/health").status_code == 200
-        assert client.get("/metrics").status_code == 200
-
-
 def test_per_key_buckets_when_auth_on(monkeypatch, app_factory):
     """With auth enabled, each valid key gets its own bucket."""
     client = TestClient(_limited_app(monkeypatch, app_factory, limit=1, api_key="secret"))
@@ -59,3 +54,14 @@ def test_per_key_buckets_when_auth_on(monkeypatch, app_factory):
     assert client.post("/predict", json={}, headers=h1).status_code == 429
     # wrong key is rejected by auth (401) before the limiter ever sees it
     assert client.post("/predict", json={}, headers=h2).status_code == 401
+# @inferforge:end:detect
+
+
+def test_probes_exempt(monkeypatch, app_factory):
+    monkeypatch.setenv("INFERFORGE_RATE_LIMIT", "1")
+    client = TestClient(app_factory(health_router))
+    for _ in range(5):
+        assert client.get("/health").status_code == 200
+        # @inferforge:metrics
+        assert client.get("/metrics").status_code == 200
+        # @inferforge:end:metrics

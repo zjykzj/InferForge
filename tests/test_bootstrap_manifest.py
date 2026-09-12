@@ -41,8 +41,11 @@ def _claims():
     """path -> [owners]; a path claimed by more than one owner is an error."""
     manifest = assemble.load_manifest()
     claims = {}
-    for path in manifest["base"]:
+    for path in manifest["base"]["files"]:
         claims.setdefault(path, []).append("base")
+    for name, entry in manifest.get("mechanisms", {}).items():
+        for path in entry["files"]:
+            claims.setdefault(path, []).append("mechanism:%s" % name)
     for name, entry in manifest["capabilities"].items():
         for path in entry["files"]:
             claims.setdefault(path, []).append("capability:%s" % name)
@@ -54,12 +57,15 @@ def _claims():
             claims.setdefault(path, []).append("feature:%s" % name)
     for path in manifest.get("template", []):
         claims.setdefault(path, []).append("template")
+    for path in manifest.get("generated", []):
+        claims.setdefault(path, []).append("generated")
     return manifest, claims
 
 
 def _known_tags(manifest):
-    tags = set(manifest["capabilities"]) | set(manifest["features"])
-    return tags
+    return (set(manifest["capabilities"])
+            | set(manifest.get("mechanisms", {}))
+            | set(manifest["features"]))
 
 
 def test_every_tracked_file_is_claimed_exactly_once():
@@ -143,10 +149,13 @@ def test_dependencies_reference_known_capabilities():
 
 def test_capability_files_do_not_overlap_base():
     manifest = assemble.load_manifest()
-    base = set(manifest["base"])
+    base = set(manifest["base"]["files"])
     for name, entry in manifest["capabilities"].items():
         overlap = base & set(entry["files"])
         assert not overlap, "%s overlaps base: %s" % (name, sorted(overlap))
+    for name, entry in manifest.get("mechanisms", {}).items():
+        overlap = base & set(entry["files"])
+        assert not overlap, "mechanism %s overlaps base: %s" % (name, sorted(overlap))
 
 
 def test_template_section_is_never_assembled():

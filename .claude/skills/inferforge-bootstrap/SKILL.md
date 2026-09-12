@@ -9,8 +9,8 @@ description: 从 InferForge 模板初始化一个新业务工程——按需装�
 
 ## 步骤（严格按序，每步完成后再进入下一步）
 
-1. **问目标路径与能力**：用户未给新工程路径时先追问；未说能力时确认选择清单（默认仅 base = 服务外壳 + 健康探针，无业务能力；常用组合如 `detect`、`detect,async`）
-2. **按需装配**：`python3 <模板目录>/scripts/assemble.py --target <路径> --with <能力> --features <特性>`（`docs/workflow/bootstrap.md` §2/§4——正向清单，未选的文件根本不存在；依赖自动展开）
+1. **问目标路径、能力与机制**：用户未给新工程路径时先追问；未说能力时确认选择清单；**横切机制逐个确认**（metrics / auth / 限流 / 日志，默认都不要——"先检查、再确认"）
+2. **按需装配**：`python3 <模板目录>/scripts/assemble.py --target <路径> --with <能力,机制> --features <特性>`（`docs/workflow/bootstrap.md` §2/§4——正向清单，未选的文件根本不存在；依赖自动展开；requirements.txt 由所选条目的依赖声明合并生成）
 3. **身份生成**：按 `docs/workflow/bootstrap.md` §3 为新工程**生成**身份文件（不是复制模板的）——README（服务名 + 启动/测试命令）、CLAUDE.md（硬规则精简 + 模板 docs 指针）；CHANGELOG/VERSION 首次发布时再生成；LICENSE 问用户；改 base 内残留（`app.py` title）
 4. **配置**：`.env.example` → `.env`、模型文件放 `models/`（`docs/workflow/bootstrap.md` §5——registry.yaml 装配时已按所选能力生成）
 5. **初始化仓库**：目标路径 `git init` + 首次提交

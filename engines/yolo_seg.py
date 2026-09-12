@@ -27,7 +27,9 @@ from engines.yolo import (
     letterbox,
     nms,
 )
-from utils import metrics
+# @inferforge:metrics
+from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
 
 logger = logging.getLogger("engines.yolo_seg")
 
@@ -205,9 +207,11 @@ class YoloSegPredictor(BasePredictor):
             masks[i] = process_mask(coeffs[i], proto_out[0], box, ratio, pad, h, w)
         t_post = time.perf_counter()
 
+# @inferforge:metrics
         metrics.observe_phase("pre", t_pre - t_total, task="segment")
         metrics.observe_phase("infer", t_infer - t_pre, task="segment")
         metrics.observe_phase("post", t_post - t_infer, task="segment")
+# @inferforge:end:metrics
 
         logger.info(
             "segment predict done: %d segments (pre=%.1fms, infer=%.1fms, post=%.1fms, total=%.1fms)",

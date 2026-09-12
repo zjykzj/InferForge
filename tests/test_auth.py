@@ -8,11 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apis.health import health_router
-from apis.sync_detect import sync_detect_router
+# @inferforge:detect
+from apis.sync_detect import sync_detect_router  # noqa: E402
+# @inferforge:end:detect
 
 API_KEY = "test-secret-key"
 
 
+# @inferforge:detect
 @pytest.fixture()
 def locked_app(monkeypatch, app_factory):
     monkeypatch.setenv("INFERFORGE_API_KEY", API_KEY)
@@ -49,6 +52,7 @@ def test_correct_key_passes(locked_app):
     resp = client.post("/predict", json={}, headers={"X-API-Key": API_KEY})
     assert resp.status_code == 200
     assert resp.json()["code"] == 1  # validation error, auth passed
+# @inferforge:end:detect
 
 
 def test_probes_stay_anonymous(monkeypatch, app_factory):
@@ -56,4 +60,6 @@ def test_probes_stay_anonymous(monkeypatch, app_factory):
     monkeypatch.setenv("INFERFORGE_API_KEY", API_KEY)
     client = TestClient(app_factory(health_router))
     assert client.get("/health").status_code == 200
+    # @inferforge:metrics
     assert client.get("/metrics").status_code == 200
+    # @inferforge:end:metrics

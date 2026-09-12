@@ -16,12 +16,16 @@ Usage:
   python3 scripts/assemble.py --target /srv/my-service --with detect --features docker
 
 Selection model (docs/workflow/bootstrap.md §2):
-  base         — always: the serving shell (envelope, metrics, health,
-                 registry) with NO capability. The default assembly.
+  base         — always: the contract kernel (app factory, envelope,
+                 health probes, placeholder packages). The default assembly.
+  mechanisms   — cross-cutting middleware pieces (metrics/request_id/auth/
+                 rate_limit/logging); opt-in via --with.
   capabilities — one file set each; opt-in via --with; `requires` expands
                  the dependency closure automatically.
-  shared       — included when ANY of the listed capabilities is selected.
+  shared       — included when ANY of the listed names is selected.
   features     — deployment/tooling extras; opt-in via --features.
+  generated    — requirements.txt is written from the MERGE of the
+                 selected entries' declared requirements, never copied.
 """
 import argparse
 import os
@@ -56,15 +60,24 @@ def load_manifest() -> dict:
 
 
 def resolve_selection(manifest, selected, features):
-    """Expand the dependency closure and collect the full file set."""
+    """Expand the dependency closure and collect files + requirements."""
     capabilities = manifest["capabilities"]
-    unknown = [name for name in selected if name not in capabilities]
+    mechanisms = manifest.get("mechanisms", {})
+    known = set(capabilities) | set(mechanisms)
+    unknown = [name for name in selected if name not in known]
     if unknown:
-        raise SystemExit("unknown capabilities: %s (known: %s)"
-                         % (", ".join(unknown), ", ".join(capabilities)))
+        raise SystemExit("unknown selections: %s (capabilities: %s; "
+                         "mechanisms: %s)" % (", ".join(unknown),
+                                              ", ".join(capabilities),
+                                              ", ".join(mechanisms)))
     unknown_f = [name for name in features if name not in manifest["features"]]
     if unknown_f:
         raise SystemExit("unknown features: %s" % ", ".join(unknown_f))
+
+    def requires_of(name):
+        if name in capabilities:
+            return capabilities[name].get("requires", [])
+        return mechanisms[name].get("requires", [])
 
     queue = list(selected)
     chosen = set()
@@ -73,18 +86,27 @@ def resolve_selection(manifest, selected, features):
         if name in chosen:
             continue
         chosen.add(name)
-        queue.extend(capabilities[name].get("requires", []))
+        queue.extend(requires_of(name))
 
     files = []
+    reqs = set(manifest["base"].get("requirements", []))
     for name in sorted(chosen):
-        files.extend(capabilities[name]["files"])
+        if name in mechanisms:
+            entry = mechanisms[name]
+        else:
+            entry = capabilities[name]
+        files.extend(entry["files"])
+        reqs.update(entry.get("requirements", []))
     for rule in manifest.get("shared", []):
         if set(rule["any_of"]) & chosen:
             files.extend(rule["files"])
+            reqs.update(rule.get("requirements", []))
     for name in sorted(features):
-        files.extend(manifest["features"][name]["files"])
+        entry = manifest["features"][name]
+        files.extend(entry["files"])
+        reqs.update(entry.get("requirements", []))
 
-    return sorted(chosen), manifest["base"] + files
+    return sorted(chosen), manifest["base"]["files"] + files, sorted(reqs)
 
 
 def strip_markers(text, selected):
@@ -119,7 +141,7 @@ def strip_markers(text, selected):
 
 def assemble(target, selected, features, force=False):
     manifest = load_manifest()
-    chosen, paths = resolve_selection(manifest, selected, features)
+    chosen, paths, requirements = resolve_selection(manifest, selected, features)
 
     if os.path.exists(target):
         if not force or os.listdir(target):
@@ -158,7 +180,14 @@ def assemble(target, selected, features, force=False):
             with open(example, encoding="utf-8") as f:
                 shutil.copyfile(example, os.path.join(target, "models", "registry.yaml"))
 
-    print("[OK] assembled %d paths into %s (capabilities: %s%s)"
+    # Generated file: requirements.txt = the MERGE of the selected entries'
+    # declared requirements (never a copy of the template's own).
+    req_path = os.path.join(target, "requirements.txt")
+    with open(req_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(requirements) + "\n")
+    copied.append("requirements.txt")
+
+    print("[OK] assembled %d paths into %s (selections: %s%s)"
           % (len(copied), target, ", ".join(chosen) or "none",
              "; features: %s" % ", ".join(sorted(features)) if features else ""))
     print("     next: cd %s && git init && (rename checklist) && pytest tests/ -q" % target)
@@ -168,7 +197,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--target", required=True, help="target project directory")
     parser.add_argument("--with", dest="capabilities", default="",
-                        help="comma-separated capability names (default: base only)")
+                        help="comma-separated capability/mechanism names "
+                             "(capabilities: detect/seg/cls/...; mechanisms: "
+                             "metrics/request_id/auth/rate_limit/logging; "
+                             "default: contract kernel only)")
     parser.add_argument("--features", default="",
                         help="comma-separated feature names (docker/deploy/benchmark)")
     parser.add_argument("--force", action="store_true", help="overwrite an existing target")

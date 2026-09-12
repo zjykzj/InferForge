@@ -14,7 +14,9 @@ from typing import Optional
 from engines import registry
 from engines.base import BasePredictor
 from engines.dinov2 import DinoV2Predictor
-from utils import metrics
+# @inferforge:metrics
+from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
 
 logger = logging.getLogger("tasks.embedding")
 
@@ -37,7 +39,9 @@ def get_embedder(model: Optional[str] = None) -> BasePredictor:
                 predictor = DinoV2Predictor()
                 predictor.load(spec.path)
                 _predictors[spec.name] = predictor
+# @inferforge:metrics
                 metrics.mark_predictor_loaded(task="embed", model=spec.name)
+# @inferforge:end:metrics
     return _predictors[spec.name]
 
 

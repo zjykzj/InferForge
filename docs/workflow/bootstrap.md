@@ -28,9 +28,10 @@ python3 ~/InferForge/scripts/assemble.py --target /path/to/my-service \
     --with detect,async --features docker
 ```
 
-- 不带 `--with`：仅 base——**最小服务外壳**（健康探针 + envelope 等横切机制），无任何业务能力、无模板身份文件（默认装配）
-- `--with`：能力清单，依赖自动展开（如 `pipeline` 自动带上 detect+cls，见 §4）
+- 不带 `--with`：仅 base——**契约内核**（app 工厂 + envelope + 健康探针 + 占位包），无任何机制、业务能力或模板身份文件（默认装配）
+- `--with`：能力清单 + 机制清单（能力依赖自动展开，如 `pipeline` 自动带上 detect+cls；机制如 `metrics`/`request_id`/`auth`/`rate_limit`/`logging`，见 §4）
 - `--features`：ci / docker / deploy / benchmark
+- `requirements.txt` 由装配器**合并所选条目的依赖声明生成**——不是拷贝模板的；业务代码新引入的依赖由 Agent 开发完成后扫描 imports 补充（见 add-capability.md）
 - 装配器按选择剔除 wiring 文件里的 `# @inferforge:<name>` 标记块（app.py 路由、就绪探测、注册表条目等），生成工程不含任何对缺失文件的引用；选中能力时自动生成 `models/registry.yaml`
 
 装配完成后在目标路径初始化仓库：
@@ -83,6 +84,17 @@ base 内的改名残留：`app.py` 的 `title="InferForge"` / description → �
 - **依赖自动展开**：`pipeline` → detect+cls；`search` → embed+async；`agent` → detect+async；`vlm` → async；`seg` → detect
 - **建议保留至少一个与目标业务同形态的参照，直到自建第一个业务能力跑通**——Agent 开发靠模仿 canonical，删了就没了模仿对象
 - 装配机制：正向清单在 `templates/manifest.yaml`（每个文件恰好归属一处，`tests/test_bootstrap_manifest.py` 守护）；wiring 文件里的 `# @inferforge:<name>` 标记块由 assemble.py 按选择剔除——机制与扩展纪律见 [assembly.md](../assembly.md)
+
+### 机制（横切组件，逐个确认）
+
+| 机制 | 内容 | 默认 |
+|------|------|------|
+| `metrics` | `/metrics` 端点 + 中间件 + envelope 计数（依赖 prometheus_client） | 不选 |
+| `auth` | API-key 鉴权（401 + code=7） | 不选 |
+| `rate_limit` | 固定窗口限流（429 + code=8） | 不选 |
+| `logging` | JSON 文件日志 + request_id 注入 | 不选 |
+
+**逐机制确认**：初始化时 Agent 默认只装配契约内核，横切机制逐个问用户——"需要 metrics 吗？鉴权？限流？日志？"，明确要的才进装配（"先检查、再确认"）。envelope（`utils/response.py`）与 request_id 链路是契约本身，永远在内核里（X-Request-ID 是模板对外的可观测承诺）。
 - **事后裁剪**：先按全量装配、之后想删某个能力时，走删除面清单（漏一处 pytest 就会告诉你）：
 
 1. `engines/<name>.py`、`tasks/<name>*.py`、`apis/<name>*.py`、`tests/test_<name>*.py`、`scripts/run_<name>.py`、`scripts/test_<name>*.py`

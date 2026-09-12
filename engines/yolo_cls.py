@@ -17,7 +17,9 @@ import numpy as np
 from PIL import Image
 
 from engines.base import BasePredictor, ClassificationResult
-from utils import metrics
+# @inferforge:metrics
+from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
 
 logger = logging.getLogger("engines.yolo_cls")
 
@@ -93,9 +95,11 @@ class YoloClsPredictor(BasePredictor):
         scores, class_ids = topk(logits)
         t_post = time.perf_counter()
 
+# @inferforge:metrics
         metrics.observe_phase("pre", t_pre - t_total, task="classify")
         metrics.observe_phase("infer", t_infer - t_pre, task="classify")
         metrics.observe_phase("post", t_post - t_infer, task="classify")
+# @inferforge:end:metrics
 
         logger.info(
             "classify predict done: top-1=%d (pre=%.1fms, infer=%.1fms, post=%.1fms, total=%.1fms)",

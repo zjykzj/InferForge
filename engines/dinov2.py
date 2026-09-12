@@ -23,7 +23,9 @@ import cv2
 import numpy as np
 
 from engines.base import BasePredictor, EmbeddingResult
-from utils import metrics
+# @inferforge:metrics
+from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
 
 logger = logging.getLogger("engines.dinov2")
 
@@ -73,9 +75,11 @@ class DinoV2Predictor(BasePredictor):
             vector = vector / norm
         t_post = time.perf_counter()
 
+# @inferforge:metrics
         metrics.observe_phase("pre", t_pre - t_total, task="embed")
         metrics.observe_phase("infer", t_infer - t_pre, task="embed")
         metrics.observe_phase("post", t_post - t_infer, task="embed")
+# @inferforge:end:metrics
 
         logger.info("embed predict done: dim=%d (pre=%.1fms, infer=%.1fms, post=%.1fms, total=%.1fms)",
                     vector.shape[0],

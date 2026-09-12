@@ -31,7 +31,9 @@ from engines import registry
 from tasks.detection import get_predictor
 from tasks.vlm import LLMConfigError, LLMUpstreamError, get_llm_config
 from utils import image as image_utils
-from utils import metrics
+# @inferforge:metrics
+from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
 
 logger = logging.getLogger("tasks.agent")
 
@@ -231,10 +233,14 @@ def run_hair_count(image_b64=None, image_url=None, model=None):
         logger.error("detection tool failed: %s", exc)
         raise RuntimeError("detection tool failed") from exc
     except AgentRunError as exc:
+# @inferforge:metrics
         metrics.count_vlm_remote_error()
+# @inferforge:end:metrics
         logger.warning("agent run failed after %.1fs: %s", time.perf_counter() - started, exc)
         raise LLMUpstreamError(str(exc)) from exc
+# @inferforge:metrics
     metrics.observe_vlm_remote_call(time.perf_counter() - started)
+# @inferforge:end:metrics
 
     usage = getattr(result, "usage", None)  # test fakes have no usage attribute
     if usage is not None:

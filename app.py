@@ -43,12 +43,26 @@ from fastapi import FastAPI  # noqa: E402
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 
 from apis.health import health_router  # noqa: E402
+# @inferforge:metrics
 from apis.metrics import metrics_router  # noqa: E402
+# @inferforge:end:metrics
 # @inferforge:detect
 from apis.sync_detect import sync_detect_router  # noqa: E402
 # @inferforge:end:detect
-from utils import auth, metrics, rate_limit, request_id, response, switches  # noqa: E402
+from utils import response, switches  # noqa: E402
+# @inferforge:metrics
+from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
+# @inferforge:rate_limit
+from utils import rate_limit  # noqa: E402
+# @inferforge:end:rate_limit
+# @inferforge:auth
+from utils import auth  # noqa: E402
+# @inferforge:end:auth
+from utils import request_id  # noqa: E402
+# @inferforge:logging
 from utils.logger import setup_logging  # noqa: E402
+# @inferforge:end:logging
 
 logger = logging.getLogger("app")
 
@@ -144,7 +158,9 @@ class ContentLengthLimitMiddleware:
 
 
 def create_app() -> FastAPI:
+    # @inferforge:logging
     setup_logging()
+    # @inferforge:end:logging
     app = FastAPI(
         title="InferForge",
         version=_read_version(),
@@ -157,9 +173,15 @@ def create_app() -> FastAPI:
     # counted, short-circuits above it surface in responses_total{code}
     # instead. Auth off unless INFERFORGE_API_KEY is set (401 + code=7);
     # rate limit off unless INFERFORGE_RATE_LIMIT is set (429 + code=8).
+    # @inferforge:metrics
     app.add_middleware(metrics.MetricsMiddleware)
+    # @inferforge:end:metrics
+    # @inferforge:rate_limit
     app.add_middleware(rate_limit.RateLimitMiddleware)
+    # @inferforge:end:rate_limit
+    # @inferforge:auth
     app.add_middleware(auth.AuthMiddleware)
+    # @inferforge:end:auth
     app.add_middleware(ContentLengthLimitMiddleware)
     app.add_middleware(request_id.RequestIdMiddleware)
     # Replace FastAPI's default 422 handler: validation failures become
@@ -167,7 +189,9 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RequestValidationError, response.validation_error_handler)
 
     app.include_router(health_router)
+    # @inferforge:metrics
     app.include_router(metrics_router)
+    # @inferforge:end:metrics
     # @inferforge:detect
     app.include_router(sync_detect_router)
     # @inferforge:end:detect
@@ -281,7 +305,9 @@ def create_app() -> FastAPI:
     # teardown — gunicorn.conf.py's worker_exit hook covers that path from
     # the master (utils.metrics.mark_process_dead; no-op without
     # PROMETHEUS_MULTIPROC_DIR).
+    # @inferforge:metrics
     app.router.on_shutdown.append(metrics.mark_process_dead)
+    # @inferforge:end:metrics
 
     logger.info("app created")
     return app

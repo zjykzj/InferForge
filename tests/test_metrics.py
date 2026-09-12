@@ -3,22 +3,27 @@ import base64
 import time
 from types import SimpleNamespace
 
-import cv2
-import numpy as np
+# @inferforge:detect
+import cv2  # noqa: E402
+import numpy as np  # noqa: E402
+# @inferforge:end:detect
 import pytest
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
 
-from apis.sync_detect import sync_detect_router
-from engines.base import BasePredictor, DetectionResult
-from tasks import detection
+# @inferforge:detect
+from apis.sync_detect import sync_detect_router  # noqa: E402
+from engines.base import BasePredictor, DetectionResult  # noqa: E402
+from tasks import detection  # noqa: E402
+# @inferforge:end:detect
 # @inferforge:vlm
 from tasks import vlm  # noqa: E402
 # @inferforge:end:vlm
 from utils import metrics
 
 
+# @inferforge:detect
 class FakePredictor(BasePredictor):
     """Returns one fixed detection; load/predict are no-ops."""
 
@@ -64,6 +69,7 @@ def test_validation_failure_code(client):
     client.post("/predict", json={})
     body = client.get("/metrics").text
     assert 'inferforge_responses_total{code="1"}' in body
+# @inferforge:end:detect
 
 
 def test_route_template_label(monkeypatch, app_factory):

@@ -42,7 +42,7 @@ callback 与 query 可以并存（检测能力就是双变体），选型是**�
 
 | 不成立的组合 | 原因 | 可选路径 |
 |-------------|------|---------|
-| 远程服务（LLM）的 sync 形态 | 远程失败是业务结果不是投递失败；长阻塞不适合 web 线程池（现 vlm/agent 均为 query-only） | 用 query-only 轮询；或 fork 内自建 sync（知道上游不维护、合并有成本） |
+| 远程服务（LLM）的 sync 形态 | 远程失败是业务结果不是投递失败；长阻塞不适合 web 线程池（现 vlm/agent 均为 query-only） | 用 query-only 轮询；或在新工程内自建 sync（承担自维护成本） |
 | 远程服务的 callback 形态 | 同上——callback 的"恰好一次投递"语义对"远程失败 = 业务结果"不成立 | 同 query-only |
 | milvus-lite 检索的 sync 形态 | 图库 db 单进程独占，只能 worker 持有，web 进程无法打开 | 用 query-only（现 search/check） |
 

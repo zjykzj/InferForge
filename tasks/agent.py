@@ -117,8 +117,8 @@ def _detect_persons(image, model=None) -> DetectedPersons:
     (module-level, testable).
 
     `model` picks a registered detect model (absent -> the detect default);
-    the class table comes from that model's registry entry, so a fork with a
-    custom `classes` file or a renamed person class works without code edits.
+    the class table comes from that model's registry entry, so a project with
+    a custom `classes` file or a renamed person class works without code edits.
     Only the target class (INFERFORGE_AGENT_TARGET_CLASS, default "person")
     is kept — the engine's other classes are noise for the attribute
     judgment. Indexes are 0-based and stable, so the model can attribute

@@ -49,7 +49,7 @@ python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg
 
 ## 与 Agent 一起开发
 
-开发由 agent 驱动：fork 之后，把需求告诉 agent，workflow 文档会把请求变成受检的实现。从 [docs/README.md](docs/README.md) 的入口表开始——例如：
+开发由 agent 驱动：下载模板、在目标路径初始化新工程之后，把需求告诉 agent，workflow 文档会把请求变成受检的实现。从 [docs/README.md](docs/README.md) 的入口表开始——例如：
 
 ```
 你：  帮我新增一个同步接口，使用分割算法。
@@ -59,7 +59,7 @@ Agent：需求分解（形态=同步 × 能力=分割，引擎层零改动）、
 Agent：按 canonical 参照实现 → pytest + check_capability.py 通过 → 提交。
 ```
 
-随 fork 发布的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳。
+每个新工程自带的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳。
 
 ## 能力总览
 

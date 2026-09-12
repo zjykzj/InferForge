@@ -1,9 +1,9 @@
 """Architecture guard tests: the red-zone axioms (docs/workflow/forking-contract.md §2)
 as executable checks.
 
-These ship with the fork — a downstream agent that breaks a layering, envelope
-or status-code rule gets a red CI in its own repo, not a prose reminder in the
-template. Model-free and network-free like the rest of the suite: everything
+These ship with every new project — a downstream agent that breaks a layering,
+envelope or status-code rule gets a red CI in its own repo, not a prose
+reminder in the template. Model-free and network-free like the rest of the suite: everything
 here either parses source files with ast or exercises the validation handler
 through a fake-predictor app.
 

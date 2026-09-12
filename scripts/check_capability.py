@@ -8,12 +8,13 @@ Static checks only — no model loads, no network, no services:
      CAPABILITY_SWITCH (otherwise the boot-time model check misses it)
   C. every capability has its core file set — task + api + test + script —
      via the template-known mapping, with a name-match fallback for
-     fork-added capabilities
+     project-added capabilities
   D. every preflight switch var is actually read in app.py (an enabled
      capability with no route registration)
 
-Ships with the template: forks get the same lint for their own capabilities,
-so a capability that misses a file fails CI instead of failing at runtime.
+Ships with the template: new projects get the same lint for their own
+capabilities, so a capability that misses a file fails CI instead of
+failing at runtime.
 """
 import ast
 import os
@@ -30,7 +31,7 @@ from engines import registry
 from utils.errors import RegistryConfigError
 
 # capability -> minimal core file set (stem per layer). The template's own
-# capabilities; fork-added capabilities fall back to name matching.
+# capabilities; project-added capabilities fall back to name matching.
 KNOWN_FILES = {
     "detect": {
         "tasks": ["detection"],
@@ -105,7 +106,7 @@ def check():
                         errors.append("capability %r: missing %s/%s.py"
                                       % (capability, layer, name))
         else:
-            # Fork-added capability: name-match convention (add-capability.md §3).
+            # Project-added capability: name-match convention (add-capability.md §3).
             for layer in ("tasks", "apis", "tests", "scripts"):
                 files = [
                     f for f in os.listdir(os.path.join(_PROJECT_ROOT, layer))

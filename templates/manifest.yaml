@@ -4,12 +4,28 @@
 # (every tracked repo file is claimed exactly once; marker blocks pair up).
 #
 # Selection model:
-#   base         — always copied: the serving shell (envelope, logging,
-#                  metrics, auth, rate limit, request-id, health probes,
-#                  registry) — NO capability. The default assembly.
-#   capabilities — one file set each; opt-in via --with.
-#   shared       — included when ANY of the listed capabilities is selected.
+#   base         — always copied: the MINIMAL serving shell — app factory,
+#                  health probes, metrics router, cross-cutting utils
+#                  (envelope, logging, request-id, auth, rate limit) and
+#                  the contract tests. NO capability, NO template identity
+#                  files (README/CHANGELOG/LICENSE/VERSION/CLAUDE.md are
+#                  GENERATED for the new project, never copied — see
+#                  bootstrap.md §3), NO docs (the template dir stays the
+#                  reference library) except docs/status-codes.md, which
+#                  is part of the envelope contract the guard tests check.
+#   capabilities — one file set each; opt-in via --with; `requires` expands
+#                  the dependency closure automatically.
+#   shared       — included when ANY of the listed capabilities is selected:
+#                  serving-stack (engines, registry, start.sh, preflight —
+#                  the model-serving infrastructure) and http-stack (request
+#                  schemas, image conversion — needed by every HTTP
+#                  business capability).
 #   features     — deployment/tooling extras; opt-in via --features.
+#   template     — template-identity assets and the knowledge library:
+#                  NEVER assembled. The template is the reference, not a
+#                  copy source — new projects get their identity files
+#                  GENERATED (bootstrap.md §3) and read the docs from the
+#                  template directory.
 #
 # Wiring files (app.py, apis/health.py, engines/registry.py, ...) carry
 # `# @inferforge:<name>` ... `# @inferforge:end:<name>` marker blocks for
@@ -17,68 +33,24 @@
 # capabilities so a generated project never references absent files.
 
 base:
-  - .claude/skills/inferforge-add-capability/SKILL.md
-  - .claude/skills/inferforge-add-engine/SKILL.md
-  - .claude/skills/inferforge-bootstrap/SKILL.md
-  - .claude/skills/inferforge-modify-service/SKILL.md
   - .env.example
   - .gitignore
-  - .github/workflows/ci.yml
-  - CHANGELOG.md
-  - CLAUDE.md
-  - LICENSE
-  - README.md
-  - README.zh-CN.md
-  - VERSION
   - app.py
-  - conftest.py
   - apis/__init__.py
   - apis/health.py
   - apis/metrics.py
-  - apis/schemas.py
-  - docs/README.md
-  - docs/api.md
-  - docs/architecture.md
-  - docs/assembly.md
-  - docs/concepts.md
-  - docs/deployment.md
-  - docs/fastapi-migration.md
-  - docs/logging.md
-  - docs/metrics.md
-  - docs/model-registry.md
-  - docs/quick-start.md
-  - docs/release-strategies.md
-  - docs/security.md
-  - docs/stack.md
+  - conftest.py
   - docs/status-codes.md
-  - docs/testing.md
-  - docs/workflow/add-capability.md
-  - docs/workflow/add-engine.md
-  - docs/workflow/bootstrap.md
-  - docs/workflow/forking-contract.md
-  - docs/workflow/modify-service.md
-  - engines/__init__.py
-  - engines/base.py
-  - engines/registry.py
-  - gunicorn.conf.py
-  - models/.gitkeep
-  - models/registry.example.yaml
   - requirements.txt
-  - scripts/check_capability.py
-  - scripts/preflight_models.py
-  - start.sh
-  - tasks/__init__.py
   - tests/__init__.py
   - tests/test_architecture.py
   - tests/test_logger.py
   - utils/__init__.py
   - utils/auth.py
   - utils/errors.py
-  - utils/image.py
   - utils/logger.py
   - utils/metrics.py
   - utils/rate_limit.py
-  - utils/redis_store.py
   - utils/request_id.py
   - utils/response.py
   - utils/switches.py
@@ -161,6 +133,7 @@ capabilities:
       - tests/test_app.py
       - tests/test_async_detect_callback.py
       - tests/test_async_detect_query.py
+      - utils/redis_store.py
   vlm:
     requires: [async]
     files:
@@ -196,11 +169,62 @@ capabilities:
       - tests/test_search.py
 
 shared:
+  - any_of: [detect, seg, cls, embed]
+    files:
+      - engines/__init__.py
+      - engines/base.py
+      - engines/registry.py
+      - gunicorn.conf.py
+      - models/.gitkeep
+      - models/registry.example.yaml
+      - scripts/check_capability.py
+      - scripts/preflight_models.py
+      - start.sh
+      - tasks/__init__.py
+  - any_of: [detect, seg, cls, pipeline, embed, dedup, async, vlm, agent, search]
+    files:
+      - apis/schemas.py
+      - utils/image.py
   - any_of: [detect, seg, cls]
     files:
       - scripts/export_yolo.py
 
+template:
+  - .claude/skills/inferforge-add-capability/SKILL.md
+  - .claude/skills/inferforge-add-engine/SKILL.md
+  - .claude/skills/inferforge-bootstrap/SKILL.md
+  - .claude/skills/inferforge-modify-service/SKILL.md
+  - CHANGELOG.md
+  - CLAUDE.md
+  - LICENSE
+  - README.md
+  - README.zh-CN.md
+  - VERSION
+  - docs/README.md
+  - docs/api.md
+  - docs/architecture.md
+  - docs/assembly.md
+  - docs/concepts.md
+  - docs/deployment.md
+  - docs/fastapi-migration.md
+  - docs/logging.md
+  - docs/metrics.md
+  - docs/model-registry.md
+  - docs/quick-start.md
+  - docs/release-strategies.md
+  - docs/security.md
+  - docs/stack.md
+  - docs/testing.md
+  - docs/workflow/add-capability.md
+  - docs/workflow/add-engine.md
+  - docs/workflow/bootstrap.md
+  - docs/workflow/forking-contract.md
+  - docs/workflow/modify-service.md
+
 features:
+  ci:
+    files:
+      - .github/workflows/ci.yml
   docker:
     files:
       - .dockerignore

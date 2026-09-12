@@ -24,38 +24,68 @@ Beyond vision kernels, the template ships reference implementations for VLM and 
 
 ## Quick Start
 
-Development is agent-driven — three steps from template to your own service:
+Development is agent-driven — three examples walk the full path from an empty shell to a working service (Claude Code shown; other coding agents follow the same dialogue — the workflow docs are tool-agnostic):
+
+### 1. Initialize a web service
 
 ```bash
-# 1. Download the template (a read-only factory — never modify it)
+# Download the template (a read-only factory — never modify it)
 git clone https://github.com/zjykzj/InferForge.git ~/InferForge
 ```
 
 ```text
-# 2. In the template directory, start Claude Code and initialize your project
-#    (no path given? the agent asks first)
+# In the template directory, start Claude Code (no path given? the agent asks)
 cd ~/InferForge && claude
-> initialize a web service at /srv/my-service, with detection
+> initialize a web service at /srv/my-service
 
-Agent: assemble.py --target /srv/my-service --with detect → rename → configure
-       → baseline checks green → git init + first commit
-       (all done in /srv/my-service; the template stays untouched)
+Agent: assemble.py --target /srv/my-service → generate identity files
+       (README / CLAUDE.md / VERSION) → configure → baseline checks green
+       → git init + first commit
+       (the default assembly = the minimal serving shell + health probes)
 ```
+
+```bash
+# Verify: the service runs, health probes answer
+cd /srv/my-service && python3 app.py
+curl http://localhost:8000/health       # → {"code":0,"message":"success","data":{"status":"ok"}}
+```
+
+### 2. Add a sync detection API
 
 ```text
-# 3. Start Claude Code in the new project directory and keep developing
 cd /srv/my-service && claude
-> add a sync API for segmentation
+> add a sync detection API, model yolov8n
 
-Agent: decomposes (shape=sync × capability=segment, engine layer untouched),
-       checks the boundary table, proposes the per-layer placement plan
-> confirmed
-
-Agent: implements against the canonical references → pytest +
-       check_capability.py green → commit
+Agent: decompose (shape=sync × capability=detect — the canonical references
+       live in the template) → placement proposal → implement →
+       pytest + check_capability.py green → commit
 ```
 
-Every new project is a full copy — the canonical references live inside it, so the agent develops against them locally; `~/InferForge` only serves initialization and updates (trimmed something you later need? it's still in the template). The task→entry map in [docs/README.md](docs/README.md) routes init / add-capability / modify / engine work; the architecture checks built into every new project keep every change inside the contract; the skills in `.claude/skills/` wrap the same workflows for Claude Code (other coding agents can follow the same dialogue — the workflow docs are tool-agnostic).
+```bash
+python3 scripts/test_sync_detect.py --image assets/bus.jpg   # → {"code":0,"data":{...boxes...}}
+```
+
+### 3. Add an async classification API
+
+```text
+> also add an async classification API, query style
+
+Agent: decompose (shape=async query × capability=classify), boundary check
+       clear → placement proposal: engine untouched, task copies the
+       detection_query canonical, switch gating needs your call (async also
+       registers detection's async apis)
+> confirmed
+
+Agent: implement → pytest + check_capability.py green → commit
+```
+
+```bash
+INFERFORGE_ASYNC=1 ./start.sh
+./start_celery.sh
+python3 scripts/test_async_cls_query.py --image assets/bus.jpg   # submit → poll → top-5
+```
+
+Later capabilities work the same way: the agent copies canonical references from `~/InferForge` (the template directory is the reference library). The task→entry map in [docs/README.md](docs/README.md) routes init / add-capability / modify / engine work; the architecture checks built into every new project keep each change inside the contract; the skills in `.claude/skills/` wrap the same workflows for Claude Code.
 
 ## Run the Demo
 

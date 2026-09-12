@@ -4,7 +4,12 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 
 from apis.metrics import metrics_router
-from engines import registry
+# engines/registry ships with the serving-stack shared set — a base-only
+# assembly (no capabilities) has no registry to isolate.
+try:
+    from engines import registry
+except ImportError:  # pragma: no cover — depends on assembly selection
+    registry = None
 from utils import auth, metrics, rate_limit, request_id, response
 
 _DEFAULT_REGISTRY = """\
@@ -56,6 +61,8 @@ def registry_isolation(tmp_path, monkeypatch):
     custom registry overwrite the env var (and the registry reloads via
     reset_cache) — see tests/test_registry.py.
     """
+    if registry is None:
+        return
     registry_file = tmp_path / "registry.yaml"
     registry_file.write_text(_DEFAULT_REGISTRY)
     monkeypatch.setenv("INFERFORGE_REGISTRY_PATH", str(registry_file))

@@ -52,6 +52,8 @@ def _claims():
     for name, entry in manifest["features"].items():
         for path in entry["files"]:
             claims.setdefault(path, []).append("feature:%s" % name)
+    for path in manifest.get("template", []):
+        claims.setdefault(path, []).append("template")
     return manifest, claims
 
 
@@ -145,3 +147,14 @@ def test_capability_files_do_not_overlap_base():
     for name, entry in manifest["capabilities"].items():
         overlap = base & set(entry["files"])
         assert not overlap, "%s overlaps base: %s" % (name, sorted(overlap))
+
+
+def test_template_section_is_never_assembled():
+    manifest = assemble.load_manifest()
+    template = set(manifest["template"])
+    for name, entry in manifest["capabilities"].items():
+        overlap = template & set(entry["files"])
+        assert not overlap, "%s claims a template-only file: %s" % (name, sorted(overlap))
+    for rule in manifest.get("shared", []):
+        overlap = template & set(rule["files"])
+        assert not overlap, "shared claims a template-only file: %s" % sorted(overlap)

@@ -24,36 +24,65 @@ InferForge 是面向**视觉推理服务**的生产级服务模板：推理内�
 
 ## 快速开始
 
-开发由 agent 驱动——从模板到自己的服务，三步：
+开发由 agent 驱动——三个示例走完"空壳 → 可用的服务"完整路径（以 Claude Code 为例，其他编码 agent 按同样对话操作——workflow 文档与工具无关）：
+
+### 1. 初始化一个 web 服务
 
 ```bash
-# 1. 下载模板（只读工厂，永不修改）
+# 下载模板（只读工厂，永不修改）
 git clone https://github.com/zjykzj/InferForge.git ~/InferForge
 ```
 
 ```text
-# 2. 在模板目录启动 Claude Code，初始化你的新工程（没给路径？agent 会先问）
+# 在模板目录启动 Claude Code（没给路径？agent 会先问）
 cd ~/InferForge && claude
-> 初始化一个 web 服务到 /srv/my-service，带检测。
+> 初始化一个 web 服务到 /srv/my-service。
 
-Agent：assemble.py --target /srv/my-service --with detect（按需装配）→ 改名 →
-      配置 → 底座验收全绿 → git init + 首次提交
-      （全部发生在 /srv/my-service，模板零改动）
+Agent：assemble.py --target /srv/my-service → 生成身份文件
+      （README / CLAUDE.md / VERSION）→ 配置 → 底座验收全绿
+      → git init + 首次提交（默认装配 = 最小服务外壳 + 健康探针）
 ```
+
+```bash
+# 验证：服务起得来，健康探针可用
+cd /srv/my-service && python3 app.py
+curl http://localhost:8000/health       # → {"code":0,"message":"success","data":{"status":"ok"}}
+```
+
+### 2. 新增同步检测接口
 
 ```text
-# 3. 在新工程目录启动 Claude Code，继续开发
 cd /srv/my-service && claude
-> 帮我新增一个同步接口，使用分割算法。
+> 帮我新增一个同步检测接口，模型用 yolov8n。
 
-Agent：需求分解（形态=同步 × 能力=分割，引擎层零改动）、查边界表、
-      输出分层落位提案，等待你确认。
-> 确认。
-
-Agent：按 canonical 参照实现 → pytest + check_capability.py 通过 → 提交。
+Agent：需求分解（形态=同步 × 能力=检测，canonical 参照在模板目录）→
+      分层落位提案 → 实现 → pytest + check_capability.py 通过 → 提交
 ```
 
-新工程是模板的完整副本——canonical 参照就在工程内部，agent 直接照它开发；`~/InferForge` 只负责初始化和更新（裁剪掉的参照需要时回模板目录找）。[docs/README.md](docs/README.md) 的入口表覆盖初始化 / 新增能力 / 修改服务 / 引擎工作；每个新工程自带的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳（其他编码 agent 可按同样对话操作——workflow 文档与工具无关）。
+```bash
+python3 scripts/test_sync_detect.py --image assets/bus.jpg   # → {"code":0,"data":{...检测框...}}
+```
+
+### 3. 新增异步分类接口
+
+```text
+> 再帮我新增一个异步分类接口，query 方式。
+
+Agent：需求分解（形态=异步 query × 能力=分类）、边界检查无命中 → 分层落位提案：
+      引擎层零改动 ✅、任务抄 detection_query canonical ✅、
+      开关双门（INFERFORGE_ASYNC 会顺带注册检测的异步接口）⚠️ 等你拍板
+> 确认。
+
+Agent：实现 → pytest + check_capability.py 通过 → 提交
+```
+
+```bash
+INFERFORGE_ASYNC=1 ./start.sh
+./start_celery.sh
+python3 scripts/test_async_cls_query.py --image assets/bus.jpg   # 提交 → 轮询 → top-5
+```
+
+之后新增能力同理：agent 从 `~/InferForge`（模板目录 = 参照库）抄 canonical 实现。[docs/README.md](docs/README.md) 的入口表覆盖初始化 / 新增能力 / 修改服务 / 引擎工作；每个新工程自带的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳。
 
 ## 运行示例服务
 

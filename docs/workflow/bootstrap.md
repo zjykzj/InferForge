@@ -28,9 +28,9 @@ python3 ~/InferForge/scripts/assemble.py --target /path/to/my-service \
     --with detect,async --features docker
 ```
 
-- 不带 `--with`：仅 base——服务外壳 + 健康探针，无任何业务能力（默认装配）
+- 不带 `--with`：仅 base——**最小服务外壳**（健康探针 + envelope 等横切机制），无任何业务能力、无模板身份文件（默认装配）
 - `--with`：能力清单，依赖自动展开（如 `pipeline` 自动带上 detect+cls，见 §4）
-- `--features`：docker / deploy / benchmark
+- `--features`：ci / docker / deploy / benchmark
 - 装配器按选择剔除 wiring 文件里的 `# @inferforge:<name>` 标记块（app.py 路由、就绪探测、注册表条目等），生成工程不含任何对缺失文件的引用；选中能力时自动生成 `models/registry.yaml`
 
 装配完成后在目标路径初始化仓库：
@@ -43,21 +43,23 @@ cd /path/to/my-service && git init && git add -A && git commit -m "init: from In
 
 装配机制（manifest 正向清单、标记块约定、扩展纪律）见 [assembly.md](../assembly.md)——本文只讲使用流程。
 
-新工程继承的远不止代码：`CLAUDE.md`（硬规则）、`docs/`（知识与食谱）、`tests/`（可执行契约）、`.github/workflows/ci.yml`（CI，复制后自动生效）、`deploy/`（部署参考工件）全部随仓库走。**这些是给开发 Agent 的知识与验证底座**——开发时 CLAUDE.md 随工作目录常驻上下文，测试跑出红灯就是反馈。
+base 装配**只带服务外壳与契约测试**——模板身份文件（README/CHANGELOG/LICENSE/VERSION/CLAUDE.md）与知识库（docs/、.claude/skills/）不随装配走：身份文件由 Agent 为新工程**生成**（§3），知识库留在模板目录、开发时按需查阅；CI（feature `ci`）与部署工件（feature `deploy`）按需选择。**可执行契约（tests/）随 base 走**——测试跑出红灯就是反馈。
 
-## 3. 改名清单（一次性）
+## 3. 身份生成清单（一次性）
 
-| 位置 | 现状 | 操作 |
-|------|------|------|
-| `app.py` `create_app()` | `title="InferForge"`、description | 改为你的服务名与描述（显示在 `/docs` OpenAPI 页面） |
-| `docker-compose.yml` | `image: inferforge:latest`（web/worker 两处） | 改为你的镜像名（仅本地 `docker compose up` 不改也能跑） |
-| `README.md` / `README.zh-CN.md` | 标题、badge 里的 `github.com/zjykzj/InferForge` 链接（CI/Release 两处）、DeepWiki badge | 改为新仓库地址，或删掉不适用的 badge |
-| `CLAUDE.md` Maestro 配置节 | `{{REPO_URL}} = https://github.com/zjykzj/InferForge` | 改为新工程仓库地址（发布技能会用） |
-| `VERSION` | 模板版本号 | 重置为 `0.1.0`；`CHANGELOG.md` 写新工程的首个 `[Unreleased]` 条目 |
-| `LICENSE` | MIT + 模板作者 | 保留 MIT 则更新版权行 |
-| 各文件 docstring/注释里的 "InferForge" | `gunicorn.conf.py`、`utils/logger.py`、`engines/base.py`、`start.sh`、`.env.example` 等 | 纯外观，不阻塞运行，建议顺手改 |
+base 装配**不含模板身份文件**——模板是参考，不是拷贝源。Agent 在装配后为新工程**生成**身份文件：
 
-改名不影响任何功能——代码里没有硬编码的仓库路径或模板专属资源。
+| 文件 | 生成内容 |
+|------|---------|
+| `README.md` / `README.zh-CN.md` | 新工程自己的：服务名、一段定位、启动/测试命令（可参考模板 README 的结构，内容写新工程的） |
+| `CLAUDE.md` | 新工程硬规则：分层依赖、envelope 契约（参考模板 CLAUDE.md 架构约束节精简）+ 一行指针——workflow 文档在模板目录 `~/InferForge/docs`，开发时查阅 |
+| `CHANGELOG.md` | 标准头 + 空 `[Unreleased]` |
+| `VERSION` | `0.1.0`（`app.py` 缺文件时回退 0.0.0，建议显式生成） |
+| `LICENSE` | 问用户，不默认生成 |
+
+base 内的改名残留：`app.py` 的 `title="InferForge"` / description → 服务名与描述（显示在 `/docs` OpenAPI 页面）。选了 docker feature 时 `docker-compose.yml` 的镜像名同理。
+
+生成不影响任何功能——代码里没有硬编码的仓库路径或模板专属资源。
 
 ## 4. 能力与特性选择（正向装配）
 
@@ -73,7 +75,8 @@ cd /path/to/my-service && git init && git add -A && git commit -m "init: from In
 
 | 特性 | 内容 |
 |------|------|
-| docker | Dockerfile + compose 全栈 |
+| ci | GitHub Actions workflow（pytest + 编译 + docs 链接检查） |
+| docker | Dockerfile + compose 全栈（假定已选本地模型能力） |
 | deploy | nginx 灰度、logrotate、监控栈 |
 | benchmark | 压测脚本 + 基线文档 |
 
@@ -109,7 +112,7 @@ cp .env.example .env                    # 按需填（VLM/agent 配置、部署�
 pytest tests/ -v                       # 全绿（装配所选能力的冒烟测试，模型无关网络无关）
 python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py
 python3 app.py                         # 起服务，GET /health 返回 200（无模型也能起）
-./start.sh                             # 正式启动路径（含 preflight 模型检查，需要 models/ 里有注册的模型）
+./start.sh                             # 正式启动路径（选了本地模型能力才有；含 preflight 模型检查）
 ```
 
 push 后 GitHub Actions 自动跑 CI（冒烟测试 + 编译检查 + docs 链接检查）——模板的 workflow 随复制生效，无需配置。

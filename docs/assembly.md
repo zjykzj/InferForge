@@ -4,7 +4,7 @@
 
 ## 1. 为什么是装配
 
-模板曾是"复制全部 → 裁剪"：新工程先带走全套 demo 能力，再按删除面清单删掉不用的——**负向清单**。问题有两个：生成物带全套行李（Dockerfile、celery、deploy、全部 scripts 都跟着走），且删除比组装难（删除面、守护测试都是为"删"而生的机制）。
+模板曾是"复制全部 → 裁剪"：新工程先带走全套 demo 能力，再按删除面清单删掉不用的——**负向清单**。问题有两个：生成物带全套行李（Dockerfile、celery、deploy、全部 scripts 都跟着走），且删除比组装难（删除面、守护测试都是为"删"而生的机制）。此外还有一个隐蔽错误：模板的**身份文件与知识库**（README/CHANGELOG/LICENSE/docs）也被当成了拷贝对象——模板是参考，不是拷贝源；新工程的身份由自己生成。
 
 装配把流程反转为**正向清单**：初始化时只复制所选能力/特性的文件，未选的根本不存在。生成物 = base + 选择闭包，没有删除步骤。
 
@@ -14,10 +14,11 @@
 
 | 类别 | 语义 | 例子 |
 |------|------|------|
-| `base` | 总是装配：服务外壳 + 健康探针，**无任何业务能力**（默认装配） | `app.py`、`utils/*`、`apis/health.py` |
+| `base` | 总是装配：**最小服务外壳**——app 工厂、健康探针、envelope 等横切机制、契约测试；无业务能力、无模板身份文件 | `app.py`、`utils/*`、`apis/health.py` |
 | `capabilities` | 能力文件集，opt-in；`requires` 自动展开依赖闭包 | detect / seg / cls / pipeline / embed / dedup / async / vlm / agent / search |
-| `shared` | 任一 `any_of` 能力选中即包含 | `scripts/export_yolo.py`（detect/seg/cls 任一） |
-| `features` | 部署/工具特性，opt-in | docker / deploy / benchmark |
+| `shared` | 任一 `any_of` 能力选中即包含 | `serving-stack`（engines/registry/start.sh/preflight——模型服务设施）、`http-stack`（schemas/image——HTTP 业务能力共用）、export_yolo |
+| `features` | 部署/工具特性，opt-in | ci / docker / deploy / benchmark |
+| `template` | 模板身份与知识库，**永不装配**——新工程的身份文件由 bootstrap §3 **生成**，不是复制 | README / CHANGELOG / LICENSE / CLAUDE.md / docs / skills |
 
 依赖展开表：`seg` → detect；`pipeline` → detect+cls；`dedup` → embed；`async` → detect；`vlm` → async；`agent` → detect+async；`search` → embed+async。
 

@@ -89,6 +89,7 @@ push 后 GitHub Actions 自动跑 CI（冒烟测试 + 编译检查 + docs 链接
 | 规则 | 说明 |
 |------|------|
 | 模板知识是**种子** | fork 里的 `CLAUDE.md`/`docs/` 描述的是**模板基线**，不是新工程的现状 |
+| 开发技能随代码继承 | `.claude/skills/` 的三份薄壳（bootstrap/add-capability/modify-service）随 fork 保留、路径不变、开箱即用；与文档同源，业务规则沉淀时按需同步 |
 | 业务规则写进新工程 | 每沉淀一条业务规则（新增状态码、新增能力、部署差异），同步更新新工程自己的 `CLAUDE.md`/`docs/`——它们是**活文档**，随业务生长 |
 | 不回改模板 | 模板文档只描述基线；想让模板改进则向上游提 issue/PR（见 [forking-contract.md](forking-contract.md)） |
 | 漂移是正常的 | fork 代码与模板文档逐渐不一致是预期状态；合并上游更新时的取舍见 forking-contract §4 |

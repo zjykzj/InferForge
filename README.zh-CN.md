@@ -22,6 +22,20 @@ InferForge 是面向**视觉推理服务**的生产级服务模板：推理内�
 
 在视觉内核之上，模板还内置了 VLM 与 Agent 编排的参照实现（远程 LLM 集成、异步 query-only），演示从视觉推理延伸到 LLM 编排的完整路径。
 
+## 与 Agent 一起开发
+
+开发由 agent 驱动：fork 之后，把需求告诉 agent，workflow 文档会把请求变成受检的实现。从 [docs/README.md](docs/README.md) 的入口表开始——例如：
+
+```
+你：  帮我新增一个同步接口，使用分割算法。
+Agent：需求分解（形态=同步 × 能力=分割，引擎层零改动）、查边界表、
+      输出分层落位提案，等待你确认。
+你：  确认。
+Agent：按 canonical 参照实现 → pytest + check_capability.py 通过 → 提交。
+```
+
+随 fork 发布的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳。
+
 ## 项目结构
 
 ```

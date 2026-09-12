@@ -22,6 +22,21 @@ InferForge is a production-grade serving template for **vision inference service
 
 Beyond vision kernels, the template ships reference implementations for VLM and Agent orchestration — remote-LLM integration (async query-only) that demonstrates the path from vision inference to LLM orchestration.
 
+## Developing with Agents
+
+Development is agent-driven: fork the repo, tell the agent what you want, and the workflow docs turn the request into a checked implementation. Start from the task→entry map in [docs/README.md](docs/README.md) — for example:
+
+```
+You:   add a sync API for segmentation
+Agent: decomposes (shape=sync × capability=segment, engine layer untouched),
+       checks the boundary table, proposes the per-layer placement plan
+You:   confirmed
+Agent: implements against the canonical references → pytest +
+       check_capability.py green → commit
+```
+
+The architecture checks shipped with the fork keep every change inside the contract; the skills in `.claude/skills/` wrap the same workflows for Claude Code.
+
 ## Project Layout
 
 ```

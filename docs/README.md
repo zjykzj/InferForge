@@ -45,3 +45,5 @@
 - 修改已有服务（业务/参数/算法） → [modify-service.md](workflow/modify-service.md)（§1 定位）
 - 合并模板上游更新 → [forking-contract.md](workflow/forking-contract.md) §4
 - 理解"为什么这么设计" → [concepts.md](concepts.md) → [architecture.md](architecture.md)
+
+每个入口的开发闭环一致：按文档实现 → `python3 scripts/check_capability.py` + `pytest tests/` 验收 → 提交。守门检查随 fork 发布，本地与 CI 均可执行；`.claude/skills/` 的同名薄壳为 Claude Code 提供同一流程。

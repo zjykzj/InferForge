@@ -39,6 +39,7 @@ base:
   - docs/README.md
   - docs/api.md
   - docs/architecture.md
+  - docs/assembly.md
   - docs/concepts.md
   - docs/deployment.md
   - docs/fastapi-migration.md

@@ -28,7 +28,8 @@
   - [release-strategies.md](release-strategies.md)：发布策略——环境模型、五种发布策略谱系（停服/滚动/蓝绿/canary/feature flag）、分流机制（canary vs A/B）、观测回滚、与模型版本管理的关系，附本工程实现状态标注
 - **开发规范**
   - [forking-contract.md](workflow/forking-contract.md)：forking contract——模板使用方式、可改/慎改区域、合并上游更新的冲突取舍
-  - [bootstrap.md](workflow/bootstrap.md)：从模板创建新工程——复制与改名清单、demo 能力裁剪、配置初始化、底座验收与知识层继承
+  - [bootstrap.md](workflow/bootstrap.md)：从模板创建新工程——下载与按需装配、改名清单、配置初始化、底座验收与知识层继承
+  - [assembly.md](assembly.md)：按需装配机制——manifest 正向清单、assemble.py、标记块约定与扩展纪律
   - [add-capability.md](workflow/add-capability.md)：新增业务能力——需求分解与形态决策（轴 × 组合规则、边界清单）、架构提案确认、能力文件集、无参照时的契约推导
   - [add-engine.md](workflow/add-engine.md)：新增推理引擎——BasePredictor contract、接入步骤（含 TensorRT/Triton）与验证清单
   - [modify-service.md](workflow/modify-service.md)：修改已有服务——层级定位、绿黄红区、换算法与回归验收

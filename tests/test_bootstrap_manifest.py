@@ -28,8 +28,11 @@ _spec.loader.exec_module(assemble)
 
 
 def _tracked_files():
+    # Include untracked files (respecting .gitignore) so the guard also
+    # covers files created but not yet committed during development.
     out = subprocess.run(
-        ["git", "ls-files"], cwd=PROJECT_ROOT, capture_output=True, text=True, check=True
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        cwd=PROJECT_ROOT, capture_output=True, text=True, check=True,
     )
     return set(line for line in out.stdout.splitlines() if line)
 

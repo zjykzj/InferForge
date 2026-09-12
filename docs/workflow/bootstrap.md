@@ -41,6 +41,8 @@ cd /path/to/my-service && git init && git add -A && git commit -m "init: from In
 
 模板更新：`cd ~/InferForge && git pull`——与业务工程零耦合。改进模板本身走 fork + PR（贡献路径，见 [forking-contract.md](forking-contract.md)）。
 
+装配机制（manifest 正向清单、标记块约定、扩展纪律）见 [assembly.md](../assembly.md)——本文只讲使用流程。
+
 新工程继承的远不止代码：`CLAUDE.md`（硬规则）、`docs/`（知识与食谱）、`tests/`（可执行契约）、`.github/workflows/ci.yml`（CI，复制后自动生效）、`deploy/`（部署参考工件）全部随仓库走。**这些是给开发 Agent 的知识与验证底座**——开发时 CLAUDE.md 随工作目录常驻上下文，测试跑出红灯就是反馈。
 
 ## 3. 改名清单（一次性）
@@ -77,7 +79,7 @@ cd /path/to/my-service && git init && git add -A && git commit -m "init: from In
 
 - **依赖自动展开**：`pipeline` → detect+cls；`search` → embed+async；`agent` → detect+async；`vlm` → async；`seg` → detect
 - **建议保留至少一个与目标业务同形态的参照，直到自建第一个业务能力跑通**——Agent 开发靠模仿 canonical，删了就没了模仿对象
-- 装配机制：正向清单在 `templates/manifest.yaml`（每个文件恰好归属一处，`tests/test_bootstrap_manifest.py` 守护）；wiring 文件里的 `# @inferforge:<name>` 标记块由 assemble.py 按选择剔除
+- 装配机制：正向清单在 `templates/manifest.yaml`（每个文件恰好归属一处，`tests/test_bootstrap_manifest.py` 守护）；wiring 文件里的 `# @inferforge:<name>` 标记块由 assemble.py 按选择剔除——机制与扩展纪律见 [assembly.md](../assembly.md)
 - **事后裁剪**：先按全量装配、之后想删某个能力时，走删除面清单（漏一处 pytest 就会告诉你）：
 
 1. `engines/<name>.py`、`tasks/<name>*.py`、`apis/<name>*.py`、`tests/test_<name>*.py`、`scripts/run_<name>.py`、`scripts/test_<name>*.py`

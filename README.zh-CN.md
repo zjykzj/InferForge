@@ -22,49 +22,6 @@ InferForge 是面向**视觉推理服务**的生产级服务模板：推理内�
 
 在视觉内核之上，模板还内置了 VLM 与 Agent 编排的参照实现（远程 LLM 集成、异步 query-only），演示从视觉推理延伸到 LLM 编排的完整路径。
 
-## 与 Agent 一起开发
-
-开发由 agent 驱动：fork 之后，把需求告诉 agent，workflow 文档会把请求变成受检的实现。从 [docs/README.md](docs/README.md) 的入口表开始——例如：
-
-```
-你：  帮我新增一个同步接口，使用分割算法。
-Agent：需求分解（形态=同步 × 能力=分割，引擎层零改动）、查边界表、
-      输出分层落位提案，等待你确认。
-你：  确认。
-Agent：按 canonical 参照实现 → pytest + check_capability.py 通过 → 提交。
-```
-
-随 fork 发布的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳。
-
-## 项目结构
-
-```
-InferForge/
-├── apis/          # FastAPI 路由 + Pydantic 模型 —— 接口层
-├── tasks/         # 任务编排；每个任务持有自己的预测器
-├── engines/       # BasePredictor contract + YOLOv8n 检测/分割/分类参考实现
-├── utils/         # 横切机制：envelope、日志、指标、鉴权、限流
-├── deploy/        # 参考工件：logrotate、nginx 灰度、监控栈
-├── docs/          # 完整文档集（中文，按分类索引）
-├── scripts/       # 接口测试脚本 + 回调接收器
-└── tests/         # 冒烟测试——无模型依赖，CI 自动执行
-```
-
-## 能力总览
-
-| 能力 | 形态 | 开关 | 模型 |
-|---|---|---|---|
-| 检测 | 同步 + 异步 | 常开；`INFERFORGE_ASYNC` 增加异步接口 | `yolov8n.onnx` |
-| 分割 | 仅同步 | `INFERFORGE_SEG` | `yolov8n-seg.onnx` |
-| 分类 | 仅同步 | `INFERFORGE_CLS` | `yolov8n-cls.onnx` |
-| 管线 | 仅同步 | `INFERFORGE_PIPELINE` | 复用检测 + 分类 |
-| 去重 | 仅同步 | `INFERFORGE_DEDUP` | `dino2-small.onnx` |
-| 检索 / 查重 | 仅异步（query） | `INFERFORGE_SEARCH` | embed + `data/gallery.db` |
-| VLM | 仅异步（query） | `INFERFORGE_LLM` | 远程 LLM |
-| Agent | 仅异步（query） | `INFERFORGE_AGENT` | 检测 + 远程 LLM |
-
-开关均为可选环境变量（检测常开）；开关只决定路由是否存在，不决定加载哪个模型（那是注册表的职责，见 [model-registry](docs/model-registry.md)）。所有异步能力都建立在同一套 §异步基础设施 之上；检索 / VLM / Agent 无 callback 形态。
-
 ## 快速开始
 
 最小编程路径：同步检测。
@@ -88,158 +45,50 @@ python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg
 # 6. Prometheus 指标：http://localhost:8000/metrics（可选，见 docs/metrics.md）
 ```
 
-配置也可以写进 `.env` 文件（`cp .env.example .env` 后填写——shell 已导出的环境变量优先）。其余能力见 §能力。
+配置可写进 `.env` 文件（`cp .env.example .env` 后填写——shell 已导出的变量优先）。异步（Celery + RabbitMQ + Redis，callback/query）、其余能力与 Docker 全栈：见 [quick-start](docs/quick-start.md)（§2–3 异步、§4 容器化）与 [api](docs/api.md)。测试刻意免模型、免服务（`pytest tests/`——见 [testing](docs/testing.md)）。
 
-## 异步基础设施
+## 与 Agent 一起开发
 
-异步只有一种部署形态——Celery + RabbitMQ + Redis，所有异步能力（检测、检索/查重、VLM、Agent）都共享它。投递方式按请求选择：callback（服务端把结果 POST 到你的 `callback_url`）或 query（提交后轮询直到结果就绪——结果缓存到 Redis）。搭建一次即可：
+开发由 agent 驱动：fork 之后，把需求告诉 agent，workflow 文档会把请求变成受检的实现。从 [docs/README.md](docs/README.md) 的入口表开始——例如：
 
-```bash
-pip install -r requirements-async.txt
-INFERFORGE_ASYNC=1 ./start.sh                                                   # 启动 web（注册检测的异步接口）
-./start_celery.sh                                                               # 启动 worker
+```
+你：  帮我新增一个同步接口，使用分割算法。
+Agent：需求分解（形态=同步 × 能力=分割，引擎层零改动）、查边界表、
+      输出分层落位提案，等待你确认。
+你：  确认。
+Agent：按 canonical 参照实现 → pytest + check_capability.py 通过 → 提交。
 ```
 
-`INFERFORGE_ASYNC=1` 注册的是检测接口；检索 / VLM / Agent 在此基础上叠加各自开关（见对应章节）。两种投递方式的用法见 §检测。
+随 fork 发布的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳。
 
-## 能力
+## 能力总览
 
-### 1. 检测
+| 能力 | 形态 | 开关 | 模型 |
+|---|---|---|---|
+| 检测 | 同步 + 异步 | 常开；`INFERFORGE_ASYNC` 增加异步接口 | `yolov8n.onnx` |
+| 分割 | 仅同步 | `INFERFORGE_SEG` | `yolov8n-seg.onnx` |
+| 分类 | 仅同步 | `INFERFORGE_CLS` | `yolov8n-cls.onnx` |
+| 管线 | 仅同步 | `INFERFORGE_PIPELINE` | 复用检测 + 分类 |
+| 去重 | 仅同步 | `INFERFORGE_DEDUP` | `dino2-small.onnx` |
+| 检索 / 查重 | 仅异步（query） | `INFERFORGE_SEARCH` | embed + `data/gallery.db` |
+| VLM | 仅异步（query） | `INFERFORGE_LLM` | 远程 LLM |
+| Agent | 仅异步（query） | `INFERFORGE_AGENT` | 检测 + 远程 LLM |
 
-同步形态见上方快速开始。异步形态无需额外开关——§异步基础设施 注册的即是检测接口，callback 还是 query 按请求选择：
+开关均为可选环境变量（检测常开）；开关只决定路由是否存在，不决定加载哪个模型——那是注册表的职责（[model-registry](docs/model-registry.md)）。所有异步能力共用同一套 Celery + RabbitMQ + Redis 底座；投递方式按请求选择——callback 或 query。检索 / VLM / Agent 无 callback 形态。
 
-```bash
-# 推送式 —— 服务端把结果 POST 到你的 callback_url
-python3 scripts/callback_receiver.py                                            # 启动回调接收器（结果保存到 outputs/callbacks/）
-python3 scripts/test_async_detect_callback.py --image assets/bus.jpg \
-  --callback-url http://localhost:9000/result                                   # 结果完成后 POST 回调
+## 项目结构
 
-# 拉取式 —— 提交任务，轮询直到结果就绪（结果缓存到 Redis）
-redis-server &                                                                  # 启动 redis（结果存储）
-python3 scripts/test_async_detect_query.py --image assets/bus.jpg                    # 提交 + 轮询直到完成
 ```
-
-### 2. 分割 / 分类
-
-仅同步形态（默认关，检测不受影响）：
-
-```bash
-# 1. 导出并放置模型（subprocess 调 yolo CLI——不 import ultralytics；导出后自动形状校验）
-python3 scripts/export_yolo.py --task segment --task classify
-
-# 2. 带开关启动（可只开一个；start.sh 只检查已启用能力的模型文件）
-INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
-
-# 3. 测试
-python3 scripts/test_sync_segment.py --image assets/bus.jpg --save result_seg.jpg   # 分割
-python3 scripts/test_sync_classify.py --image assets/bus.jpg                        # 分类（top-5）
+InferForge/
+├── apis/          # FastAPI 路由 + Pydantic 模型 —— 接口层
+├── tasks/         # 任务编排；每个任务持有自己的预测器
+├── engines/       # BasePredictor contract + YOLOv8n 检测/分割/分类参考实现
+├── utils/         # 横切机制：envelope、日志、指标、鉴权、限流
+├── deploy/        # 参考工件：logrotate、nginx 灰度、监控栈
+├── docs/          # 完整文档集（中文，按分类索引）
+├── scripts/       # 接口测试脚本 + 回调接收器
+└── tests/         # 冒烟测试——无模型依赖，CI 自动执行
 ```
-
-### 3. 管线
-
-仅同步形态。组合上面两个模型——检测 → 裁剪 → 细粒度分类（如检测 `bus` → 识别 `school bus`）；目标类用 `INFERFORGE_PIPELINE_TARGETS` 配置（默认 `car,truck,bus`）：
-
-```bash
-INFERFORGE_PIPELINE=1 ./start.sh
-python3 scripts/test_sync_pipeline.py --image assets/bus.jpg --save result_pipeline.jpg   # 管线（检测 → 分类）
-```
-
-### 4. Embedding
-
-同一个 DINOv2-small 引擎支撑三个业务任务：去重（同步）与 gallery 检索 / 查重（异步 query-only、worker 专属——milvus-lite 索引单进程独占）。先将 DINOv2-small 导出 ONNX 放入 models/：
-
-```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu   # 一次性导出依赖
-python3 scripts/export_dinov2.py                                                # -> models/dino2-small.onnx
-```
-
-同步批内去重——一批图里找出互为近似重复的分组（阈值 `INFERFORGE_DUP_THRESHOLD`，默认 0.95）：
-
-```bash
-INFERFORGE_DEDUP=1 ./start.sh
-python3 scripts/test_sync_dedup.py --image assets/bus.jpg --image assets/bus.jpg --image assets/zidane.jpg   # 去重
-```
-
-异步 gallery 检索 / 查重（建立在 §异步基础设施 之上）：
-
-```bash
-python3 scripts/build_gallery.py                # 先建索引——worker 必须已停止（gallery/ -> data/gallery.db）
-INFERFORGE_ASYNC=1 INFERFORGE_SEARCH=1 ./start.sh
-python3 scripts/run_search.py --image assets/bus.jpg --check    # task 层直测（检索 / 查重）
-```
-
-详见 [embedding](docs/embedding.md)。
-
-### 5. VLM
-
-图片理解——worker 调用远程 OpenAI 兼容 LLM，仅异步 query-only。在 §异步基础设施 之上再加 `INFERFORGE_LLM=1`：
-
-```bash
-INFERFORGE_LLM=1 INFERFORGE_ASYNC=1 ./start.sh                                  # 启动 web（注册 /predict/vlm/*）
-INFERFORGE_LLM_MODEL=your-model \
-INFERFORGE_LLM_API_KEY=your-key \
-INFERFORGE_LLM_BASE_URL=https://your-llm-endpoint/v1 \
-./start_celery.sh                                                               # 启动 worker（远程调用发生在 worker）
-python3 scripts/test_async_vlm_query.py --image assets/bus.jpg                        # 提交 + 轮询直到文本答案返回
-```
-
-提示词由服务端固定（`INFERFORGE_LLM_PROMPT` 可覆盖），客户端只传图片。详见 [api](docs/api.md) §10。
-
-### 6. Agent
-
-Pydantic AI 编排示例——检测工具 + LLM 属性判断，仅异步 query-only。在 §异步基础设施 之上再加 `INFERFORGE_AGENT=1`，worker 复用 `INFERFORGE_LLM_*` 配置并需要本地模型：
-
-```bash
-INFERFORGE_AGENT=1 INFERFORGE_ASYNC=1 ./start.sh                                  # 启动 web（注册 /predict/agent/*）
-INFERFORGE_LLM_MODEL=your-model \
-INFERFORGE_LLM_API_KEY=your-key \
-./start_celery.sh                                                               # 启动 worker（Agent 在这里运行）
-curl -s -X POST http://localhost:8000/predict/agent/query \                     # 提交后用返回的 task_id 轮询
-  -H "Content-Type: application/json" \
-  -d '{"image": "<assets/zidane.jpg 的 base64>"}'
-```
-
-示例统计图中人物有头发/无头发的人数（zidane.jpg → 2 人 1:1）；换属性字段 + 指令 + 工具即可换成任意属性任务。详见 [agent](docs/agent.md)。
-
-## 模型注册表
-
-多模型路由——复制示例注册表后按请求选模型（没有注册表文件时保持单模型行为，与上文完全一致）：
-
-```bash
-cp models/registry.example.yaml models/registry.yaml     # 编辑它，列出你的模型
-./start.sh                                               # preflight 检查每个注册模型
-
-python3 scripts/test_sync_detect.py --image assets/bus.jpg --model yolov8n          # 显式指定模型
-python3 scripts/test_sync_detect.py --image assets/bus.jpg                            # 不带 model 字段 → 缺省模型
-# 详见 docs/model-registry.md
-```
-
-## Docker
-
-容器化一键起全栈——web + worker + RabbitMQ + Redis，本机零安装：
-
-```bash
-cp /path/to/yolov8n.onnx models/    # 模型 bind mount 进容器，不进镜像
-docker compose up -d
-curl http://localhost:8000/health   # 存活探针
-```
-
-RabbitMQ 管理界面：http://localhost:15672（guest/guest）。`docker compose down` 停止全部容器（加 `-v` 连数据卷一起删除）。详见 [quick-start](docs/quick-start.md) §4。
-
-可选监控栈（Prometheus + Grafana）：`docker compose -f docker-compose.yml -f deploy/docker-compose.monitoring.yml up -d`——见 [metrics](docs/metrics.md)。
-
-## 测试
-
-测试刻意**免模型、免服务**：通过 FakePredictor seam 注入假预测器，从不加载权重、不访问网络——CI 跑的是同一套命令。
-
-```bash
-pytest tests/ -v                                  # 全量测试（无需模型文件、无需 RabbitMQ/Redis）
-pip install pytest-cov
-pytest tests/ -q --cov=app --cov=apis --cov=tasks --cov=engines --cov=utils
-python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py
-```
-
-覆盖率（基线约 81%）只作参考、不作门禁：scripts/ 与防御性错误分支刻意不做单测。测试策略细节（seam、异步 fake、注册表隔离）见 [docs/testing.md](docs/testing.md)。
 
 ## 文档
 

@@ -22,50 +22,6 @@ InferForge is a production-grade serving template for **vision inference service
 
 Beyond vision kernels, the template ships reference implementations for VLM and Agent orchestration — remote-LLM integration (async query-only) that demonstrates the path from vision inference to LLM orchestration.
 
-## Developing with Agents
-
-Development is agent-driven: fork the repo, tell the agent what you want, and the workflow docs turn the request into a checked implementation. Start from the task→entry map in [docs/README.md](docs/README.md) — for example:
-
-```
-You:   add a sync API for segmentation
-Agent: decomposes (shape=sync × capability=segment, engine layer untouched),
-       checks the boundary table, proposes the per-layer placement plan
-You:   confirmed
-Agent: implements against the canonical references → pytest +
-       check_capability.py green → commit
-```
-
-The architecture checks shipped with the fork keep every change inside the contract; the skills in `.claude/skills/` wrap the same workflows for Claude Code.
-
-## Project Layout
-
-```
-InferForge/
-├── apis/          # FastAPI routers + Pydantic schemas — interface layer
-├── tasks/         # task orchestration; each task owns its predictors
-├── engines/       # BasePredictor contract + YOLOv8n detect/segment/classify reference implementations
-├── utils/         # cross-cutting: envelope, logging, metrics, auth, rate limit
-├── deploy/        # reference artifacts: logrotate, nginx canary, monitoring stack
-├── docs/          # full documentation set (Chinese, indexed by category)
-├── scripts/       # API test clients + callback receiver
-└── tests/         # smoke tests — model-free, CI-run
-```
-
-## Capability Overview
-
-| Capability | Form | Switch | Model |
-|---|---|---|---|
-| Detection | sync + async | always on; `INFERFORGE_ASYNC` adds the async apis | `yolov8n.onnx` |
-| Segment | sync only | `INFERFORGE_SEG` | `yolov8n-seg.onnx` |
-| Classify | sync only | `INFERFORGE_CLS` | `yolov8n-cls.onnx` |
-| Pipeline | sync only | `INFERFORGE_PIPELINE` | reuses detect + classify |
-| Dedup | sync only | `INFERFORGE_DEDUP` | `dino2-small.onnx` |
-| Search / dupcheck | async only (query) | `INFERFORGE_SEARCH` | embed + `data/gallery.db` |
-| VLM | async only (query) | `INFERFORGE_LLM` | remote LLM |
-| Agent | async only (query) | `INFERFORGE_AGENT` | detect + remote LLM |
-
-Switches are opt-in environment variables (detection is always on); they gate which routes exist, not which models load (that's the registry's job — see [model-registry](docs/model-registry.md)). Every async capability builds on the same §Async Infrastructure; search / VLM / Agent have no callback form.
-
 ## Quick Start
 
 The minimal path: sync detection.
@@ -89,158 +45,51 @@ python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg
 # 6. Prometheus metrics: http://localhost:8000/metrics (optional — see docs/metrics.md)
 ```
 
-Config can also live in a `.env` file (`cp .env.example .env` and fill in — shell-exported variables take precedence). Everything else: §Capabilities.
+Config can live in a `.env` file (`cp .env.example .env` — shell-exported variables take precedence). Async (Celery + RabbitMQ + Redis, callback/query), the other capabilities, and the Docker full stack: [quick-start](docs/quick-start.md) (§2–3 async, §4 containers) + [api](docs/api.md). Tests are model-free and service-free by design (`pytest tests/` — see [testing](docs/testing.md)).
 
-## Async Infrastructure
+## Developing with Agents
 
-One async deployment shape — Celery + RabbitMQ + Redis — shared by every async capability (detect, search/dupcheck, VLM, Agent). Delivery is a per-request choice: callback (server POSTs the result to your `callback_url`) or query (submit, poll until the result is ready — cached in Redis). Set up once:
+Development is agent-driven: fork the repo, tell the agent what you want, and the workflow docs turn the request into a checked implementation. Start from the task→entry map in [docs/README.md](docs/README.md) — for example:
 
-```bash
-pip install -r requirements-async.txt
-INFERFORGE_ASYNC=1 ./start.sh                                                   # start web (registers the async detect apis)
-./start_celery.sh                                                               # start the worker
+```
+You:   add a sync API for segmentation
+Agent: decomposes (shape=sync × capability=segment, engine layer untouched),
+       checks the boundary table, proposes the per-layer placement plan
+You:   confirmed
+Agent: implements against the canonical references → pytest +
+       check_capability.py green → commit
 ```
 
-`INFERFORGE_ASYNC=1` registers the detection apis; search / VLM / Agent stack their own switches on top (see their sections). Usage of the two delivery styles: §Detection.
+The architecture checks shipped with the fork keep every change inside the contract; the skills in `.claude/skills/` wrap the same workflows for Claude Code.
 
-## Capabilities
+## Capability Overview
 
-### 1. Detection
+| Capability | Form | Switch | Model |
+|---|---|---|---|
+| Detection | sync + async | always on; `INFERFORGE_ASYNC` adds the async apis | `yolov8n.onnx` |
+| Segment | sync only | `INFERFORGE_SEG` | `yolov8n-seg.onnx` |
+| Classify | sync only | `INFERFORGE_CLS` | `yolov8n-cls.onnx` |
+| Pipeline | sync only | `INFERFORGE_PIPELINE` | reuses detect + classify |
+| Dedup | sync only | `INFERFORGE_DEDUP` | `dino2-small.onnx` |
+| Search / dupcheck | async only (query) | `INFERFORGE_SEARCH` | embed + `data/gallery.db` |
+| VLM | async only (query) | `INFERFORGE_LLM` | remote LLM |
+| Agent | async only (query) | `INFERFORGE_AGENT` | detect + remote LLM |
 
-Sync form — see Quick Start above. The async form needs no extra switch: the apis registered by §Async Infrastructure are detection's; callback or query per request:
+Switches are opt-in environment variables (detection is always on); they gate which routes exist, not which models load — that's the registry's job ([model-registry](docs/model-registry.md)). All async capabilities share one Celery + RabbitMQ + Redis infrastructure; delivery is a per-request choice — callback or query. Search / VLM / Agent have no callback form.
 
-```bash
-# push style — server POSTs the result to your callback_url
-python3 scripts/callback_receiver.py                                            # receiver (saves to outputs/callbacks/)
-python3 scripts/test_async_detect_callback.py --image assets/bus.jpg \
-  --callback-url http://localhost:9000/result                                   # result is POSTed back
+## Project Layout
 
-# pull style — submit a task, poll until the result is ready (result cached in Redis)
-redis-server &                                                                  # start redis (result store)
-python3 scripts/test_async_detect_query.py --image assets/bus.jpg                    # submit + poll until done
 ```
-
-### 2. Segment / Classify
-
-Sync only (off by default; detection is unaffected):
-
-```bash
-# 1. Export and place the models (subprocess yolo CLI — never imports ultralytics; auto shape-verified)
-python3 scripts/export_yolo.py --task segment --task classify
-
-# 2. Start with the switches (either one works; start.sh only checks enabled models)
-INFERFORGE_SEG=1 INFERFORGE_CLS=1 ./start.sh
-
-# 3. Test
-python3 scripts/test_sync_segment.py --image assets/bus.jpg --save result_seg.jpg   # segment
-python3 scripts/test_sync_classify.py --image assets/bus.jpg                        # classify (top-5)
+InferForge/
+├── apis/          # FastAPI routers + Pydantic schemas — interface layer
+├── tasks/         # task orchestration; each task owns its predictors
+├── engines/       # BasePredictor contract + YOLOv8n detect/segment/classify reference implementations
+├── utils/         # cross-cutting: envelope, logging, metrics, auth, rate limit
+├── deploy/        # reference artifacts: logrotate, nginx canary, monitoring stack
+├── docs/          # full documentation set (Chinese, indexed by category)
+├── scripts/       # API test clients + callback receiver
+└── tests/         # smoke tests — model-free, CI-run
 ```
-
-### 3. Pipeline
-
-Sync only. Compose the two models above — detect → crop → fine-grained classify (e.g. detect `bus` → classify `school bus`); target classes via `INFERFORGE_PIPELINE_TARGETS` (default `car,truck,bus`):
-
-```bash
-INFERFORGE_PIPELINE=1 ./start.sh
-python3 scripts/test_sync_pipeline.py --image assets/bus.jpg --save result_pipeline.jpg   # pipeline (detect → classify)
-```
-
-### 4. Embedding
-
-One DINOv2-small engine powers three business tasks: dedup (sync) and gallery search / dupcheck (async query-only, worker-only — the milvus-lite index is single-process exclusive). Export the ONNX into models/ first:
-
-```bash
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu   # one-off export dep
-python3 scripts/export_dinov2.py                                                # -> models/dino2-small.onnx
-```
-
-Sync batch dedup — near-duplicate groups within one batch (threshold via `INFERFORGE_DUP_THRESHOLD`, default 0.95):
-
-```bash
-INFERFORGE_DEDUP=1 ./start.sh
-python3 scripts/test_sync_dedup.py --image assets/bus.jpg --image assets/bus.jpg --image assets/zidane.jpg   # dedup
-```
-
-Async gallery search / dupcheck (on top of §Async Infrastructure):
-
-```bash
-python3 scripts/build_gallery.py                # build the index first — worker must be STOPPED (gallery/ -> data/gallery.db)
-INFERFORGE_ASYNC=1 INFERFORGE_SEARCH=1 ./start.sh
-python3 scripts/run_search.py --image assets/bus.jpg --check    # task layer directly (search / dupcheck)
-```
-
-Details: [embedding](docs/embedding.md).
-
-### 5. VLM
-
-Image understanding via a remote LLM — async query-only. Add `INFERFORGE_LLM=1` on top of §Async Infrastructure; the worker calls the remote model:
-
-```bash
-INFERFORGE_LLM=1 INFERFORGE_ASYNC=1 ./start.sh                                  # start web (registers /predict/vlm/*)
-INFERFORGE_LLM_MODEL=your-model \
-INFERFORGE_LLM_API_KEY=your-key \
-INFERFORGE_LLM_BASE_URL=https://your-llm-endpoint/v1 \
-./start_celery.sh                                                               # start worker (remote call happens here)
-python3 scripts/test_async_vlm_query.py --image assets/bus.jpg                        # submit + poll until the answer arrives
-```
-
-The prompt is fixed server-side (`INFERFORGE_LLM_PROMPT` overrides it); clients submit an image only. See [api](docs/api.md) §10.
-
-### 6. Agent
-
-Pydantic AI orchestration demo — detection tool + LLM attribute judgment, async query-only. Add `INFERFORGE_AGENT=1` on top of §Async Infrastructure; the worker reuses the same `INFERFORGE_LLM_*` config plus the local model:
-
-```bash
-INFERFORGE_AGENT=1 INFERFORGE_ASYNC=1 ./start.sh                                  # start web (registers /predict/agent/*)
-INFERFORGE_LLM_MODEL=your-model \
-INFERFORGE_LLM_API_KEY=your-key \
-./start_celery.sh                                                               # start worker (agent runs here)
-curl -s -X POST http://localhost:8000/predict/agent/query \                     # submit; then poll the returned task_id
-  -H "Content-Type: application/json" \
-  -d '{"image": "<base64 of assets/zidane.jpg>"}'
-```
-
-The demo counts persons with/without hair (zidane.jpg → 2 persons, 1:1); swap the schema + instructions + tool for any other attribute task. See [agent](docs/agent.md).
-
-## Model Registry
-
-Multi-model routing — copy the example registry and pick models per request (no registry file means single-model behavior, exactly as above):
-
-```bash
-cp models/registry.example.yaml models/registry.yaml     # edit it to list your models
-./start.sh                                               # preflight checks every registered model
-
-python3 scripts/test_sync_detect.py --image assets/bus.jpg --model yolov8n          # explicit model
-python3 scripts/test_sync_detect.py --image assets/bus.jpg                            # default model (no field)
-# details: docs/model-registry.md
-```
-
-## Docker
-
-Full stack in containers — web + worker + RabbitMQ + Redis, no local installs:
-
-```bash
-cp /path/to/yolov8n.onnx models/    # bind-mounted into the containers, never baked into the image
-docker compose up -d
-curl http://localhost:8000/health   # liveness probe
-```
-
-RabbitMQ management UI at http://localhost:15672 (guest/guest). `docker compose down` stops the stack (`-v` also drops queue/redis data). See [quick-start](docs/quick-start.md) §4 for details.
-
-Optional monitoring stack (Prometheus + Grafana): `docker compose -f docker-compose.yml -f deploy/docker-compose.monitoring.yml up -d` — see [metrics](docs/metrics.md).
-
-## Testing
-
-Model-free and service-free by design: tests inject FakePredictor seams and never load weights or hit the network — CI runs the same commands.
-
-```bash
-pytest tests/ -v                                  # full suite (no models, no RabbitMQ/Redis needed)
-pip install pytest-cov
-pytest tests/ -q --cov=app --cov=apis --cov=tasks --cov=engines --cov=utils
-python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py
-```
-
-Coverage (~81% baseline) is informational, not gated: scripts/ and defensive error branches are intentionally not unit-tested. Test strategy details (seams, async fakes, registry isolation): [docs/testing.md](docs/testing.md).
 
 ## Documentation
 

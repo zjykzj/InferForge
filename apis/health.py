@@ -13,7 +13,18 @@ import logging
 
 from fastapi import APIRouter
 
-from tasks import classification, detection, embedding, segmentation
+# @inferforge:detect
+from tasks import detection  # noqa: E402
+# @inferforge:end:detect
+# @inferforge:seg
+from tasks import segmentation  # noqa: E402
+# @inferforge:end:seg
+# @inferforge:cls
+from tasks import classification  # noqa: E402
+# @inferforge:end:cls
+# @inferforge:embed
+from tasks import embedding  # noqa: E402
+# @inferforge:end:embed
 from utils import response, switches
 
 logger = logging.getLogger("apis.health")
@@ -46,17 +57,26 @@ def readiness():
     service perpetually not-ready (rare models warm on their first use).
     A capability whose registry holds no model at all counts as not ready.
     """
+    ready = True  # base-only assembly: no capability to probe
+    # @inferforge:detect
     ready = detection.default_model_loaded()
+    # @inferforge:end:detect
+    # @inferforge:seg
     if switches.switch_on("INFERFORGE_SEG"):
         ready = ready and segmentation.default_model_loaded()
+    # @inferforge:end:seg
+    # @inferforge:cls
     if switches.switch_on("INFERFORGE_CLS") or switches.switch_on("INFERFORGE_PIPELINE"):
         ready = ready and classification.default_model_loaded()
+    # @inferforge:end:cls
+    # @inferforge:embed
     if switches.switch_on("INFERFORGE_DEDUP"):
         # Dedup is the only embed capability this process serves: search is
         # worker-only (the gallery db is single-process exclusive), so
         # probing embed on INFERFORGE_SEARCH alone would keep the web
         # perpetually 503 — it never loads the embed model.
         ready = ready and embedding.default_model_loaded()
+    # @inferforge:end:embed
     if ready:
         return response.success({"status": "ready"})
     return response.error("model not loaded", code=6, http_status=503)

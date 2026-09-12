@@ -81,6 +81,7 @@ def test_vlm_disabled_without_async(no_async_switch, monkeypatch):
     assert "/predict/vlm/query" not in routes
 
 
+# @inferforge:vlm
 def test_vlm_enabled_registers_query_api(no_async_switch, monkeypatch):
     pytest.importorskip("redis")  # full async mode needs redis installed
     monkeypatch.setenv("INFERFORGE_ASYNC", "1")
@@ -89,6 +90,7 @@ def test_vlm_enabled_registers_query_api(no_async_switch, monkeypatch):
     assert "/predict/callback" in routes
     assert "/predict/query" in routes
     assert "/predict/vlm/query" in routes  # vlm is query-only (no callback variant)
+# @inferforge:end:vlm
 
 
 def test_async_alone_leaves_vlm_out(no_async_switch, monkeypatch):
@@ -108,6 +110,7 @@ def test_agent_disabled_without_async(no_async_switch, monkeypatch):
     assert "/predict/agent/query" not in routes
 
 
+# @inferforge:agent
 def test_agent_enabled_registers_query_api(no_async_switch, monkeypatch):
     pytest.importorskip("redis")  # full async mode needs redis installed
     monkeypatch.setenv("INFERFORGE_ASYNC", "1")
@@ -115,6 +118,7 @@ def test_agent_enabled_registers_query_api(no_async_switch, monkeypatch):
     routes = _route_paths(create_app())
     assert "/predict/callback" in routes
     assert "/predict/agent/query" in routes  # agent is query-only (no callback variant)
+# @inferforge:end:agent
 
 
 def test_async_alone_leaves_agent_out(no_async_switch, monkeypatch):
@@ -135,20 +139,25 @@ def test_seg_and_cls_disabled_by_default(no_async_switch):
     assert "/predict/classify" not in routes
 
 
+# @inferforge:seg
 def test_seg_enabled_registers_router(no_async_switch, monkeypatch):
     monkeypatch.setenv("INFERFORGE_SEG", "1")
     routes = _route_paths(create_app())
     assert "/predict/segment" in routes
     assert "/predict/classify" not in routes  # each switch is independent
+# @inferforge:end:seg
 
 
+# @inferforge:cls
 def test_cls_enabled_registers_router(no_async_switch, monkeypatch):
     monkeypatch.setenv("INFERFORGE_CLS", "1")
     routes = _route_paths(create_app())
     assert "/predict/classify" in routes
     assert "/predict/segment" not in routes
+# @inferforge:end:cls
 
 
+# @inferforge:seg+cls
 def test_both_capabilities_register(no_async_switch, monkeypatch):
     monkeypatch.setenv("INFERFORGE_SEG", "1")
     monkeypatch.setenv("INFERFORGE_CLS", "1")
@@ -156,6 +165,7 @@ def test_both_capabilities_register(no_async_switch, monkeypatch):
     assert "/predict/segment" in routes
     assert "/predict/classify" in routes
     assert "/predict" in routes  # detection is unaffected by either switch
+# @inferforge:end:seg+cls
 
 
 def test_pipeline_disabled_by_default(no_async_switch):
@@ -163,11 +173,13 @@ def test_pipeline_disabled_by_default(no_async_switch):
     assert "/predict/pipeline" not in routes
 
 
+# @inferforge:pipeline
 def test_pipeline_enabled_registers_router(no_async_switch, monkeypatch):
     monkeypatch.setenv("INFERFORGE_PIPELINE", "1")
     routes = _route_paths(create_app())
     assert "/predict/pipeline" in routes
     assert "/predict/classify" not in routes  # each switch is independent
+# @inferforge:end:pipeline
 
 
 def test_dedup_disabled_by_default(no_async_switch):
@@ -175,11 +187,13 @@ def test_dedup_disabled_by_default(no_async_switch):
     assert "/predict/dedup" not in routes
 
 
+# @inferforge:dedup
 def test_dedup_enabled_registers_router(no_async_switch, monkeypatch):
     monkeypatch.setenv("INFERFORGE_DEDUP", "1")
     routes = _route_paths(create_app())
     assert "/predict/dedup" in routes
     assert "/predict/pipeline" not in routes  # each switch is independent
+# @inferforge:end:dedup
 
 
 def test_search_disabled_without_async(no_async_switch, monkeypatch):
@@ -190,6 +204,7 @@ def test_search_disabled_without_async(no_async_switch, monkeypatch):
     assert "/predict/search/check" not in routes
 
 
+# @inferforge:search
 def test_search_enabled_registers_query_apis(no_async_switch, monkeypatch):
     pytest.importorskip("redis")  # full async mode needs redis installed
     monkeypatch.setenv("INFERFORGE_ASYNC", "1")
@@ -197,6 +212,7 @@ def test_search_enabled_registers_query_apis(no_async_switch, monkeypatch):
     routes = _route_paths(create_app())
     assert "/predict/search/query" in routes
     assert "/predict/search/check" in routes  # query-only: no callback variant
+# @inferforge:end:search
 
 
 def test_async_alone_leaves_search_out(no_async_switch, monkeypatch):

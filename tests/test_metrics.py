@@ -13,7 +13,9 @@ from prometheus_client import REGISTRY
 from apis.sync_detect import sync_detect_router
 from engines.base import BasePredictor, DetectionResult
 from tasks import detection
-from tasks import vlm
+# @inferforge:vlm
+from tasks import vlm  # noqa: E402
+# @inferforge:end:vlm
 from utils import metrics
 
 
@@ -117,6 +119,7 @@ class _FakeClient:
         self.chat = _FakeChat()
 
 
+# @inferforge:vlm
 def test_vlm_remote_call_metric_on_success(monkeypatch):
     pytest.importorskip("openai")
     monkeypatch.setenv("INFERFORGE_LLM_MODEL", "m")
@@ -143,6 +146,7 @@ def test_vlm_remote_error_metric(monkeypatch):
         vlm._call_remote_llm("data:image/jpeg;base64,AAAA", "prompt")
 
     assert REGISTRY.get_sample_value("inferforge_vlm_remote_errors_total") == before + 1.0
+# @inferforge:end:vlm
 
 
 # --- task-labeled phase / predictor metrics ---

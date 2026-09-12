@@ -26,13 +26,30 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from engines.base import class_label
+# @inferforge:cls
 from engines.imagenet_classes import IMAGENET_CLASS_NAMES
+# @inferforge:end:cls
+# @inferforge:detect
 from engines.yolo import COCO_CLASS_NAMES
+# @inferforge:end:detect
 from utils.errors import ModelNotFound, RegistryConfigError
 
 logger = logging.getLogger("engines.registry")
 
-CAPABILITIES = ("detect", "segment", "classify", "embed")
+CAPABILITIES = [
+    # @inferforge:detect
+    "detect",
+    # @inferforge:end:detect
+    # @inferforge:seg
+    "segment",
+    # @inferforge:end:seg
+    # @inferforge:cls
+    "classify",
+    # @inferforge:end:cls
+    # @inferforge:embed
+    "embed",
+    # @inferforge:end:embed
+]
 
 DEFAULT_REGISTRY_FILE = os.path.join("models", "registry.yaml")
 
@@ -41,19 +58,35 @@ _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # The historical single-model env vars, kept alive as the no-registry-file
 # fallback. Order matters only for readability.
 _ENV_FALLBACK = (
+    # @inferforge:detect
     ("yolov8n", "detect", "INFERFORGE_MODEL_PATH", "yolov8n.onnx"),
+    # @inferforge:end:detect
+    # @inferforge:seg
     ("yolov8n-seg", "segment", "INFERFORGE_SEG_MODEL_PATH", "yolov8n-seg.onnx"),
+    # @inferforge:end:seg
+    # @inferforge:cls
     ("yolov8n-cls", "classify", "INFERFORGE_CLS_MODEL_PATH", "yolov8n-cls.onnx"),
+    # @inferforge:end:cls
+    # @inferforge:embed
     ("dino2-small", "embed", "INFERFORGE_EMBED_MODEL_PATH", "dino2-small.onnx"),
+    # @inferforge:end:embed
 )
 
 _BUILTIN_CLASS_NAMES = {
+    # @inferforge:detect
     "detect": COCO_CLASS_NAMES,
+    # @inferforge:end:detect
+    # @inferforge:seg
     "segment": COCO_CLASS_NAMES,
+    # @inferforge:end:seg
+    # @inferforge:cls
     "classify": IMAGENET_CLASS_NAMES,
+    # @inferforge:end:cls
     # Embed models have no class table (they output vectors, not labels);
     # the class_names property is never accessed by embed call sites.
+    # @inferforge:embed
     "embed": (),
+    # @inferforge:end:embed
 }
 
 

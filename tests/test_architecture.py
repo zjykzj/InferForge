@@ -22,7 +22,9 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from apis.sync_detect import sync_detect_router
+# @inferforge:detect
+from apis.sync_detect import sync_detect_router  # noqa: E402
+# @inferforge:end:detect
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
@@ -110,6 +112,7 @@ def test_heavy_deps_never_imported_at_module_level():
     assert not violations, "heavy deps must be imported lazily:\n  " + "\n  ".join(violations)
 
 
+# @inferforge:detect
 def test_envelope_always_200_and_422_never_leaks(app_factory):
     """Validation failures fold into 200 + code=1; success/failure bodies both
     carry exactly the {code, message, data} envelope."""
@@ -128,6 +131,7 @@ def test_envelope_always_200_and_422_never_leaks(app_factory):
     body = resp.json()
     assert set(body.keys()) == {"code", "message", "data"}
     assert body["code"] == 1
+# @inferforge:end:detect
 
 
 def test_status_codes_double_registered():

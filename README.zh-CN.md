@@ -34,10 +34,11 @@ git clone https://github.com/zjykzj/InferForge.git ~/InferForge
 ```text
 # 2. 在模板目录启动 Claude Code，初始化你的新工程（没给路径？agent 会先问）
 cd ~/InferForge && claude
-> 初始化一个 web 服务到 /srv/my-service。
+> 初始化一个 web 服务到 /srv/my-service，带检测。
 
-Agent：复制 → 改名 → 裁剪 demo 能力 → 配置 → 底座验收全绿 →
-      git init + 首次提交（全部发生在 /srv/my-service）
+Agent：assemble.py --target /srv/my-service --with detect（按需装配）→ 改名 →
+      配置 → 底座验收全绿 → git init + 首次提交
+      （全部发生在 /srv/my-service，模板零改动）
 ```
 
 ```text

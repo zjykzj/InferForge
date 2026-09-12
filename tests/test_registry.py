@@ -9,7 +9,9 @@ immune to a dev machine having a real models/registry.yaml.
 import pytest
 
 from engines import registry
-from tasks import segmentation
+# @inferforge:seg
+from tasks import segmentation  # noqa: E402
+# @inferforge:end:seg
 from utils.errors import ModelNotFound, RegistryConfigError
 
 
@@ -41,6 +43,7 @@ models:
     assert registry.default_name("detect") == "yolov8n"
 
 
+# @inferforge:cls
 def test_single_model_implies_default(tmp_path, monkeypatch):
     _use_registry(monkeypatch, tmp_path, """
 models:
@@ -50,6 +53,7 @@ models:
 """)
     assert registry.default_name("classify") == "only"
     assert registry.resolve("only", "classify").name == "only"
+# @inferforge:end:cls
 
 
 def test_multiple_models_need_defaults(tmp_path, monkeypatch):
@@ -99,6 +103,7 @@ models:
         registry.default_name("classify")
 
 
+# @inferforge:seg
 def test_readiness_probe_false_when_no_models_registered(tmp_path, monkeypatch):
     # /health/ready asks the task layer; a capability with no registered
     # model reports not-loaded instead of raising (probes must not crash).
@@ -109,6 +114,7 @@ models:
     path: models/yolov8n.onnx
 """)
     assert segmentation.default_model_loaded() is False
+# @inferforge:end:seg
 
 
 def test_defaults_must_point_at_matching_capability(tmp_path, monkeypatch):
@@ -177,6 +183,7 @@ models:
 # --- env-var fallback (no registry file -> historical single-model behavior) ---
 
 
+# @inferforge:detect+seg+cls
 def test_env_fallback_synthesizes_historical_registry(tmp_path, monkeypatch):
     monkeypatch.setenv("INFERFORGE_MODEL_PATH", "models/custom.onnx")
     monkeypatch.delenv("INFERFORGE_REGISTRY_PATH", raising=False)
@@ -191,8 +198,10 @@ def test_env_fallback_synthesizes_historical_registry(tmp_path, monkeypatch):
     assert registry.resolve(None, "detect").path == "models/custom.onnx"
     assert registry.default_name("segment") == "yolov8n-seg"
     assert registry.default_name("classify") == "yolov8n-cls"
+# @inferforge:end:detect+seg+cls
 
 
+# @inferforge:detect+cls
 def test_env_fallback_uses_historical_defaults(tmp_path, monkeypatch):
     monkeypatch.delenv("INFERFORGE_REGISTRY_PATH", raising=False)
     monkeypatch.setattr(registry, "DEFAULT_REGISTRY_FILE", str(tmp_path / "absent.yaml"))
@@ -200,6 +209,7 @@ def test_env_fallback_uses_historical_defaults(tmp_path, monkeypatch):
 
     assert registry.resolve("yolov8n", "detect").path.endswith("models/yolov8n.onnx")
     assert registry.resolve("yolov8n-cls", "classify").path.endswith("models/yolov8n-cls.onnx")
+# @inferforge:end:detect+cls
 
 
 def test_explicit_registry_path_missing_hard_errors(tmp_path, monkeypatch):

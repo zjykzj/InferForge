@@ -8,7 +8,15 @@ tests target.
 import pytest
 from fastapi.testclient import TestClient
 
-from tasks import classification, detection, segmentation, warmup
+# @inferforge:detect
+from tasks import detection, warmup  # noqa: E402
+# @inferforge:end:detect
+# @inferforge:seg
+from tasks import segmentation  # noqa: E402
+# @inferforge:end:seg
+# @inferforge:cls
+from tasks import classification  # noqa: E402
+# @inferforge:end:cls
 
 
 @pytest.fixture()
@@ -36,8 +44,12 @@ def _spies(monkeypatch):
         return _fn
 
     monkeypatch.setattr(detection, "preload", _spy("detect"))
+    # @inferforge:seg
     monkeypatch.setattr(segmentation, "preload", _spy("segment"))
+    # @inferforge:end:seg
+    # @inferforge:cls
     monkeypatch.setattr(classification, "preload", _spy("classify"))
+    # @inferforge:end:cls
     return calls
 
 
@@ -55,12 +67,14 @@ def test_preload_web_loads_detect_always(no_switches, monkeypatch):
     assert calls == ["detect"]
 
 
+# @inferforge:seg
 def test_preload_web_respects_capability_switches(no_switches, monkeypatch):
     monkeypatch.setenv("INFERFORGE_PRELOAD", "1")
     monkeypatch.setenv("INFERFORGE_SEG", "1")
     calls = _spies(monkeypatch)
     warmup.preload_web()
     assert calls == ["detect", "segment"]  # classify switch off
+# @inferforge:end:seg
 
 
 def test_preload_worker_loads_only_detection(no_switches, monkeypatch):
@@ -73,6 +87,7 @@ def test_preload_worker_loads_only_detection(no_switches, monkeypatch):
     assert calls == ["detect"]
 
 
+# @inferforge:seg
 def test_preload_failure_does_not_stop_other_capabilities(no_switches, monkeypatch):
     monkeypatch.setenv("INFERFORGE_PRELOAD", "1")
     monkeypatch.setenv("INFERFORGE_SEG", "1")
@@ -86,6 +101,7 @@ def test_preload_failure_does_not_stop_other_capabilities(no_switches, monkeypat
     monkeypatch.setattr(segmentation, "preload", lambda: calls.append("segment"))
     warmup.preload_web()  # must not raise: one broken model must not kill boot
     assert calls == ["detect-fail", "segment"]
+# @inferforge:end:seg
 
 
 def test_task_preload_loads_default(monkeypatch):

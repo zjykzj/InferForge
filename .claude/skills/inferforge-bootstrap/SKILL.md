@@ -1,6 +1,6 @@
 ---
 name: inferforge-bootstrap
-description: 从 InferForge 模板初始化一个新业务工程——复制模板到目标路径后的改名、demo 能力裁剪、配置初始化与底座验收。当需要基于 InferForge 模板新建服务、初始化工程、或裁剪模板自带能力时使用。完整知识与取舍说明见 docs/workflow/bootstrap.md。
+description: 从 InferForge 模板初始化一个新业务工程——按需装配（scripts/assemble.py 正向清单）到目标路径后的改名、配置初始化与底座验收。当需要基于 InferForge 模板新建服务、初始化工程、或选择能力/特性时使用。完整知识与取舍说明见 docs/workflow/bootstrap.md。
 ---
 
 # 从模板初始化新工程
@@ -9,11 +9,11 @@ description: 从 InferForge 模板初始化一个新业务工程——复制模�
 
 ## 步骤（严格按序，每步完成后再进入下一步）
 
-1. **问目标路径**：用户未给新工程路径时先追问。模板目录只读——复制、初始化与后续开发全部发生在目标路径，模板本身永不修改
-2. **复制模板**：`cp -r` 模板到目标路径，`rm -rf .git && git init` + 首次提交（`docs/workflow/bootstrap.md` §2）
+1. **问目标路径与能力**：用户未给新工程路径时先追问；未说能力时确认选择清单（默认仅 base = 服务外壳 + 健康探针，无业务能力；常用组合如 `detect`、`detect,async`）
+2. **按需装配**：`python3 <模板目录>/scripts/assemble.py --target <路径> --with <能力> --features <特性>`（`docs/workflow/bootstrap.md` §2/§4——正向清单，未选的文件根本不存在；依赖自动展开）
 3. **改名**：按 `docs/workflow/bootstrap.md` §3 清单逐项执行（`app.py` title、compose image、README badge、CLAUDE.md `{{REPO_URL}}`、VERSION/CHANGELOG）
-4. **裁剪**：决定 demo 能力去留（`docs/workflow/bootstrap.md` §4）——默认保留同形态参照能力直到自建第一个业务能力；确需删除按 8 项删除面清单逐项核对
-5. **配置**：`.env.example` → `.env`、`models/registry.example.yaml` → `registry.yaml`、模型文件放 `models/`（`docs/workflow/bootstrap.md` §5）
+4. **配置**：`.env.example` → `.env`、模型文件放 `models/`（`docs/workflow/bootstrap.md` §5——registry.yaml 装配时已按所选能力生成）
+5. **初始化仓库**：目标路径 `git init` + 首次提交
 6. **验收**：完成标准逐项过（pytest / py_compile / check_capability / GET /health）
 7. **知识层**：新工程的 CLAUDE.md/docs 更新为工程自身身份，业务规则从此持续写进新工程（`docs/workflow/bootstrap.md` §7）
 

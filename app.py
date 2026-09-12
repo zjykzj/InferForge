@@ -44,7 +44,9 @@ from fastapi.exceptions import RequestValidationError  # noqa: E402
 
 from apis.health import health_router  # noqa: E402
 from apis.metrics import metrics_router  # noqa: E402
+# @inferforge:detect
 from apis.sync_detect import sync_detect_router  # noqa: E402
+# @inferforge:end:detect
 from utils import auth, metrics, rate_limit, request_id, response, switches  # noqa: E402
 from utils.logger import setup_logging  # noqa: E402
 
@@ -166,29 +168,40 @@ def create_app() -> FastAPI:
 
     app.include_router(health_router)
     app.include_router(metrics_router)
+    # @inferforge:detect
     app.include_router(sync_detect_router)
+    # @inferforge:end:detect
 
+    # @inferforge:seg
     if _seg_enabled():
         from apis.sync_segment import sync_segment_router
 
         app.include_router(sync_segment_router)
         logger.info("segment api enabled")
+    # @inferforge:end:seg
+    # @inferforge:cls
     if _cls_enabled():
         from apis.sync_classify import sync_classify_router
 
         app.include_router(sync_classify_router)
         logger.info("classify api enabled")
+    # @inferforge:end:cls
+    # @inferforge:pipeline
     if _pipeline_enabled():
         from apis.sync_pipeline import sync_pipeline_router
 
         app.include_router(sync_pipeline_router)
         logger.info("pipeline api enabled")
+    # @inferforge:end:pipeline
+    # @inferforge:dedup
     if _dedup_enabled():
         from apis.sync_dedup import sync_dedup_router
 
         app.include_router(sync_dedup_router)
         logger.info("dedup api enabled")
+    # @inferforge:end:dedup
 
+    # @inferforge:async
     if _async_enabled():
         if _switch_on("INFERFORGE_QUERY") and not _switch_on("INFERFORGE_ASYNC"):
             logger.warning(
@@ -202,16 +215,21 @@ def create_app() -> FastAPI:
             app.include_router(async_detect_callback_router)
             app.include_router(async_detect_query_router)
             logger.info("async apis enabled (callback + query)")
+            # @inferforge:vlm
             if _llm_enabled():
                 from apis.async_vlm_query import async_vlm_query_router
 
                 app.include_router(async_vlm_query_router)
                 logger.info("vlm query api enabled")
+            # @inferforge:end:vlm
+            # @inferforge:agent
             if _agent_enabled():
                 from apis.async_agent_query import async_agent_query_router
 
                 app.include_router(async_agent_query_router)
                 logger.info("agent query api enabled")
+            # @inferforge:end:agent
+            # @inferforge:search
             if _search_enabled():
                 from apis.async_search_query import async_search_query_router
                 from apis.async_search_check import async_search_check_router
@@ -219,6 +237,7 @@ def create_app() -> FastAPI:
                 app.include_router(async_search_query_router)
                 app.include_router(async_search_check_router)
                 logger.info("search apis enabled (query + check)")
+            # @inferforge:end:search
         except ImportError:
             logger.warning(
                 "INFERFORGE_ASYNC=1 but celery or redis is not installed — "
@@ -242,7 +261,9 @@ def create_app() -> FastAPI:
                 "single-process exclusive)"
             )
         logger.info("async api disabled (set INFERFORGE_ASYNC=1 to enable)")
+    # @inferforge:end:async
 
+    # @inferforge:detect
     if _switch_on("INFERFORGE_PRELOAD"):
         # Startup event, not module import: gunicorn preload_app=True builds
         # this app in the master, but uvicorn runs the lifespan in EACH
@@ -252,6 +273,7 @@ def create_app() -> FastAPI:
 
         app.router.on_startup.append(warmup.preload_web)
         logger.info("model preload enabled (INFERFORGE_PRELOAD=1)")
+    # @inferforge:end:detect
 
     # Multiprocess hygiene: under uvicorn-managed deployments (dev server)
     # each process deletes its own metrics file on graceful shutdown. Under

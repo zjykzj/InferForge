@@ -4,7 +4,18 @@ from fastapi.testclient import TestClient
 
 from apis.health import health_router
 from engines import registry
-from tasks import classification, detection, embedding, segmentation
+# @inferforge:detect
+from tasks import detection  # noqa: E402
+# @inferforge:end:detect
+# @inferforge:seg
+from tasks import segmentation  # noqa: E402
+# @inferforge:end:seg
+# @inferforge:cls
+from tasks import classification  # noqa: E402
+# @inferforge:end:cls
+# @inferforge:embed
+from tasks import embedding  # noqa: E402
+# @inferforge:end:embed
 
 
 def _mark_loaded(monkeypatch, task_module, capability):
@@ -26,9 +37,15 @@ def client(monkeypatch, app_factory):
     monkeypatch.delenv("INFERFORGE_DEDUP", raising=False)
     monkeypatch.delenv("INFERFORGE_SEARCH", raising=False)
     monkeypatch.setattr(detection, "_predictors", {})
+    # @inferforge:seg
     monkeypatch.setattr(segmentation, "_predictors", {})
+    # @inferforge:end:seg
+    # @inferforge:cls
     monkeypatch.setattr(classification, "_predictors", {})
+    # @inferforge:end:cls
+    # @inferforge:embed
     monkeypatch.setattr(embedding, "_predictors", {})
+    # @inferforge:end:embed
     return TestClient(app_factory(health_router))
 
 
@@ -60,6 +77,7 @@ def test_readiness_flips_after_predictor_loads(client, monkeypatch):
     assert body["data"]["status"] == "ready"
 
 
+# @inferforge:seg
 def test_readiness_requires_seg_model_when_enabled(client, monkeypatch):
     monkeypatch.setenv("INFERFORGE_SEG", "1")
     _mark_loaded(monkeypatch, detection, "detect")  # detection ready
@@ -75,8 +93,10 @@ def test_readiness_ready_when_seg_loaded(client, monkeypatch):
     resp = client.get("/health/ready")
     assert resp.status_code == 200
     assert resp.json()["code"] == 0
+# @inferforge:end:seg
 
 
+# @inferforge:cls
 def test_readiness_requires_cls_model_when_enabled(client, monkeypatch):
     monkeypatch.setenv("INFERFORGE_CLS", "1")
     _mark_loaded(monkeypatch, detection, "detect")
@@ -93,8 +113,10 @@ def test_readiness_requires_cls_model_when_pipeline_enabled(client, monkeypatch)
     resp = client.get("/health/ready")
     assert resp.status_code == 503  # pipeline enabled but classify not loaded
     assert resp.json()["code"] == 6
+# @inferforge:end:cls
 
 
+# @inferforge:embed
 def test_readiness_requires_embed_model_when_dedup_enabled(client, monkeypatch):
     monkeypatch.setenv("INFERFORGE_DEDUP", "1")
     _mark_loaded(monkeypatch, detection, "detect")
@@ -110,6 +132,7 @@ def test_readiness_ignores_embed_when_only_search_enabled(client, monkeypatch):
     _mark_loaded(monkeypatch, detection, "detect")
     resp = client.get("/health/ready")
     assert resp.status_code == 200
+# @inferforge:end:embed
 
 
 def test_readiness_ignores_disabled_capabilities(client, monkeypatch):

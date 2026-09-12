@@ -1,0 +1,215 @@
+# Bootstrap assembly manifest — the positive include-list for selective
+# project generation (docs/workflow/bootstrap.md §2). Consumed by
+# scripts/assemble.py; guarded by tests/test_bootstrap_manifest.py
+# (every tracked repo file is claimed exactly once; marker blocks pair up).
+#
+# Selection model:
+#   base         — always copied: the serving shell (envelope, logging,
+#                  metrics, auth, rate limit, request-id, health probes,
+#                  registry) — NO capability. The default assembly.
+#   capabilities — one file set each; opt-in via --with.
+#   shared       — included when ANY of the listed capabilities is selected.
+#   features     — deployment/tooling extras; opt-in via --features.
+#
+# Wiring files (app.py, apis/health.py, engines/registry.py, ...) carry
+# `# @inferforge:<name>` ... `# @inferforge:end:<name>` marker blocks for
+# capability-specific code; assemble.py drops the blocks of unselected
+# capabilities so a generated project never references absent files.
+
+base:
+  - .claude/skills/inferforge-add-capability/SKILL.md
+  - .claude/skills/inferforge-add-engine/SKILL.md
+  - .claude/skills/inferforge-bootstrap/SKILL.md
+  - .claude/skills/inferforge-modify-service/SKILL.md
+  - .env.example
+  - .gitignore
+  - .github/workflows/ci.yml
+  - CHANGELOG.md
+  - CLAUDE.md
+  - LICENSE
+  - README.md
+  - README.zh-CN.md
+  - VERSION
+  - app.py
+  - conftest.py
+  - apis/__init__.py
+  - apis/health.py
+  - apis/metrics.py
+  - apis/schemas.py
+  - docs/README.md
+  - docs/api.md
+  - docs/architecture.md
+  - docs/concepts.md
+  - docs/deployment.md
+  - docs/fastapi-migration.md
+  - docs/logging.md
+  - docs/metrics.md
+  - docs/model-registry.md
+  - docs/quick-start.md
+  - docs/release-strategies.md
+  - docs/security.md
+  - docs/stack.md
+  - docs/status-codes.md
+  - docs/testing.md
+  - docs/workflow/add-capability.md
+  - docs/workflow/add-engine.md
+  - docs/workflow/bootstrap.md
+  - docs/workflow/forking-contract.md
+  - docs/workflow/modify-service.md
+  - engines/__init__.py
+  - engines/base.py
+  - engines/registry.py
+  - gunicorn.conf.py
+  - models/.gitkeep
+  - models/registry.example.yaml
+  - requirements.txt
+  - scripts/check_capability.py
+  - scripts/preflight_models.py
+  - start.sh
+  - tasks/__init__.py
+  - tests/__init__.py
+  - tests/test_architecture.py
+  - tests/test_logger.py
+  - utils/__init__.py
+  - utils/auth.py
+  - utils/errors.py
+  - utils/image.py
+  - utils/logger.py
+  - utils/metrics.py
+  - utils/rate_limit.py
+  - utils/redis_store.py
+  - utils/request_id.py
+  - utils/response.py
+  - utils/switches.py
+
+capabilities:
+  detect:
+    requires: []
+    files:
+      - apis/sync_detect.py
+      - assets/
+      - engines/yolo.py
+      - scripts/run_detection.py
+      - scripts/test_sync_detect.py
+      - tasks/detection.py
+      - tasks/warmup.py
+      - tests/test_auth.py
+      - tests/test_health.py
+      - tests/test_metrics.py
+      - tests/test_preload.py
+      - tests/test_rate_limit.py
+      - tests/test_registry.py
+      - tests/test_sync_detect.py
+  seg:
+    requires: [detect]
+    files:
+      - apis/sync_segment.py
+      - engines/yolo_seg.py
+      - scripts/run_segment.py
+      - scripts/test_sync_segment.py
+      - tasks/segmentation.py
+      - tests/test_sync_segment.py
+      - tests/test_yolo_seg_engine.py
+  cls:
+    requires: []
+    files:
+      - apis/sync_classify.py
+      - engines/imagenet_classes.py
+      - engines/yolo_cls.py
+      - scripts/run_classify.py
+      - scripts/test_sync_classify.py
+      - tasks/classification.py
+      - tests/test_sync_classify.py
+      - tests/test_yolo_cls_engine.py
+  pipeline:
+    requires: [detect, cls]
+    files:
+      - apis/sync_pipeline.py
+      - scripts/run_pipeline.py
+      - scripts/test_sync_pipeline.py
+      - tasks/pipeline.py
+      - tests/test_sync_pipeline.py
+  embed:
+    requires: []
+    files:
+      - docs/embedding.md
+      - engines/dinov2.py
+      - scripts/export_dinov2.py
+      - tasks/embedding.py
+  dedup:
+    requires: [embed]
+    files:
+      - apis/sync_dedup.py
+      - scripts/run_dedup.py
+      - scripts/test_sync_dedup.py
+      - tasks/dedup.py
+      - tests/test_dedup.py
+  async:
+    requires: [detect]
+    files:
+      - apis/async_detect_callback.py
+      - apis/async_detect_query.py
+      - celery_app.py
+      - requirements-async.txt
+      - scripts/callback_receiver.py
+      - scripts/test_async_detect_callback.py
+      - scripts/test_async_detect_query.py
+      - start_celery.sh
+      - tasks/detection_callback.py
+      - tasks/detection_query.py
+      - tests/test_app.py
+      - tests/test_async_detect_callback.py
+      - tests/test_async_detect_query.py
+  vlm:
+    requires: [async]
+    files:
+      - apis/async_vlm_query.py
+      - scripts/run_vlm.py
+      - scripts/test_async_vlm_query.py
+      - tasks/vlm.py
+      - tasks/vlm_query.py
+      - tests/test_async_vlm_query.py
+      - tests/test_vlm.py
+  agent:
+    requires: [detect, async]
+    files:
+      - apis/async_agent_query.py
+      - docs/agent.md
+      - scripts/run_agent.py
+      - tasks/agent.py
+      - tasks/agent_query.py
+      - tests/test_agent.py
+      - tests/test_async_agent_query.py
+  search:
+    requires: [embed, async]
+    files:
+      - apis/async_search_check.py
+      - apis/async_search_query.py
+      - scripts/build_gallery.py
+      - scripts/run_search.py
+      - tasks/search.py
+      - tasks/search_check_query.py
+      - tasks/search_query.py
+      - tests/test_async_search_check.py
+      - tests/test_async_search_query.py
+      - tests/test_search.py
+
+shared:
+  - any_of: [detect, seg, cls]
+    files:
+      - scripts/export_yolo.py
+
+features:
+  docker:
+    files:
+      - .dockerignore
+      - Dockerfile
+      - docker-compose.yml
+  deploy:
+    files:
+      - deploy/
+  benchmark:
+    files:
+      - docs/benchmark.md
+      - scripts/benchmark.py
+      - scripts/mock_llm.py

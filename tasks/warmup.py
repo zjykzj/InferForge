@@ -17,7 +17,18 @@ registered weight.
 """
 import logging
 
-from tasks import classification, detection, embedding, segmentation
+# @inferforge:detect
+from tasks import detection  # noqa: E402
+# @inferforge:end:detect
+# @inferforge:seg
+from tasks import segmentation  # noqa: E402
+# @inferforge:end:seg
+# @inferforge:cls
+from tasks import classification  # noqa: E402
+# @inferforge:end:cls
+# @inferforge:embed
+from tasks import embedding  # noqa: E402
+# @inferforge:end:embed
 from utils import switches
 
 logger = logging.getLogger("tasks.warmup")
@@ -41,15 +52,23 @@ def preload_web() -> None:
     """Web startup: every capability this process can serve requests on."""
     if not switches.switch_on("INFERFORGE_PRELOAD"):
         return
+    # @inferforge:detect
     _load("detect", detection.preload)
+    # @inferforge:end:detect
+    # @inferforge:seg
     if switches.switch_on("INFERFORGE_SEG"):
         _load("segment", segmentation.preload)
+    # @inferforge:end:seg
+    # @inferforge:cls
     if switches.switch_on("INFERFORGE_CLS") or switches.switch_on("INFERFORGE_PIPELINE"):
         # Pipeline composes the classify default, so it needs the classify
         # model warmed up even when the classify api itself is off.
         _load("classify", classification.preload)
+    # @inferforge:end:cls
+    # @inferforge:embed
     if switches.switch_on("INFERFORGE_DEDUP"):
         _load("embed", embedding.preload)
+    # @inferforge:end:embed
 
 
 def preload_worker() -> None:
@@ -57,6 +76,10 @@ def preload_worker() -> None:
     tasks actually use (detection; embed when the search apis are on)."""
     if not switches.switch_on("INFERFORGE_PRELOAD"):
         return
+    # @inferforge:detect
     _load("detect", detection.preload)
+    # @inferforge:end:detect
+    # @inferforge:embed
     if switches.switch_on("INFERFORGE_SEARCH"):
         _load("embed", embedding.preload)
+    # @inferforge:end:embed

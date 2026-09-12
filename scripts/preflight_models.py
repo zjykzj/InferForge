@@ -30,11 +30,19 @@ from utils.errors import RegistryConfigError
 from utils.switches import switch_on
 
 CAPABILITY_SWITCH = {
+    # @inferforge:detect
     "detect": None,             # always enabled
+    # @inferforge:end:detect
+    # @inferforge:seg
     "segment": "INFERFORGE_SEG",
+    # @inferforge:end:seg
     # A tuple = enabled when ANY of the switches is on.
+    # @inferforge:cls
     "classify": ("INFERFORGE_CLS", "INFERFORGE_PIPELINE"),
+    # @inferforge:end:cls
+    # @inferforge:embed
     "embed": ("INFERFORGE_SEARCH", "INFERFORGE_DEDUP"),
+    # @inferforge:end:embed
 }
 
 

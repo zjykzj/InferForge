@@ -6,20 +6,32 @@
 # INFERFORGE_CLS_MODEL_PATH env vars (single model per capability).
 
 defaults:                      # one default model per capability (requests
+  # @inferforge:detect
   detect: yolov8n              # without a "model" field use these)
+  # @inferforge:end:detect
+  # @inferforge:seg
   segment: yolov8n-seg
+  # @inferforge:end:seg
+  # @inferforge:cls
   classify: yolov8n-cls
+  # @inferforge:end:cls
 
 models:
+  # @inferforge:detect
   yolov8n:
     capability: detect
     path: models/yolov8n.onnx
+  # @inferforge:end:detect
+  # @inferforge:seg
   yolov8n-seg:
     capability: segment
     path: models/yolov8n-seg.onnx
+  # @inferforge:end:seg
+  # @inferforge:cls
   yolov8n-cls:
     capability: classify
     path: models/yolov8n-cls.onnx
+  # @inferforge:end:cls
 
   # Custom models: one entry per ONNX weights file. `classes` is optional —
   # omit it to use the built-in table for the capability (COCO-80 for

@@ -9,24 +9,40 @@ from utils import auth, metrics, rate_limit, request_id, response
 
 _DEFAULT_REGISTRY = """\
 defaults:
+  # @inferforge:detect
   detect: yolov8n
+  # @inferforge:end:detect
+  # @inferforge:seg
   segment: yolov8n-seg
+  # @inferforge:end:seg
+  # @inferforge:cls
   classify: yolov8n-cls
+  # @inferforge:end:cls
+  # @inferforge:embed
   embed: dino2-small
+  # @inferforge:end:embed
 
 models:
+  # @inferforge:detect
   yolov8n:
     capability: detect
     path: models/yolov8n.onnx
+  # @inferforge:end:detect
+  # @inferforge:seg
   yolov8n-seg:
     capability: segment
     path: models/yolov8n-seg.onnx
+  # @inferforge:end:seg
+  # @inferforge:cls
   yolov8n-cls:
     capability: classify
     path: models/yolov8n-cls.onnx
+  # @inferforge:end:cls
+  # @inferforge:embed
   dino2-small:
     capability: embed
     path: models/dino2-small.onnx
+  # @inferforge:end:embed
 """
 
 

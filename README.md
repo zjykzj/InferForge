@@ -35,10 +35,11 @@ git clone https://github.com/zjykzj/InferForge.git ~/InferForge
 # 2. In the template directory, start Claude Code and initialize your project
 #    (no path given? the agent asks first)
 cd ~/InferForge && claude
-> initialize a web service at /srv/my-service
+> initialize a web service at /srv/my-service, with detection
 
-Agent: copy → rename → trim demo capabilities → configure → baseline checks
-       green → git init + first commit (all done in /srv/my-service)
+Agent: assemble.py --target /srv/my-service --with detect → rename → configure
+       → baseline checks green → git init + first commit
+       (all done in /srv/my-service; the template stays untouched)
 ```
 
 ```text

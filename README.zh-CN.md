@@ -24,7 +24,39 @@ InferForge 是面向**视觉推理服务**的生产级服务模板：推理内�
 
 ## 快速开始
 
-最小编程路径：同步检测。
+开发由 agent 驱动——从模板到自己的服务，三步：
+
+```bash
+# 1. 下载模板（只读工厂，永不修改）
+git clone https://github.com/zjykzj/InferForge.git ~/InferForge
+```
+
+```text
+# 2. 在模板目录启动 Claude Code，初始化你的新工程（没给路径？agent 会先问）
+cd ~/InferForge && claude
+> 初始化一个 web 服务到 /srv/my-service。
+
+Agent：复制 → 改名 → 裁剪 demo 能力 → 配置 → 底座验收全绿 →
+      git init + 首次提交（全部发生在 /srv/my-service）
+```
+
+```text
+# 3. 在新工程目录启动 Claude Code，继续开发
+cd /srv/my-service && claude
+> 帮我新增一个同步接口，使用分割算法。
+
+Agent：需求分解（形态=同步 × 能力=分割，引擎层零改动）、查边界表、
+      输出分层落位提案，等待你确认。
+> 确认。
+
+Agent：按 canonical 参照实现 → pytest + check_capability.py 通过 → 提交。
+```
+
+新工程是模板的完整副本——canonical 参照就在工程内部，agent 直接照它开发；`~/InferForge` 只负责初始化和更新（裁剪掉的参照需要时回模板目录找）。[docs/README.md](docs/README.md) 的入口表覆盖初始化 / 新增能力 / 修改服务 / 引擎工作；每个新工程自带的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳（其他编码 agent 可按同样对话操作——workflow 文档与工具无关）。
+
+## 运行示例服务
+
+先跑一下模板自带的检测服务，看看效果，再初始化你自己的工程：
 
 ```bash
 # 1. 安装依赖
@@ -46,20 +78,6 @@ python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg
 ```
 
 配置可写进 `.env` 文件（`cp .env.example .env` 后填写——shell 已导出的变量优先）。异步（Celery + RabbitMQ + Redis，callback/query）、其余能力与 Docker 全栈：见 [quick-start](docs/quick-start.md)（§2–3 异步、§4 容器化）与 [api](docs/api.md)。测试刻意免模型、免服务（`pytest tests/`——见 [testing](docs/testing.md)）。
-
-## 与 Agent 一起开发
-
-开发由 agent 驱动：下载模板、在目标路径初始化新工程之后，把需求告诉 agent，workflow 文档会把请求变成受检的实现。从 [docs/README.md](docs/README.md) 的入口表开始——例如：
-
-```
-你：  帮我新增一个同步接口，使用分割算法。
-Agent：需求分解（形态=同步 × 能力=分割，引擎层零改动）、查边界表、
-      输出分层落位提案，等待你确认。
-你：  确认。
-Agent：按 canonical 参照实现 → pytest + check_capability.py 通过 → 提交。
-```
-
-每个新工程自带的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳。
 
 ## 能力总览
 

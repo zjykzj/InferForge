@@ -24,7 +24,41 @@ Beyond vision kernels, the template ships reference implementations for VLM and 
 
 ## Quick Start
 
-The minimal path: sync detection.
+Development is agent-driven — three steps from template to your own service:
+
+```bash
+# 1. Download the template (a read-only factory — never modify it)
+git clone https://github.com/zjykzj/InferForge.git ~/InferForge
+```
+
+```text
+# 2. In the template directory, start Claude Code and initialize your project
+#    (no path given? the agent asks first)
+cd ~/InferForge && claude
+> initialize a web service at /srv/my-service
+
+Agent: copy → rename → trim demo capabilities → configure → baseline checks
+       green → git init + first commit (all done in /srv/my-service)
+```
+
+```text
+# 3. Start Claude Code in the new project directory and keep developing
+cd /srv/my-service && claude
+> add a sync API for segmentation
+
+Agent: decomposes (shape=sync × capability=segment, engine layer untouched),
+       checks the boundary table, proposes the per-layer placement plan
+> confirmed
+
+Agent: implements against the canonical references → pytest +
+       check_capability.py green → commit
+```
+
+Every new project is a full copy — the canonical references live inside it, so the agent develops against them locally; `~/InferForge` only serves initialization and updates (trimmed something you later need? it's still in the template). The task→entry map in [docs/README.md](docs/README.md) routes init / add-capability / modify / engine work; the architecture checks built into every new project keep every change inside the contract; the skills in `.claude/skills/` wrap the same workflows for Claude Code (other coding agents can follow the same dialogue — the workflow docs are tool-agnostic).
+
+## Run the Demo
+
+Run the template's built-in service (sync detection) to see it work before initializing your own:
 
 ```bash
 # 1. Install dependencies
@@ -46,21 +80,6 @@ python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg
 ```
 
 Config can live in a `.env` file (`cp .env.example .env` — shell-exported variables take precedence). Async (Celery + RabbitMQ + Redis, callback/query), the other capabilities, and the Docker full stack: [quick-start](docs/quick-start.md) (§2–3 async, §4 containers) + [api](docs/api.md). Tests are model-free and service-free by design (`pytest tests/` — see [testing](docs/testing.md)).
-
-## Developing with Agents
-
-Development is agent-driven: download the template, initialize your new project at a target path, then tell the agent what you want — the workflow docs turn the request into a checked implementation. Start from the task→entry map in [docs/README.md](docs/README.md) — for example:
-
-```
-You:   add a sync API for segmentation
-Agent: decomposes (shape=sync × capability=segment, engine layer untouched),
-       checks the boundary table, proposes the per-layer placement plan
-You:   confirmed
-Agent: implements against the canonical references → pytest +
-       check_capability.py green → commit
-```
-
-The architecture checks built into every new project keep every change inside the contract; the skills in `.claude/skills/` wrap the same workflows for Claude Code.
 
 ## Capability Overview
 

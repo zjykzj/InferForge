@@ -40,14 +40,12 @@ base:
   - apis/health.py
   - apis/metrics.py
   - conftest.py
-  - docs/status-codes.md
   - requirements.txt
   - tests/__init__.py
   - tests/test_architecture.py
   - tests/test_logger.py
   - utils/__init__.py
   - utils/auth.py
-  - utils/errors.py
   - utils/logger.py
   - utils/metrics.py
   - utils/rate_limit.py
@@ -174,6 +172,7 @@ shared:
       - engines/__init__.py
       - engines/base.py
       - engines/registry.py
+      - utils/errors.py
       - gunicorn.conf.py
       - models/.gitkeep
       - models/registry.example.yaml
@@ -214,6 +213,7 @@ template:
   - docs/release-strategies.md
   - docs/security.md
   - docs/stack.md
+  - docs/status-codes.md
   - docs/testing.md
   - docs/workflow/add-capability.md
   - docs/workflow/add-engine.md

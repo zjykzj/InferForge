@@ -39,7 +39,7 @@ cd ~/InferForge && claude
 > initialize a web service at /srv/my-service
 
 Agent: assemble.py --target /srv/my-service → generate identity files
-       (README / CLAUDE.md / VERSION) → configure → baseline checks green
+       (README / CLAUDE.md) → configure → baseline checks green
        → git init + first commit
        (the default assembly = the minimal serving shell + health probes)
 ```

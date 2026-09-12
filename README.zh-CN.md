@@ -39,7 +39,7 @@ cd ~/InferForge && claude
 > 初始化一个 web 服务到 /srv/my-service。
 
 Agent：assemble.py --target /srv/my-service → 生成身份文件
-      （README / CLAUDE.md / VERSION）→ 配置 → 底座验收全绿
+      （README / CLAUDE.md）→ 配置 → 底座验收全绿
       → git init + 首次提交（默认装配 = 最小服务外壳 + 健康探针）
 ```
 

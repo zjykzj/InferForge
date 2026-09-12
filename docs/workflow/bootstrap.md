@@ -53,9 +53,9 @@ base 装配**不含模板身份文件**——模板是参考，不是拷贝源�
 |------|---------|
 | `README.md` / `README.zh-CN.md` | 新工程自己的：服务名、一段定位、启动/测试命令（可参考模板 README 的结构，内容写新工程的） |
 | `CLAUDE.md` | 新工程硬规则：分层依赖、envelope 契约（参考模板 CLAUDE.md 架构约束节精简）+ 一行指针——workflow 文档在模板目录 `~/InferForge/docs`，开发时查阅 |
-| `CHANGELOG.md` | 标准头 + 空 `[Unreleased]` |
-| `VERSION` | `0.1.0`（`app.py` 缺文件时回退 0.0.0，建议显式生成） |
 | `LICENSE` | 问用户，不默认生成 |
+
+`CHANGELOG.md` / `VERSION`：首次发布时生成（语义化版本流程需要），初始化时不建。
 
 base 内的改名残留：`app.py` 的 `title="InferForge"` / description → 服务名与描述（显示在 `/docs` OpenAPI 页面）。选了 docker feature 时 `docker-compose.yml` 的镜像名同理。
 

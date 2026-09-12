@@ -20,6 +20,7 @@ import ast
 import re
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 # @inferforge:detect
@@ -136,12 +137,16 @@ def test_envelope_always_200_and_422_never_leaks(app_factory):
 
 def test_status_codes_double_registered():
     """utils/response.py docstring and docs/status-codes.md must list the same
-    business codes (CLAUDE.md: new codes register in BOTH places)."""
+    business codes (CLAUDE.md: new codes register in BOTH places). Skipped in
+    base-only assemblies — the doc ships with the template only."""
     response_doc = (PROJECT_ROOT / "utils" / "response.py").read_text(encoding="utf-8")
     # The docstring enumerates codes as indented "N    <name>" lines.
     doc_codes = set(int(m) for m in re.findall(r"^\s{4}(\d+)\s+\w+", response_doc, re.MULTILINE))
 
-    status_doc = (PROJECT_ROOT / "docs" / "status-codes.md").read_text(encoding="utf-8")
+    status_path = PROJECT_ROOT / "docs" / "status-codes.md"
+    if not status_path.exists():
+        pytest.skip("docs/status-codes.md absent (base-only assembly)")
+    status_doc = status_path.read_text(encoding="utf-8")
     # §2 table rows look like: | `0` | success | ...
     table_codes = set(int(m) for m in re.findall(r"^\|\s*`(\d+)`\s*\|", status_doc, re.MULTILINE))
 

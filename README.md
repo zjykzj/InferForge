@@ -1,6 +1,6 @@
 # InferForge
 
-> 🔨 From kernel to service — InferForge forges any model (CV → LLM → Agent) into production.
+> 🔨 From kernel to service — InferForge forges vision models into production, agent-first.
 >
 > Out of the box: sync + async APIs · health probes · OpenAPI docs · Prometheus metrics. Optional (off by default): API-key auth & rate limiting. A template, not a framework: download, adapt, deploy.
 
@@ -14,7 +14,13 @@
 
 ## About
 
-InferForge is a serving shell above inference backends: web APIs, logging, exception handling and unified response formats out of the box — a model becomes a deployable service in days. But the business layer above inference is too diverse to generalize, so this is deliberately a **template, not a framework**: fork it, own the code, and define your own tasks and APIs. The layered architecture keeps every layer replaceable independently — see [forking-contract](docs/workflow/forking-contract.md) for what to edit and what to keep.
+InferForge is a production-grade serving template for **vision inference services**: a thin service shell above inference kernels that turns any vision model into a deployable HTTP service.
+
+- **Agent-first development.** Designed with LLM/Agents as the primary developer: new or existing projects are built by agents working against this implementation.
+- **Business-facing web service and task architecture.** An architecture template for public-facing web services and task implementations: the service infrastructure is ready out of the box, and business tasks and APIs are yours to define.
+- **Independent of the inference engine.** onnxruntime, TensorRT, Triton — any inference backend is freely replaceable, without touching the service itself.
+
+Beyond vision kernels, the template ships reference implementations for VLM and Agent orchestration — remote-LLM integration (async query-only) that demonstrates the path from vision inference to LLM orchestration.
 
 ## Project Layout
 

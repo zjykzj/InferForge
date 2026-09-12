@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-InferForge is an algorithm-agnostic inference-serving project template — a serving shell above inference kernels, forging any model (CV → LLM → Agent) into production.
+InferForge is a production-grade serving template for vision inference services — a thin service shell above inference kernels, turning any vision model into a deployable HTTP service (agent-first: LLM/Agents are the primary developer; VLM/Agent are remote-LLM reference forms, not local engines).
 
 Layers:
 

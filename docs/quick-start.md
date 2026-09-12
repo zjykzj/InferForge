@@ -6,7 +6,7 @@
 
 ### 1.1 环境准备
 
-- Python 3.9+
+- Python 3.12+
 
 ### 1.2 安装依赖
 
@@ -85,7 +85,7 @@ tail -f logs/app.log          # JSON 行，带 request_id 全链路
 
 ### 2.1 环境准备
 
-- Python 3.9+
+- Python 3.12+
 - RabbitMQ：
 
 ```bash
@@ -141,7 +141,7 @@ tail -f logs/celery.log        # 任务日志：request_id + task_id 贯穿
 
 ### 3.1 环境准备
 
-- Python 3.9+
+- Python 3.12+
 - RabbitMQ（同场景二）
 - Redis：
 

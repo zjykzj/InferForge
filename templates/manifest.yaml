@@ -237,6 +237,7 @@ template:
   - docs/assembly.md
   - docs/concepts.md
   - docs/deployment.md
+  - docs/design-principles.md
   - docs/fastapi-migration.md
   - docs/logging.md
   - docs/metrics.md

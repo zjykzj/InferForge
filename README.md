@@ -149,7 +149,7 @@ InferForge/
 | Guides | [quick-start](docs/quick-start.md) · [architecture](docs/architecture.md) · [api](docs/api.md) · [model-registry](docs/model-registry.md) · [agent](docs/agent.md) · [embedding](docs/embedding.md) · [benchmark](docs/benchmark.md) · [deployment](docs/deployment.md) |
 | Knowledge | [concepts](docs/concepts.md) · [release-strategies](docs/release-strategies.md) |
 | Standards | [forking-contract](docs/workflow/forking-contract.md) · [bootstrap](docs/workflow/bootstrap.md) · [assembly](docs/assembly.md) · [add-capability](docs/workflow/add-capability.md) · [add-engine](docs/workflow/add-engine.md) · [modify-service](docs/workflow/modify-service.md) · [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
-| Tech stack | [stack](docs/stack.md) · [fastapi-migration](docs/fastapi-migration.md) |
+| Tech stack | [stack](docs/stack.md) · [design-principles](docs/design-principles.md) · [fastapi-migration](docs/fastapi-migration.md) |
 
 Full index with one-line descriptions: [docs/README.md](docs/README.md).
 

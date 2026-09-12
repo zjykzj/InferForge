@@ -40,6 +40,7 @@
   - [security.md](security.md)：安全边界——已知风险点、已有防护与部署建议（§2 SSRF 专述为领域知识）
 - **技术栈与原理**
   - [stack.md](stack.md)：技术栈说明——FastAPI/Uvicorn/Gunicorn、Celery/RabbitMQ、Redis 与 OpenAI SDK/Pydantic AI 的选型理由、配置点与关键决策（全景，含环境变量总览）
+  - [design-principles.md](design-principles.md)：模板设计原则——八条取舍（参考库而非拷贝源、正向清单、契约内核最小化等）与各自的反例
   - [fastapi-migration.md](fastapi-migration.md)：Flask → FastAPI——两个框架对比、迁移理由与影响面（历史专题）
 
 ## 给开发 Agent 的入口（任务 → 入口映射）

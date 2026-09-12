@@ -7,9 +7,16 @@ description: 在 InferForge 新工程中新增一个业务能力（接口/任务
 
 完整知识与形态取舍见 `docs/workflow/add-capability.md`——本技能只规定流程与验收，不重复解释。
 
-## Step 0：选形态（必做，不要跳过）
+## Step 0：需求分解 → 架构提案 → 确认（必做，不要跳过）
 
-按 `docs/workflow/add-capability.md` §2 决策表选：同步 / 异步 callback / 异步 query / query-only。模板没有同形态参照时走 §6 契约推导路径（从 `BasePredictor` + envelope + 分层公理组合，测试当契约）。
+按 `docs/workflow/add-capability.md` §2 执行：
+
+1. **分解**：把需求拆到两个正交的轴——形态轴（同步 / 异步 callback / 异步 query / query-only）+ 能力轴。组合原则上都允许，模板没实现过 ≠ 不支持（如"异步+分割" = 现有分割 task + 异步变体 canonical）
+2. **查边界**：§2.2 边界表。命中的组合直接告知用户原因与可选路径（query-only 轮询 / fork 自建），不要硬做
+3. **最小追问**：只问用户没给的——变体（callback/query）、输入输出（业务级）、特殊编排差异。canonical 已覆盖的不问
+4. **架构提案**：输出 §2.4 分层落位表，⚠️ 行逐条摆选项。**等待用户确认后才进入步骤 1-10**，未确认不动手
+
+模板没有同形态参照时走 §6 契约推导路径（从 `BasePredictor` + envelope + 分层公理组合，测试当契约）。
 
 ## 步骤
 

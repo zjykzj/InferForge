@@ -23,7 +23,7 @@
 - **开发规范**
   - [forking-contract.md](workflow/forking-contract.md)：forking contract——模板使用方式、可改/慎改区域、合并上游更新的冲突取舍
   - [bootstrap.md](workflow/bootstrap.md)：从模板创建新工程——复制与改名清单、demo 能力裁剪、配置初始化、底座验收与知识层继承
-  - [add-capability.md](workflow/add-capability.md)：新增业务能力——形态决策（同步/异步/query-only）、能力文件集、无参照时的契约推导
+  - [add-capability.md](workflow/add-capability.md)：新增业务能力——需求分解与形态决策（轴 × 组合规则、边界清单）、架构提案确认、能力文件集、无参照时的契约推导
   - [add-engine.md](workflow/add-engine.md)：新增推理引擎——BasePredictor contract、接入步骤（含 TensorRT/Triton）与验证清单
   - [modify-service.md](workflow/modify-service.md)：修改已有服务——层级定位、绿黄红区、换算法与回归验收
   - [status-codes.md](status-codes.md)：业务状态码——`{code, message, data}` envelope 规范、方案比较
@@ -40,7 +40,7 @@
 在新工程上开发时按"要做什么"直接进对应入口，不用通读全部文档：
 
 - 从模板初始化新工程 → [bootstrap.md](workflow/bootstrap.md)
-- 新增一个业务能力 → [add-capability.md](workflow/add-capability.md)（§2 先选形态）
+- 新增一个业务能力 → [add-capability.md](workflow/add-capability.md)（§2 先分解需求/查边界/确认架构提案）
 - 换算法 / 接新推理后端 → [add-engine.md](workflow/add-engine.md)
 - 修改已有服务（业务/参数/算法） → [modify-service.md](workflow/modify-service.md)（§1 定位）
 - 合并模板上游更新 → [forking-contract.md](workflow/forking-contract.md) §4

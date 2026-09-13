@@ -149,8 +149,8 @@ InferForge/
 |---|---|
 | 使用指南 | [quick-start](docs/quick-start.md) · [architecture](docs/architecture.md) · [api](docs/api.md) · [model-registry](docs/model-registry.md) · [agent](docs/agent.md) · [embedding](docs/embedding.md) · [benchmark](docs/benchmark.md) · [deployment](docs/deployment.md) |
 | 领域知识 | [concepts](docs/concepts.md) · [release-strategies](docs/release-strategies.md) · [scaffolding](docs/scaffolding.md) · [generator-packaging](docs/generator-packaging.md) |
-| 规范 | [forking-contract](docs/workflow/forking-contract.md) · [bootstrap](docs/workflow/bootstrap.md) · [assembly](docs/assembly.md) · [add-capability](docs/workflow/add-capability.md) · [add-engine](docs/workflow/add-engine.md) · [modify-service](docs/workflow/modify-service.md) · [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
-| 技术栈 | [stack](docs/stack.md) · [design-principles](docs/design-principles.md) · [fastapi-migration](docs/fastapi-migration.md) |
+| 开发规范 | [forking-contract](docs/workflow/forking-contract.md) · [bootstrap](docs/workflow/bootstrap.md) · [assembly](docs/assembly.md) · [add-capability](docs/workflow/add-capability.md) · [add-engine](docs/workflow/add-engine.md) · [modify-service](docs/workflow/modify-service.md) · [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
+| 技术栈与原理 | [stack](docs/stack.md) · [design-principles](docs/design-principles.md) · [fastapi-migration](docs/fastapi-migration.md) |
 
 带逐篇说明的完整索引：[docs/README.md](docs/README.md)。
 

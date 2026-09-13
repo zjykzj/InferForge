@@ -22,7 +22,7 @@
 
 ## 5. profile 预设优先，个别机制才逐个确认
 
-横切机制不是越多越好：logger 与 web 服务本体无关，鉴权限流是运维决策。机制集合由 **profile 预设**决定（bare/kernel/production），初始化时 Agent 问"要哪个 profile"而不是逐个问机制；个别机制用 `--with` 叠加。固定场景用固定实现——profile 背后的装配是确定性脚本（assemble.py 守卫 + 依赖闭包），不是 LLM 临场发挥。
+横切机制不是越多越好：logger 与 web 服务本体无关，鉴权限流是运维决策。机制集合由 **profile 预设**决定（bare/kernel/production），初始化时 Agent 问"要哪个 profile"而不是逐个问机制；个别机制用 `--with` 叠加。固定场景用固定实现——profile 背后的装配是确定性脚本（assemble.py 守卫 + 依赖闭包），不是 LLM 临场发挥。业界对照（Spring Initializr 的固定选择菜单、Copier 的非空目录守卫、"确定性生成器 + Agent 做胶水"的共识）与采纳/未采纳映射见 [scaffolding.md](scaffolding.md)。
 
 ## 6. 生成优于拷贝的东西：身份文件、依赖清单
 
@@ -41,4 +41,5 @@
 - [assembly.md](assembly.md)：装配机制——manifest、标记块、扩展纪律（怎么工作）
 - [bootstrap.md](workflow/bootstrap.md)：初始化流程——下载、选择、验收（怎么用）
 - [forking-contract.md](workflow/forking-contract.md)：与模板上游的关系（怎么共处）
+- [scaffolding.md](scaffolding.md)：业界 scaffolding 工具对照与采纳取舍（这些机制从哪来）
 - 本文：以上设计存在的理由（为什么）

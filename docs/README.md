@@ -1,6 +1,6 @@
 # 文档说明（Docs）
 
-> InferForge 的文档索引。最后更新：2026-09-10
+> InferForge 的文档索引。最后更新：2026-09-13
 >
 > 文档分四类：**使用指南**（本工程实现，只描述现状）· **领域知识**（业界通用，不绑定本工程实现）· **开发规范**（本工程约束）· **技术栈与原理**（选型理由与历史）。
 >
@@ -20,6 +20,7 @@
 - **领域知识**
   - [concepts.md](concepts.md)：概念入门——Web 服务、任务队列、回调/轮询、Redis 的零基础科普
   - [release-strategies.md](release-strategies.md)：发布策略——环境模型、五种发布策略谱系（停服/滚动/蓝绿/canary/feature flag）、分流机制（canary vs A/B）、观测回滚、与模型版本管理的关系，附本工程实现状态标注
+  - [scaffolding.md](scaffolding.md)：Scaffolding 工具调研——Copier/Yeoman/Spring Initializr/Backstage/schematics/create-* 的机制对照、"确定性生成器 + Agent 做胶水"共识、InferForge 的采纳与未采纳映射，附本工程实现状态标注
 - **开发规范**
   - [forking-contract.md](workflow/forking-contract.md)：forking contract——模板使用方式、可改/慎改区域、合并上游更新的冲突取舍
   - [bootstrap.md](workflow/bootstrap.md)：从模板创建新工程——下载与按需装配、改名清单、配置初始化、底座验收与知识层继承

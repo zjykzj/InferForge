@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **README Documentation section pointer-ized**: the README doc table — a duplicate of the docs index that needed re-syncing on every new doc (and had drifted twice) — collapses to a category overview + four start-here entries + a pointer to docs/README.md, per design-principles §7 (README points, docs carry detail); new docs no longer touch the READMEs
 
+- **Hero slogan specifies the deliverable**: "From model to service" becomes "From model to HTTP service" (both languages) — the template's output is a deployable HTTP service, not a generic "service"
+
 ## [2.0.0] - 2026-09-13
 
 ### Added

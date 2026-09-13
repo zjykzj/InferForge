@@ -1,6 +1,6 @@
 # InferForge
 
-> 🔨 From model to service — agents forge vision models into production.
+> 🔨 From model to HTTP service — agents forge vision models into production.
 >
 > Out of the box: sync + async APIs · health probes · OpenAPI docs. Optional (off by default): Prometheus metrics · API-key auth & rate limiting. A template, not a framework: download, assemble, deploy — contract tests ship with every new project as CI feedback.
 

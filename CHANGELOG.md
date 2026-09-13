@@ -35,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Generator packaging knowledge doc**: docs/generator-packaging.md — the packaging axis (CLI / HTTP / MCP) separated from the generation axis, the "Agent + MCP template service-ization" proposal assessed point by point (what it gets right, what it gets wrong, what to absorb), the HTTP-vs-MCP choice matrix for agent consumption (MCP = HTTP + a protocol shell; HTTP-first is the cheap increment), and the trigger conditions for service-ization; cross-referenced from scaffolding.md §5
 
+- **README positioning synced to the mechanism-ification**: the About section and hero updated in both languages — intro gains the assemble-on-demand template factory identity, the agent-first bullet now states the deterministic-script/agent-glue split, "independent of the inference engine" becomes "replaceable inference engines" (swapping touches `engines/` only), the closing paragraph lists the reference engines (YOLOv8n/DINOv2) alongside the VLM/Agent references, the hero's "download, adapt, deploy" fork-era wording becomes "download, assemble, deploy" with the contract-tests-as-CI-feedback note, and Prometheus metrics move from out-of-the-box to the optional list (production profile)
+
 ### Breaking
 
 - **`--force` removed from scripts/assemble.py**: the target guard never overwrites — a non-empty target directory is always refused (with an "existing project" hint when app.py/requirements.txt/pyproject.toml/.git are detected) and targets inside the template repo are rejected; assemble.py has no delete/overwrite path at all

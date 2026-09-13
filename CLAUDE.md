@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-InferForge is a production-grade serving template for vision inference services — a thin service shell above inference kernels, turning any vision model into a deployable HTTP service (agent-first: LLM/Agents are the primary developer; VLM/Agent are remote-LLM reference forms, not local engines).
+InferForge is a production-grade serving template for vision inference services — an assemble-on-demand template factory: a thin service shell above inference kernels, turning any vision model into a deployable HTTP service (agent-first: LLM/Agents are the primary developer — init, assembly and acceptance run as deterministic scripts, the agent handles requirement clarification and business code; VLM/Agent are remote-LLM reference forms, not local engines).
 
 Layers:
 

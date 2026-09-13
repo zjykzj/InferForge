@@ -1,8 +1,8 @@
 # InferForge
 
-> 🔨 From kernel to service — InferForge forges vision models into production, agent-first.
+> 🔨 From model to service — agents forge vision models into production.
 >
-> Out of the box: sync + async APIs · health probes · OpenAPI docs · Prometheus metrics. Optional (off by default): API-key auth & rate limiting. A template, not a framework: download, adapt, deploy.
+> Out of the box: sync + async APIs · health probes · OpenAPI docs. Optional (off by default): Prometheus metrics · API-key auth & rate limiting. A template, not a framework: download, assemble, deploy — contract tests ship with every new project as CI feedback.
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
@@ -14,13 +14,13 @@
 
 ## About
 
-InferForge is a production-grade serving template for **vision inference services**: a thin service shell above inference kernels that turns any vision model into a deployable HTTP service.
+InferForge is a production-grade serving template for **vision inference services** — an assemble-on-demand template factory: a thin service shell above inference kernels that turns any vision model into a deployable HTTP service.
 
-- **Agent-first development.** Designed with LLM/Agents as the primary developer: new or existing projects are built by agents working against this implementation.
+- **Agent-first development.** Designed with LLM/Agents as the primary developer: init, assembly and acceptance run as deterministic scripts, and the agent handles requirement clarification and business code — fixed scenarios, fixed implementations, with the agent as the glue.
 - **Business-facing web service and task architecture.** An architecture template for public-facing web services and task implementations: the service infrastructure is ready out of the box, and business tasks and APIs are yours to define.
-- **Independent of the inference engine.** onnxruntime, TensorRT, Triton — any inference backend is freely replaceable, without touching the service itself.
+- **Replaceable inference engines.** Swapping an algorithm touches `engines/` only: onnxruntime, TensorRT, Triton — any backend is freely replaceable, the rest of the service is unaffected.
 
-Beyond vision kernels, the template ships reference implementations for VLM and Agent orchestration — remote-LLM integration (async query-only) that demonstrates the path from vision inference to LLM orchestration.
+The template also ships reference engines (YOLOv8n detection/segmentation/classification, DINOv2 embedding — self-written pre/post-processing, use directly or replace behind the contract) alongside VLM and Agent orchestration references (remote-LLM integration, async query-only), demonstrating the path from vision inference to LLM orchestration.
 
 ## Quick Start
 
@@ -38,11 +38,11 @@ git clone https://github.com/zjykzj/InferForge.git ~/InferForge
 cd ~/InferForge && claude
 > initialize a web service at /srv/my-service
 
-Agent: asks which mechanisms you want (metrics / auth / rate-limit /
-       logging — default: none) → assemble.py --target
+Agent: confirms the profile (kernel, the default — envelope /
+       request_id / dotenv) → assemble.py --target
        /srv/my-service → generate identity files (README / CLAUDE.md)
        → configure → baseline checks green → git init + first commit
-       (the default assembly = contract kernel + health probes)
+       (the default profile = kernel: contract mechanisms + health probes)
 ```
 
 ```bash
@@ -86,7 +86,7 @@ INFERFORGE_ASYNC=1 ./start.sh
 python3 scripts/test_async_cls_query.py --image assets/bus.jpg   # submit → poll → top-5
 ```
 
-Later capabilities work the same way: the agent copies canonical references from `~/InferForge` (the template directory is the reference library). The task→entry map in [docs/README.md](docs/README.md) routes init / add-capability / modify / engine work; the architecture checks built into every new project keep each change inside the contract; the skills in `.claude/skills/` wrap the same workflows for Claude Code.
+Later capabilities work the same way: the agent copies canonical references from `~/InferForge` (the template directory is the reference library). The task→entry map in [docs/README.md](docs/README.md) routes init / add-capability / modify / engine work; the architecture checks built into every new project keep each change inside the contract; the skills in `.claude/skills/` wrap the same workflows for Claude Code (shipped with every new project).
 
 ## Run the Demo
 
@@ -132,14 +132,18 @@ Switches are opt-in environment variables (detection is always on); they gate wh
 
 ```
 InferForge/
-├── apis/          # FastAPI routers + Pydantic schemas — interface layer
-├── tasks/         # task orchestration; each task owns its predictors
-├── engines/       # BasePredictor contract + YOLOv8n detect/segment/classify reference implementations
-├── utils/         # cross-cutting: envelope, logging, metrics, auth, rate limit
-├── deploy/        # reference artifacts: logrotate, nginx canary, monitoring stack
-├── docs/          # full documentation set (Chinese, indexed by category)
-├── scripts/       # API test clients + callback receiver
-└── tests/         # smoke tests — model-free, CI-run
+├── apis/           # FastAPI routers + Pydantic schemas — interface layer
+├── tasks/          # task orchestration; each task owns its predictors
+├── engines/        # BasePredictor contract + YOLOv8n detect/segment/classify + DINOv2 embedding reference implementations
+├── utils/          # cross-cutting mechanisms: envelope, request_id, logging, metrics, auth, rate limit
+├── templates/      # assembly manifest — the single source of truth for selective assembly
+├── .claude/skills/ # four dev skills (shipped with every new project)
+├── models/         # model weights + registry (weights are gitignored)
+├── assets/         # test images
+├── deploy/         # reference artifacts: logrotate, nginx canary, monitoring stack
+├── docs/           # full documentation set (Chinese, indexed by category)
+├── scripts/        # factory tooling (assemble / check_assembly) + API test clients
+└── tests/          # smoke tests — model-free, CI-run
 ```
 
 ## Documentation
@@ -147,7 +151,7 @@ InferForge/
 | Category | Docs |
 |---|---|
 | Guides | [quick-start](docs/quick-start.md) · [architecture](docs/architecture.md) · [api](docs/api.md) · [model-registry](docs/model-registry.md) · [agent](docs/agent.md) · [embedding](docs/embedding.md) · [benchmark](docs/benchmark.md) · [deployment](docs/deployment.md) |
-| Knowledge | [concepts](docs/concepts.md) · [release-strategies](docs/release-strategies.md) |
+| Knowledge | [concepts](docs/concepts.md) · [release-strategies](docs/release-strategies.md) · [scaffolding](docs/scaffolding.md) · [generator-packaging](docs/generator-packaging.md) |
 | Standards | [forking-contract](docs/workflow/forking-contract.md) · [bootstrap](docs/workflow/bootstrap.md) · [assembly](docs/assembly.md) · [add-capability](docs/workflow/add-capability.md) · [add-engine](docs/workflow/add-engine.md) · [modify-service](docs/workflow/modify-service.md) · [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
 | Tech stack | [stack](docs/stack.md) · [design-principles](docs/design-principles.md) · [fastapi-migration](docs/fastapi-migration.md) |
 

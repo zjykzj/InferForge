@@ -27,8 +27,8 @@ sys.path.insert(0, _PROJECT_ROOT)
 # scripts/preflight_models.py.
 os.environ.pop("PROMETHEUS_MULTIPROC_DIR", None)
 
-# engines/registry ships with the serving-stack shared set — a base-only
-# assembly (no capabilities) has no registry to lint.
+# engines/registry ships with the serving-stack shared set — an assembly
+# without capabilities (bare/kernel profiles) has no registry to lint.
 try:
     from engines import registry
 except ImportError:  # pragma: no cover — depends on assembly selection
@@ -82,7 +82,7 @@ def _preflight_switches():
 def check():
     if registry is None:
         # Base-only assembly: no serving stack, no capabilities to lint.
-        print("[OK] no registry in this assembly (base-only) — nothing to lint")
+        print("[OK] no registry in this assembly (no capability selected) — nothing to lint")
         return 0
     errors = []
     try:

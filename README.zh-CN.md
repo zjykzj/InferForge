@@ -1,8 +1,8 @@
 # InferForge
 
-> 🔨 从推理内核到部署——InferForge 把视觉模型锻造成生产服务，Agent-First。
+> 🔨 从模型到服务——Agent 把视觉模型锻造成生产服务。
 >
-> 开箱即用：同步/异步接口 · 健康探针 · OpenAPI 文档 · Prometheus 指标。可选（默认关闭）：API-key 鉴权与限流。模板而非框架：下载、改造、部署。
+> 开箱即用：同步/异步接口 · 健康探针 · OpenAPI 文档。可选（默认关闭）：Prometheus 指标 · API-key 鉴权与限流。模板而非框架：下载、装配、部署——契约测试随新工程发布，作为 CI 反馈。
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="License"></a>
@@ -14,13 +14,13 @@
 
 ## 关于
 
-InferForge 是面向**视觉推理服务**的生产级服务模板：推理内核之上的一层薄服务外壳，把任意视觉模型变成可部署的 HTTP 服务。
+InferForge 是面向**视觉推理服务**的生产级服务模板——一个按需装配的模板工厂：推理内核之上的一层薄服务外壳，把任意视觉模型变成可部署的 HTTP 服务。
 
-- **Agent-First 开发。** 模板以 LLM/Agent 作为首要开发主体设计：在新项目或老项目的开发中，agent 参考本工程的实现进行开发。
+- **Agent-First 开发。** 模板以 LLM/Agent 作为首要开发主体设计：初始化、装配与验收由确定性脚本执行，agent 负责需求澄清与业务代码开发——固定场景固定实现，Agent 做胶水。
 - **面向业务开发的 Web 服务与任务架构。** 提供对外的 Web 服务和任务实现的架构模板：服务基础设施开箱即得，业务任务与接口由你定义。
-- **与底层推理引擎无关。** onnxruntime、TensorRT、Triton 等任意推理后端都可自由替换，服务本身不受影响。
+- **推理引擎可替换。** 换算法只动 `engines/` 一层：onnxruntime、TensorRT、Triton 等任意推理后端自由替换，服务其余部分不受影响。
 
-在视觉内核之上，模板还内置了 VLM 与 Agent 编排的参照实现（远程 LLM 集成、异步 query-only），演示从视觉推理延伸到 LLM 编排的完整路径。
+模板还内置了引擎参照实现（YOLOv8n 检测/分割/分类、DINOv2 嵌入——前/后处理自写、无 ultralytics 依赖，可直接使用或按契约替换）与 VLM/Agent 编排参照实现（远程 LLM 集成、异步 query-only），演示从视觉推理延伸到 LLM 编排的完整路径。
 
 ## 快速开始
 
@@ -38,10 +38,10 @@ git clone https://github.com/zjykzj/InferForge.git ~/InferForge
 cd ~/InferForge && claude
 > 初始化一个 web 服务到 /srv/my-service。
 
-Agent：逐个确认横切机制（metrics / 鉴权 / 限流 / 日志——默认都不要）→
+Agent：确认 profile（kernel，默认——envelope / request_id / dotenv）→
       assemble.py --target /srv/my-service → 生成身份文件
       （README / CLAUDE.md）→ 配置 → 底座验收全绿
-      → git init + 首次提交（默认装配 = 契约内核 + 健康探针）
+      → git init + 首次提交（默认 profile = kernel：契约机制 + 健康探针）
 ```
 
 ```bash
@@ -83,7 +83,7 @@ INFERFORGE_ASYNC=1 ./start.sh
 python3 scripts/test_async_cls_query.py --image assets/bus.jpg   # 提交 → 轮询 → top-5
 ```
 
-之后新增能力同理：agent 从 `~/InferForge`（模板目录 = 参照库）抄 canonical 实现。[docs/README.md](docs/README.md) 的入口表覆盖初始化 / 新增能力 / 修改服务 / 引擎工作；每个新工程自带的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳。
+之后新增能力同理：agent 从 `~/InferForge`（模板目录 = 参照库）抄 canonical 实现。[docs/README.md](docs/README.md) 的入口表覆盖初始化 / 新增能力 / 修改服务 / 引擎工作；每个新工程自带的架构检查保证每次改动都在契约之内；`.claude/skills/` 为 Claude Code 提供同一套流程的薄壳（随新工程交付）。
 
 ## 运行示例服务
 
@@ -129,14 +129,18 @@ python3 scripts/test_sync_detect.py --url https://ultralytics.com/images/bus.jpg
 
 ```
 InferForge/
-├── apis/          # FastAPI 路由 + Pydantic 模型 —— 接口层
-├── tasks/         # 任务编排；每个任务持有自己的预测器
-├── engines/       # BasePredictor contract + YOLOv8n 检测/分割/分类参考实现
-├── utils/         # 横切机制：envelope、日志、指标、鉴权、限流
-├── deploy/        # 参考工件：logrotate、nginx 灰度、监控栈
-├── docs/          # 完整文档集（中文，按分类索引）
-├── scripts/       # 接口测试脚本 + 回调接收器
-└── tests/         # 冒烟测试——无模型依赖，CI 自动执行
+├── apis/           # FastAPI 路由 + Pydantic 模型 —— 接口层
+├── tasks/          # 任务编排；每个任务持有自己的预测器
+├── engines/        # BasePredictor contract + YOLOv8n 检测/分割/分类、DINOv2 嵌入参考实现
+├── utils/          # 横切机制：envelope、request_id、日志、指标、鉴权、限流
+├── templates/      # 装配清单（manifest.yaml）——正向装配的唯一事实源
+├── .claude/skills/ # 四个开发 skill（随新工程交付）
+├── models/         # 模型权重 + 注册表（权重 git 忽略）
+├── assets/         # 测试图片
+├── deploy/         # 参考工件：logrotate、nginx 灰度、监控栈
+├── docs/           # 完整文档集（中文，按分类索引）
+├── scripts/        # 工厂工具（assemble / check_assembly）+ 接口测试脚本
+└── tests/          # 冒烟测试——无模型依赖，CI 自动执行
 ```
 
 ## 文档
@@ -144,7 +148,7 @@ InferForge/
 | 分类 | 文档 |
 |---|---|
 | 使用指南 | [quick-start](docs/quick-start.md) · [architecture](docs/architecture.md) · [api](docs/api.md) · [model-registry](docs/model-registry.md) · [agent](docs/agent.md) · [embedding](docs/embedding.md) · [benchmark](docs/benchmark.md) · [deployment](docs/deployment.md) |
-| 领域知识 | [concepts](docs/concepts.md) · [release-strategies](docs/release-strategies.md) |
+| 领域知识 | [concepts](docs/concepts.md) · [release-strategies](docs/release-strategies.md) · [scaffolding](docs/scaffolding.md) · [generator-packaging](docs/generator-packaging.md) |
 | 规范 | [forking-contract](docs/workflow/forking-contract.md) · [bootstrap](docs/workflow/bootstrap.md) · [assembly](docs/assembly.md) · [add-capability](docs/workflow/add-capability.md) · [add-engine](docs/workflow/add-engine.md) · [modify-service](docs/workflow/modify-service.md) · [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
 | 技术栈 | [stack](docs/stack.md) · [design-principles](docs/design-principles.md) · [fastapi-migration](docs/fastapi-migration.md) |
 

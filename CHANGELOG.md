@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Architecture guard tests + template footprint checker**: tests/test_architecture.py turns the red-zone axioms into CI checks (one-way dependency direction app→apis→tasks→engines via ast import scan, heavy deps never at module level, envelope always-200/422-never-leaks, status-code double registration response.py docstring ↔ status-codes.md); scripts/check_capability.py verifies per-capability footprints (registry parses, preflight CAPABILITY_SWITCH coverage, core task/api/test/script file sets, every preflight switch read in app.py) — both ship with every new project; CI gains a footprint-check step
 - **Agent-facing development skills**: .claude/skills/ inferforge-bootstrap / inferforge-add-capability / inferforge-add-engine / inferforge-modify-service — thin procedure shells over the new docs (ordered steps + per-step canonical references + done criteria)
 
-- **Assembly self-proof script**: scripts/check_assembly.py (factory-only) assembles six representative selections (bare / kernel / detect / detect-async / production / full) into temp dirs and runs py_compile + pyflakes + pytest in each — a generated project must compile, lint clean (celery_app's task-registration imports filtered as intentional F401s) and pass its own tests; CI gains a self-proof step and installs pyflakes; the lint pass surfaced and fixed dead code (unused pytest/base64 imports in test_auth/test_rate_limit/test_metrics, a dead assignment in build_gallery.py)
+- **Assembly self-proof script**: scripts/check_assembly.py (factory-only) assembles six representative selections (bare / kernel / detect / detect-async / production / full) into temp dirs and runs py_compile + pyflakes + pytest in each — a generated project must compile, lint clean (celery_app's task-registration imports filtered as intentional F401s) and pass its own tests; CI gains a self-proof step and installs pyflakes; the lint pass surfaced and fixed dead code (unused pytest/base64 imports in test_auth/test_rate_limit/test_metrics, a dead assignment in build_gallery.py); boot checks (`import app` / `import celery_app` in the assembled tmp dir, with the developer's env and PROMETHEUS_MULTIPROC_DIR scrubbed) catch runtime wiring errors py_compile cannot
 
 ### Changed
 
@@ -40,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 
 - **`--force` removed from scripts/assemble.py**: the target guard never overwrites — a non-empty target directory is always refused (with an "existing project" hint when app.py/requirements.txt/pyproject.toml/.git are detected) and targets inside the template repo are rejected; assemble.py has no delete/overwrite path at all
+
+### Fixed
+
+- **Manifest guard audit**: docs/scaffolding.md and docs/generator-packaging.md were tracked but unclaimed (the guard's own check caught it) — registered in the manifest `template:` section; bootstrap.md §6 and the bootstrap skill's acceptance criteria fixed for bare/kernel assemblies (the py_compile glob and check_capability.py don't exist there)
 
 ## [1.3.0] - 2026-09-02
 

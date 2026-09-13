@@ -278,11 +278,13 @@ template:
   - docs/deployment.md
   - docs/design-principles.md
   - docs/fastapi-migration.md
+  - docs/generator-packaging.md
   - docs/logging.md
   - docs/metrics.md
   - docs/model-registry.md
   - docs/quick-start.md
   - docs/release-strategies.md
+  - docs/scaffolding.md
   - docs/security.md
   - docs/stack.md
   - docs/status-codes.md

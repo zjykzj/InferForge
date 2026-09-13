@@ -64,10 +64,11 @@ def _py_files(target):
 
 
 def _scrubbed_env():
-    """Tests must not see the developer's shell INFERFORGE_* switches."""
+    """Tests must not see the developer's shell INFERFORGE_* switches, and
+    importing app.py must not touch the developer's metrics dir."""
     env = dict(os.environ)
     for key in list(env):
-        if key.startswith("INFERFORGE_"):
+        if key.startswith("INFERFORGE_") or key == "PROMETHEUS_MULTIPROC_DIR":
             del env[key]
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     return env
@@ -111,6 +112,26 @@ def check(name, extra):
                 print("  pyflakes complaints:")
                 for line in complaints:
                     print("    " + line)
+                return False
+
+        # Boot check: `import app` runs create_app() in the assembled shape —
+        # catches wiring errors py_compile cannot (NameError, broken imports,
+        # bad middleware order). celery_app is checked the same way when the
+        # runner has celery installed.
+        proc = subprocess.run([sys.executable, "-c", "import app"],
+                              capture_output=True, text=True, cwd=tmp,
+                              env=_scrubbed_env())
+        if proc.returncode != 0:
+            print("  boot check (import app) failed:\n%s%s" % (proc.stdout, proc.stderr))
+            return False
+        have_celery = subprocess.run([sys.executable, "-c", "import celery"],
+                                     capture_output=True, env=_scrubbed_env()).returncode == 0
+        if have_celery and os.path.exists(os.path.join(tmp, "celery_app.py")):
+            proc = subprocess.run([sys.executable, "-c", "import celery_app"],
+                                  capture_output=True, text=True, cwd=tmp,
+                                  env=_scrubbed_env())
+            if proc.returncode != 0:
+                print("  boot check (import celery_app) failed:\n%s%s" % (proc.stdout, proc.stderr))
                 return False
 
         if not _run([sys.executable, "-m", "pytest", "tests/", "-q"], cwd=tmp):

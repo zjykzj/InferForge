@@ -127,10 +127,12 @@ cp .env.example .env                    # 仅当装配含 dotenv 机制（kernel
 
 ```bash
 pytest tests/ -v                       # 全绿（装配所选能力的冒烟测试，模型无关网络无关）
-python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py
+python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py conftest.py
 python3 app.py                         # 起服务，GET /health 返回 200（无模型也能起）
 ./start.sh                             # 正式启动路径（选了本地模型能力才有；含 preflight 模型检查）
 ```
+
+- py_compile 另有 `scripts/*.py`（有脚本的装配）与 `celery_app.py`（异步装配）——bare/kernel 装配没有这些文件，跳过
 
 - bare 装配的 `/health` 返回 `{"status":"ok"}`（无 envelope）；kernel 及以上返回 `{"code":0,...}` envelope；bare 的 `/health/ready` 未就绪时返回 HTTP 503 + `{"status":"not ready"}`（无 code=6 字段——503 状态码本身对编排器可读，这是 bare 与 kernel 的唯一可观测差异）
 

@@ -20,8 +20,8 @@ description: 从 InferForge 模板初始化一个新业务工程——按需装�
 ## 完成标准（done 的定义，全部满足才算完成）
 
 - `pytest tests/ -q` 全绿
-- `python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py` 干净
-- `python3 scripts/check_capability.py` 通过（无模型能力的装配无 registry，输出跳过提示即正常）
+- `python3 -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py conftest.py` 干净（`scripts/*.py` 与 `celery_app.py` 仅当装配包含它们时追加）
+- `python3 scripts/check_capability.py` 通过（有模型能力的装配才有此脚本；bare/kernel 装配跳过本项）
 - `python3 app.py` 起服务，`GET /health` 返回 200
 - 装配过程走的是 `assemble.py` 脚本——目标守卫、profile 展开、依赖闭包全部由脚本执行
 

@@ -97,6 +97,7 @@ Agent 调用 CLI 的接口就是自身的 Bash 工具——"Agent 调用确定�
 ## 8. 与其它文档的分工
 
 - [scaffolding.md](scaffolding.md)：业界工具谱系与采纳/未采纳映射（全景）
+- [agent-tooling.md](agent-tooling.md)：业界公司怎么落地 Agent 驱动的开发工具（三种形态 + AGENTS.md）
 - [assembly.md](assembly.md)：装配机制实现（怎么工作）
 - [design-principles.md](design-principles.md)：以上设计的取舍理由（为什么）
 - 本文：生成器怎么被 Agent 消费——包装轴与协议选择（接口在哪）

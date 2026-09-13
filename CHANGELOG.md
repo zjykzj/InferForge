@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Agent tooling landscape knowledge doc**: docs/agent-tooling.md — the three industry deployment forms for agent-driven dev tooling (agent-native scaffolds with CLAUDE.md/AGENTS.md + skills + deterministic scripts, self-built agent platforms on Pydantic AI/LangGraph, hybrid MCP servers), why template generation is dominated by the first, the AGENTS.md cross-tool instruction standard, and InferForge's placement (form ① with tool-agnostic workflow docs + Claude Code skills); registered in the manifest template section, indexed in docs/README.md, cross-referenced from generator-packaging.md §8
+
+- **README Documentation section pointer-ized**: the README doc table — a duplicate of the docs index that needed re-syncing on every new doc (and had drifted twice) — collapses to a category overview + four start-here entries + a pointer to docs/README.md, per design-principles §7 (README points, docs carry detail); new docs no longer touch the READMEs
+
 ## [2.0.0] - 2026-09-13
 
 ### Added

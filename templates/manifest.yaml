@@ -271,6 +271,7 @@ template:
   - README.zh-CN.md
   - VERSION
   - docs/README.md
+  - docs/agent-tooling.md
   - docs/api.md
   - docs/architecture.md
   - docs/assembly.md

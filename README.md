@@ -148,14 +148,9 @@ InferForge/
 
 ## Documentation
 
-| Category | Docs |
-|---|---|
-| Guides | [quick-start](docs/quick-start.md) · [architecture](docs/architecture.md) · [api](docs/api.md) · [model-registry](docs/model-registry.md) · [agent](docs/agent.md) · [embedding](docs/embedding.md) · [benchmark](docs/benchmark.md) · [deployment](docs/deployment.md) |
-| Knowledge | [concepts](docs/concepts.md) · [release-strategies](docs/release-strategies.md) · [scaffolding](docs/scaffolding.md) · [generator-packaging](docs/generator-packaging.md) |
-| Standards | [forking-contract](docs/workflow/forking-contract.md) · [bootstrap](docs/workflow/bootstrap.md) · [assembly](docs/assembly.md) · [add-capability](docs/workflow/add-capability.md) · [add-engine](docs/workflow/add-engine.md) · [modify-service](docs/workflow/modify-service.md) · [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
-| Tech stack & rationale | [stack](docs/stack.md) · [design-principles](docs/design-principles.md) · [fastapi-migration](docs/fastapi-migration.md) |
+Docs are organized in four categories (Guides / Knowledge / Standards / Tech stack & rationale) — the full index with one-line descriptions lives in [docs/README.md](docs/README.md).
 
-Full index with one-line descriptions: [docs/README.md](docs/README.md).
+Start here: [quick-start](docs/quick-start.md) to run it · [architecture](docs/architecture.md) for the layering · [bootstrap](docs/workflow/bootstrap.md) to initialize a new project · [add-capability](docs/workflow/add-capability.md) to add a capability
 
 ## Acknowledgments
 

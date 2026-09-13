@@ -145,14 +145,9 @@ InferForge/
 
 ## 文档
 
-| 分类 | 文档 |
-|---|---|
-| 使用指南 | [quick-start](docs/quick-start.md) · [architecture](docs/architecture.md) · [api](docs/api.md) · [model-registry](docs/model-registry.md) · [agent](docs/agent.md) · [embedding](docs/embedding.md) · [benchmark](docs/benchmark.md) · [deployment](docs/deployment.md) |
-| 领域知识 | [concepts](docs/concepts.md) · [release-strategies](docs/release-strategies.md) · [scaffolding](docs/scaffolding.md) · [generator-packaging](docs/generator-packaging.md) |
-| 开发规范 | [forking-contract](docs/workflow/forking-contract.md) · [bootstrap](docs/workflow/bootstrap.md) · [assembly](docs/assembly.md) · [add-capability](docs/workflow/add-capability.md) · [add-engine](docs/workflow/add-engine.md) · [modify-service](docs/workflow/modify-service.md) · [status-codes](docs/status-codes.md) · [logging](docs/logging.md) · [metrics](docs/metrics.md) · [testing](docs/testing.md) · [security](docs/security.md) |
-| 技术栈与原理 | [stack](docs/stack.md) · [design-principles](docs/design-principles.md) · [fastapi-migration](docs/fastapi-migration.md) |
+文档按四类组织（使用指南 / 领域知识 / 开发规范 / 技术栈与原理），带逐篇说明的完整索引在 [docs/README.md](docs/README.md)。
 
-带逐篇说明的完整索引：[docs/README.md](docs/README.md)。
+入口建议：[quick-start](docs/quick-start.md) 跑起来 · [architecture](docs/architecture.md) 懂分层 · [bootstrap](docs/workflow/bootstrap.md) 初始化新工程 · [add-capability](docs/workflow/add-capability.md) 新增能力
 
 ## 致谢
 

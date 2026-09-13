@@ -22,6 +22,7 @@
   - [release-strategies.md](release-strategies.md)：发布策略——环境模型、五种发布策略谱系（停服/滚动/蓝绿/canary/feature flag）、分流机制（canary vs A/B）、观测回滚、与模型版本管理的关系，附本工程实现状态标注
   - [scaffolding.md](scaffolding.md)：Scaffolding 工具调研——Copier/Yeoman/Spring Initializr/Backstage/schematics/create-* 的机制对照、"确定性生成器 + Agent 做胶水"共识、InferForge 的采纳与未采纳映射，附本工程实现状态标注
   - [generator-packaging.md](generator-packaging.md)：生成器包装轴——CLI / HTTP / MCP 三种包装形态与 Agent 集成取舍、"Agent + MCP 模板服务化"方案评估、HTTP vs MCP 选择矩阵与触发条件，附本工程实现状态标注
+  - [agent-tooling.md](agent-tooling.md)：Agent 开发工具形态——业界三种落地形态（Agent 原生脚手架 / 自研 agent 平台 / 混合 MCP）、各自适用场景与代表实践、AGENTS.md 跨工具指令标准，附本工程实现状态标注
 - **开发规范**
   - [forking-contract.md](workflow/forking-contract.md)：forking contract——模板使用方式、可改/慎改区域、合并上游更新的冲突取舍
   - [bootstrap.md](workflow/bootstrap.md)：从模板创建新工程——下载与按需装配、改名清单、配置初始化、底座验收与知识层继承

@@ -4,11 +4,11 @@ AuthMiddleware reads INFERFORGE_API_KEY when the app is built, so tests set
 the env before constructing the app. Counter states are global per process:
 assert on presence, not exact counts.
 """
-import pytest
 from fastapi.testclient import TestClient
 
 from apis.health import health_router
 # @inferforge:detect
+import pytest  # noqa: E402
 from apis.sync_detect import sync_detect_router  # noqa: E402
 # @inferforge:end:detect
 

@@ -3,14 +3,20 @@
 Static checks only (no models, no network):
 
   A. every tracked repo file is claimed by exactly one manifest entry
-     (base / capability / shared / feature) — no orphan files, and the
-     assembly never ships the same file twice
+     (base / mechanism / capability / shared / feature) — no orphan files,
+     and the assembly never ships the same file twice
   B. every manifest path exists in the repo (file or directory)
   C. every `# @inferforge:<tag>` marker block in every claimed file pairs
-     up (balanced, nested-safe) and uses known tags (capability + feature
-     names) — assemble.py can strip them without guessing
+     up (balanced, nested-safe) and uses known tags (capability/mechanism/
+     feature/base names) — assemble.py can strip them without guessing
   D. capability dependencies (`requires`, `any_of`) reference known
-     capabilities, and capability file sets never overlap base
+     capabilities, and capability/mechanism file sets never overlap base
+  E. template identity files are never claimed by capabilities/shared
+  F. wiring files (manifest `wiring:`) are fully marker-covered — every
+     non-blank line lives inside a marker block, so no free-floating code
+     (dead helpers, stale docstrings) can leak into assemblies
+  G. profiles, capability_contract and mechanism `requires` reference
+     known mechanisms only
 """
 import importlib.util
 import os
@@ -65,7 +71,8 @@ def _claims():
 def _known_tags(manifest):
     return (set(manifest["capabilities"])
             | set(manifest.get("mechanisms", {}))
-            | set(manifest["features"]))
+            | set(manifest["features"])
+            | {"base"})
 
 
 def test_every_tracked_file_is_claimed_exactly_once():
@@ -167,3 +174,55 @@ def test_template_section_is_never_assembled():
     for rule in manifest.get("shared", []):
         overlap = template & set(rule["files"])
         assert not overlap, "shared claims a template-only file: %s" % sorted(overlap)
+
+
+def test_wiring_files_fully_marked():
+    """Every non-blank line of a wiring file lives inside a marker block.
+
+    Free-floating code (helper functions, docstrings, comments) would be
+    copied verbatim into every assembly regardless of selection — dead code
+    by construction. Marker blocks (including `base` = always kept) are the
+    only allowed home for wiring lines; compound `base+<name>` tags are
+    forbidden (they would silently strip).
+    """
+    manifest = assemble.load_manifest()
+    assert manifest.get("wiring"), "manifest needs a wiring: section"
+    for rel in manifest["wiring"]:
+        full = os.path.join(PROJECT_ROOT, rel)
+        with open(full, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+        depth = 0
+        for lineno, line in enumerate(lines, 1):
+            if not line.strip():
+                continue
+            open_match = assemble._OPEN.match(line)
+            end_match = assemble._END.match(line)
+            if open_match:
+                tag = open_match.group(1)
+                parts = tag.split("+")
+                assert not ("base" in parts and len(parts) > 1), (
+                    "%s:%d compound base tag not allowed: %s" % (rel, lineno, tag))
+                depth += 1
+            elif end_match:
+                assert depth > 0, "%s:%d end without open" % (rel, lineno)
+                depth -= 1
+            else:
+                assert depth > 0, (
+                    "%s:%d outside any marker block: %s"
+                    % (rel, lineno, line.strip()))
+        assert depth == 0, "%s: unterminated marker block" % rel
+
+
+def test_profiles_and_contract_reference_known_mechanisms():
+    manifest = assemble.load_manifest()
+    mechs = set(manifest.get("mechanisms", {}))
+    for profile, names in manifest.get("profiles", {}).items():
+        unknown = set(names) - mechs
+        assert not unknown, "profile %s uses unknown mechanisms: %s" % (
+            profile, sorted(unknown))
+    contract = manifest.get("capability_contract", [])
+    unknown = set(contract) - mechs
+    assert not unknown, "capability_contract uses unknown mechanisms: %s" % sorted(unknown)
+    for name, entry in manifest.get("mechanisms", {}).items():
+        for dep in entry.get("requires", []):
+            assert dep in mechs, "mechanism %s requires unknown %s" % (name, dep)

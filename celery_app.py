@@ -1,37 +1,50 @@
+# @inferforge:base
 """Celery application for async tasks.
 
 Two entry points, two processes:
 - web:    imports this module to submit tasks (via delay)
 - worker: celery -A celery_app worker
 """
+# @inferforge:end:base
+# @inferforge:base
 import os
 import sys
-import time
 
 # Make the project root importable regardless of the worker's working directory.
 # Unconditional insert: the celery CLI temporarily adds and then removes cwd from
 # sys.path while importing this module, so a dedup guard would lose the entry.
 _PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _PROJECT_ROOT)
-
+# @inferforge:end:base
+# @inferforge:dotenv
 # Load .env BEFORE task modules import — tasks read env at import time
 # (INFERFORGE_MODEL_PATH, INFERFORGE_LLM_PROMPT). override=False: shell env wins.
 from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(os.path.join(_PROJECT_ROOT, ".env"))
 
+# @inferforge:end:dotenv
+# @inferforge:base
 from celery import Celery  # noqa: E402
+from celery.signals import worker_process_init  # noqa: E402
+# @inferforge:end:base
+# @inferforge:metrics
+import time  # noqa: E402
+
 from celery.signals import (  # noqa: E402
-    setup_logging,
     task_failure,
     task_postrun,
     task_prerun,
-    worker_process_init,
     worker_process_shutdown,
     worker_shutdown,
 )
 from utils import metrics  # noqa: E402
+# @inferforge:end:metrics
+# @inferforge:logging
+from celery.signals import setup_logging  # noqa: E402
+# @inferforge:end:logging
 
+# @inferforge:base
 celery_app = Celery("inferforge")
 
 celery_app.conf.update(
@@ -54,20 +67,30 @@ celery_app.conf.update(
 # shared_task, which binds to this app without a circular import.
 from tasks import detection_callback  # noqa: E402,F401
 from tasks import detection_query  # noqa: E402,F401
+# @inferforge:end:base
+# @inferforge:vlm
 from tasks import vlm_query  # noqa: E402,F401
+# @inferforge:end:vlm
+# @inferforge:agent
 from tasks import agent_query  # noqa: E402,F401
+# @inferforge:end:agent
+# @inferforge:search
 from tasks import search_query  # noqa: E402,F401
 from tasks import search_check_query  # noqa: E402,F401
+# @inferforge:end:search
 
 
+# @inferforge:logging
 @setup_logging.connect
 def _configure_logging(**kwargs):
     """Reuse the project logging config in workers (separate file: celery.log)."""
     from utils.logger import setup_logging
 
     setup_logging(log_file="celery.log")
+# @inferforge:end:logging
 
 
+# @inferforge:metrics
 # Worker-side metrics: counted in the worker process and scraped through the
 # web /metrics endpoint via the shared PROMETHEUS_MULTIPROC_DIR.
 def _task_elapsed(task) -> float | None:
@@ -96,21 +119,6 @@ def _on_worker_process_shutdown(**kwargs):
     metrics.mark_process_dead()
 
 
-@worker_process_init.connect
-def _on_worker_process_init(**kwargs):
-    """Model warmup in each prefork child (after fork, before the first task).
-
-    INFERFORGE_PRELOAD gating and best-effort semantics live in tasks.warmup;
-    this handler only wires the signal. Not covered by unit tests — importing
-    celery_app in tests would split celery's thread-local current_app across
-    TestClient threads (CLAUDE.md); tasks.warmup.preload_worker is tested
-    directly instead.
-    """
-    from tasks import warmup
-
-    warmup.preload_worker()
-
-
 @task_prerun.connect
 def _on_task_prerun(task_id, task, **kwargs):
     task.request.metrics_started = time.perf_counter()
@@ -130,3 +138,21 @@ def _on_task_postrun(task_id, task, **kwargs):
 @task_failure.connect
 def _on_task_failure(task_id, task, **kwargs):
     metrics.record_celery_task(task.name, "failure", _task_elapsed(task))
+# @inferforge:end:metrics
+
+
+# @inferforge:base
+@worker_process_init.connect
+def _on_worker_process_init(**kwargs):
+    """Model warmup in each prefork child (after fork, before the first task).
+
+    INFERFORGE_PRELOAD gating and best-effort semantics live in tasks.warmup;
+    this handler only wires the signal. Not covered by unit tests — importing
+    celery_app in tests would split celery's thread-local current_app across
+    TestClient threads (CLAUDE.md); tasks.warmup.preload_worker is tested
+    directly instead.
+    """
+    from tasks import warmup
+
+    warmup.preload_worker()
+# @inferforge:end:base

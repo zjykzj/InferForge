@@ -69,7 +69,6 @@ def main():
 
     from pymilvus import MilvusClient  # worker-only dep, imported on demand
 
-    vectors = []
     rows = []
     skipped = 0
     for path in files:

@@ -23,13 +23,16 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt -r requirements-async.txt
+        run: pip install -r requirements.txt -r requirements-async.txt pyflakes
 
       - name: Smoke tests
         run: pytest tests/ -v
 
       - name: Compile check
         run: python -m py_compile app.py apis/*.py tasks/*.py engines/*.py utils/*.py tests/*.py scripts/*.py conftest.py celery_app.py
+
+      - name: Assembly self-proof (bare/kernel/detect/detect+async/production/full)
+        run: python scripts/check_assembly.py
 
       - name: Template footprint check
         run: python scripts/check_capability.py

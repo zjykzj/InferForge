@@ -1,18 +1,25 @@
+# @inferforge:base
 # Root conftest: makes the project root importable for pytest.
 import pytest
 from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
-
+# @inferforge:end:base
+# @inferforge:envelope
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+# @inferforge:end:envelope
 # @inferforge:metrics
 from apis.metrics import metrics_router  # noqa: E402
 # @inferforge:end:metrics
-# engines/registry ships with the serving-stack shared set — a base-only
+# @inferforge:base
+# engines/registry ships with the serving-stack shared set — a kernel-only
 # assembly (no capabilities) has no registry to isolate.
 try:
     from engines import registry
 except ImportError:  # pragma: no cover — depends on assembly selection
     registry = None
-from utils import response
+# @inferforge:end:base
+# @inferforge:envelope
+from utils import response  # noqa: E402
+# @inferforge:end:envelope
 # @inferforge:metrics
 from utils import metrics  # noqa: E402
 # @inferforge:end:metrics
@@ -22,8 +29,11 @@ from utils import rate_limit  # noqa: E402
 # @inferforge:auth
 from utils import auth  # noqa: E402
 # @inferforge:end:auth
+# @inferforge:request_id
 from utils import request_id  # noqa: E402
+# @inferforge:end:request_id
 
+# @inferforge:base
 _DEFAULT_REGISTRY = """\
 defaults:
   # @inferforge:detect
@@ -83,19 +93,15 @@ def registry_isolation(tmp_path, monkeypatch):
 
 @pytest.fixture()
 def app_factory():
-    """Build a minimal app wired like create_app (request-id + auth +
-    metrics middleware, validation envelope, /metrics router) without the
-    app.py content-length guard.
-
-    AuthMiddleware reads INFERFORGE_API_KEY at construction, so tests
-    monkeypatch.setenv it BEFORE building the app. Registering the
-    validation handler here mirrors app.py so test apps never leak
-    FastAPI's default HTTP 422.
+    """Build a minimal app wired like create_app: each mechanism's middleware
+    (metrics/rate-limit/auth/request-id) and the validation envelope handler
+    are wired only when the mechanism is assembled, in create_app's order
+    (LAST added = outermost). AuthMiddleware reads INFERFORGE_API_KEY at
+    construction, so tests monkeypatch.setenv it BEFORE building the app.
     """
 
     def _make(*routers):
         app = FastAPI()
-        # Same order as create_app: LAST added = outermost.
         # @inferforge:metrics
         app.add_middleware(metrics.MetricsMiddleware)
         # @inferforge:end:metrics
@@ -105,8 +111,12 @@ def app_factory():
         # @inferforge:auth
         app.add_middleware(auth.AuthMiddleware)
         # @inferforge:end:auth
+        # @inferforge:request_id
         app.add_middleware(request_id.RequestIdMiddleware)
+        # @inferforge:end:request_id
+        # @inferforge:envelope
         app.add_exception_handler(RequestValidationError, response.validation_error_handler)
+        # @inferforge:end:envelope
         # @inferforge:metrics
         app.include_router(metrics_router)
         # @inferforge:end:metrics
@@ -115,3 +125,4 @@ def app_factory():
         return app
 
     return _make
+# @inferforge:end:base

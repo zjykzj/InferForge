@@ -3,7 +3,6 @@
 RateLimitMiddleware reads INFERFORGE_RATE_LIMIT when the app is built, so
 tests set the env before constructing the app; each app gets fresh buckets.
 """
-import pytest
 from fastapi.testclient import TestClient
 
 from apis.health import health_router

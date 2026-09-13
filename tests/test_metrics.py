@@ -1,13 +1,12 @@
 """Smoke tests for the /metrics endpoint using a fake predictor (no model needed)."""
-import base64
 import time
-from types import SimpleNamespace
 
 # @inferforge:detect
+import base64  # noqa: E402
 import cv2  # noqa: E402
 import numpy as np  # noqa: E402
+import pytest  # noqa: E402
 # @inferforge:end:detect
-import pytest
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
@@ -18,6 +17,8 @@ from engines.base import BasePredictor, DetectionResult  # noqa: E402
 from tasks import detection  # noqa: E402
 # @inferforge:end:detect
 # @inferforge:vlm
+# pytest comes from the detect block above: vlm requires async, which
+# requires detect — detect is always assembled whenever vlm is.
 from tasks import vlm  # noqa: E402
 # @inferforge:end:vlm
 from utils import metrics

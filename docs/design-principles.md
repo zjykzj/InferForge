@@ -1,6 +1,6 @@
 # 模板设计原则（Design Principles）
 
-> 本模板在一轮轮"为什么新工程里有这么多多余的东西"的质疑中收敛出的八条原则——每一条都对应一次真实踩坑。机制细节见 [assembly.md](assembly.md)（怎么工作）与 [bootstrap.md](workflow/bootstrap.md)（怎么用）；本文只记录取舍的**理由**。最后更新：2026-09-12
+> 本模板在一轮轮"为什么新工程里有这么多多余的东西"的质疑中收敛出的八条原则——每一条都对应一次真实踩坑。机制细节见 [assembly.md](assembly.md)（怎么工作）与 [bootstrap.md](workflow/bootstrap.md)（怎么用）；本文只记录取舍的**理由**。最后更新：2026-09-13
 
 ## 1. 模板是参考库，不是拷贝源
 
@@ -16,13 +16,13 @@
 
 重写 envelope、中间件这类契约代码 = 把 266 个测试踩过的坑重新踩一遍，且 100 个工程会漂移出 100 种实现，契约统一性消失。因此**机制与能力组件拷贝已测试的实现（测试随代码走）**；"参考-生成"只用于两类东西：身份文件（本就是新工程的）与业务代码（add-capability 流程）。这是模板与教程的分界：教程给知识让人重写，模板给知识 + 已测试的实现让人继承。
 
-## 4. 契约内核最小化：不可选的只有契约本身
+## 4. 契约内核最小化：不可选的只有服务外壳
 
-"最小 web 服务"的最小集由契约决定，不由习惯决定：app 工厂 + envelope + 健康探针 + X-Request-ID。反例：中间件套件（metrics/auth/限流/日志）曾捆绑进"最小装配"——用户只想要 FastAPI + health，却收到整车配件。修正后中间件全部成为 opt-in 机制。
+"最小 web 服务"的最小集是 app 工厂 + 健康探针 + 占位包 + 契约测试——**bare profile 就是它**（约 50 行 app.py，无 envelope/request_id/dotenv）。envelope 与 request_id 是**契约机制**而非内核：kernel profile（默认）内含，任何业务能力装配由 capability_contract 自动带入——契约不靠"永远在场"保证，靠"选了业务就要带契约"的闭包规则保证。反例：中间件套件（metrics/auth/限流/日志）曾捆绑进"最小装配"——用户只想要 FastAPI + health，却收到整车配件；而 envelope/dotenv/body-limit 也曾在 base 里强制携带，bare 场景只能带着契约行李出生。
 
-## 5. 机制逐个确认（先检查、再确认）
+## 5. profile 预设优先，个别机制才逐个确认
 
-横切机制不是越多越好：logger 与 web 服务本体无关，鉴权限流是运维决策。初始化时 Agent 逐个问"需要 metrics 吗？鉴权？限流？日志？"，明确要的才进装配——默认一个都不要。envelope 与 request_id 是契约本身，不受此约束。
+横切机制不是越多越好：logger 与 web 服务本体无关，鉴权限流是运维决策。机制集合由 **profile 预设**决定（bare/kernel/production），初始化时 Agent 问"要哪个 profile"而不是逐个问机制；个别机制用 `--with` 叠加。固定场景用固定实现——profile 背后的装配是确定性脚本（assemble.py 守卫 + 依赖闭包），不是 LLM 临场发挥。
 
 ## 6. 生成优于拷贝的东西：身份文件、依赖清单
 

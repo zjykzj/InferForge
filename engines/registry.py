@@ -8,9 +8,10 @@ which owns them (see docs/architecture.md §2.2).
 Config source, in order:
 
 1. `models/registry.yaml` (override the location with INFERFORGE_REGISTRY_PATH)
-2. no such file -> a three-entry registry synthesised from the historical
+2. no such file -> a four-entry registry synthesised from the historical
    INFERFORGE_MODEL_PATH / INFERFORGE_SEG_MODEL_PATH / INFERFORGE_CLS_MODEL_PATH
-   env vars, with the same defaults they have always had
+   / INFERFORGE_EMBED_MODEL_PATH env vars, with the same defaults they have
+   always had
 
 (2) is what keeps this feature backward compatible: a deployment that never
 writes a registry file behaves exactly as it did before the registry existed.

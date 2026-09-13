@@ -3,27 +3,25 @@ as executable checks.
 
 These ship with every new project — a downstream agent that breaks a layering,
 envelope or status-code rule gets a red CI in its own repo, not a prose
-reminder in the template. Model-free and network-free like the rest of the suite: everything
-here either parses source files with ast or exercises the validation handler
-through a fake-predictor app.
+reminder in the template. Model-free and network-free like the rest of the
+suite: everything here parses source files with ast.
 
 Guarded axioms:
 1. One-way dependency chain app -> apis -> tasks -> engines (utils cross-cutting)
 2. Heavy deps (onnxruntime/openai/pymilvus/pydantic-ai/ultralytics) are never
    imported at module level (CLAUDE.md: lazy import inside function bodies)
 3. HTTP always 200 + {code, message, data} envelope; pydantic validation
-   failures fold into code=1 (FastAPI's 422 never leaks)
-4. Business codes are double-registered: utils/response.py docstring and
-   docs/status-codes.md must list the same codes
+   failures fold into code=1 (FastAPI's 422 never leaks) — end-to-end check,
+   runs when the detect capability is assembled
+The envelope code double-registration check lives in tests/test_response.py
+(it ships with the envelope mechanism).
 """
 import ast
-import re
 from pathlib import Path
 
-import pytest
-from fastapi.testclient import TestClient
-
 # @inferforge:detect
+from fastapi.testclient import TestClient  # noqa: E402
+
 from apis.sync_detect import sync_detect_router  # noqa: E402
 # @inferforge:end:detect
 
@@ -133,28 +131,3 @@ def test_envelope_always_200_and_422_never_leaks(app_factory):
     assert set(body.keys()) == {"code", "message", "data"}
     assert body["code"] == 1
 # @inferforge:end:detect
-
-
-def test_status_codes_double_registered():
-    """utils/response.py docstring and docs/status-codes.md must list the same
-    business codes (CLAUDE.md: new codes register in BOTH places). Skipped in
-    base-only assemblies — the doc ships with the template only."""
-    response_doc = (PROJECT_ROOT / "utils" / "response.py").read_text(encoding="utf-8")
-    # The docstring enumerates codes as indented "N    <name>" lines.
-    doc_codes = set(int(m) for m in re.findall(r"^\s{4}(\d+)\s+\w+", response_doc, re.MULTILINE))
-
-    status_path = PROJECT_ROOT / "docs" / "status-codes.md"
-    if not status_path.exists():
-        pytest.skip("docs/status-codes.md absent (base-only assembly)")
-    status_doc = status_path.read_text(encoding="utf-8")
-    # §2 table rows look like: | `0` | success | ...
-    table_codes = set(int(m) for m in re.findall(r"^\|\s*`(\d+)`\s*\|", status_doc, re.MULTILINE))
-
-    assert doc_codes, "no codes parsed from utils/response.py docstring — format drift?"
-    assert table_codes, "no codes parsed from docs/status-codes.md §2 — format drift?"
-    assert doc_codes == table_codes, (
-        "double registration broken:\n"
-        "  response.py docstring: %s\n"
-        "  status-codes.md §2:    %s"
-        % (sorted(doc_codes), sorted(table_codes))
-    )

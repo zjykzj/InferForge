@@ -1,37 +1,55 @@
 # Bootstrap assembly manifest — the positive include-list for selective
 # project generation (docs/workflow/bootstrap.md §2). Consumed by
 # scripts/assemble.py; guarded by tests/test_bootstrap_manifest.py
-# (every tracked repo file is claimed exactly once; marker blocks pair up).
+# (every tracked repo file is claimed exactly once; marker blocks pair up;
+# wiring files are fully marker-covered).
 #
-# Three-layer model:
-#   base         — always copied: the CONTRACT KERNEL. app factory +
-#                  envelope + health probes + placeholder packages
-#                  (tasks/engines) + the contract guard tests. NO
-#                  mechanism, NO capability, NO template identity files.
-#   mechanisms   — cross-cutting middleware pieces, opt-in: metrics,
-#                  request_id, auth, rate_limit, logging. Each entry
-#                  carries its files AND its pip requirements — the
-#                  generated requirements.txt is the MERGE of selected
-#                  entries, never a copy of the template's.
+# Selection model (docs/assembly.md §2):
+#   base        — always copied: the MINIMAL KERNEL. app factory + health
+#                 probes + placeholder packages (tasks/engines) + the
+#                 contract guard tests + the dev skills. NO mechanism, NO
+#                 capability, NO template identity files — with the bare
+#                 profile this is a plain FastAPI service.
+#   mechanisms  — cross-cutting pieces, opt-in: envelope (the {code,
+#                 message, data} contract + body limit), request_id,
+#                 dotenv, metrics, auth, rate_limit, logging. Each entry
+#                 carries its files AND its pip requirements — the
+#                 generated requirements.txt is the MERGE of selected
+#                 entries, never a copy of the template's. `requires`
+#                 expands mechanism dependencies.
 #   capabilities — business capabilities, opt-in; `requires` expands the
-#                  dependency closure automatically.
-#   shared       — included when ANY of the listed names is selected
-#                  (serving-stack: engines/registry/start.sh/preflight;
-#                  http-stack: schemas/image utils).
-#   features     — deployment/tooling extras, opt-in (ci/docker/deploy/
-#                  benchmark).
-#   template     — template identity + knowledge library: NEVER assembled
-#                  (new projects GENERATE identity per bootstrap.md §3).
-#   generated    — files assemble.py WRITES from manifest data instead of
-#                  copying (requirements.txt = merged dependency set).
+#                 dependency closure automatically.
+#   capability_contract — selecting ANY capability also selects these
+#                 mechanisms (envelope, request_id, dotenv): business apis
+#                 keep the serving contract on every profile.
+#   profiles    — named mechanism presets: bare (none), kernel (the
+#                 contract mechanisms, default), production (kernel +
+#                 metrics/auth/rate_limit/logging).
+#   shared      — included when ANY of the listed names is selected
+#                 (serving-stack: engines/registry/start.sh/preflight;
+#                 http-stack: schemas/image utils).
+#   features    — deployment/tooling extras, opt-in (ci/docker/deploy/
+#                 benchmark).
+#   template    — template identity + knowledge library: NEVER assembled
+#                 (new projects GENERATE identity per bootstrap.md §3).
+#   generated   — files assemble.py WRITES from manifest data instead of
+#                 copying (requirements.txt = merged dependency set).
+#   wiring      — files that must be fully marker-covered (every non-blank
+#                 line inside a `# @inferforge:` block; `base` = always
+#                 kept, marker lines themselves are dropped); guarded by
+#                 test_bootstrap_manifest.py.
 #
 # Wiring files carry `# @inferforge:<name>` ... `# @inferforge:end:<name>`
-# marker blocks (capability/mechanism/feature names; compound a+b = AND);
-# assemble.py strips the blocks of unselected names.
+# marker blocks (capability/mechanism/feature/base names; compound a+b =
+# AND); assemble.py strips the blocks of unselected names, `base` blocks
+# are always kept.
 
 base:
   files:
-    - .env.example
+    - .claude/skills/inferforge-add-capability/SKILL.md
+    - .claude/skills/inferforge-add-engine/SKILL.md
+    - .claude/skills/inferforge-bootstrap/SKILL.md
+    - .claude/skills/inferforge-modify-service/SKILL.md
     - .gitignore
     - apis/__init__.py
     - apis/health.py
@@ -41,19 +59,30 @@ base:
     - tasks/__init__.py
     - tests/__init__.py
     - tests/test_architecture.py
+    - tests/test_switches.py
     - utils/__init__.py
-    - utils/request_id.py
-    - utils/response.py
     - utils/switches.py
   requirements:
     - fastapi>=0.141,<1.0
     - httpx>=0.28,<0.29
     - pydantic>=2.13,<3.0
     - pytest>=8.0
-    - python-dotenv>=1.0,<2.0
     - uvicorn>=0.52,<1.0
 
 mechanisms:
+  envelope:
+    files:
+      - tests/test_response.py
+      - utils/response.py
+  request_id:
+    files:
+      - tests/test_request_id.py
+      - utils/request_id.py
+  dotenv:
+    files:
+      - .env.example
+    requirements:
+      - python-dotenv>=1.0,<2.0
   metrics:
     files:
       - apis/metrics.py
@@ -62,17 +91,31 @@ mechanisms:
     requirements:
       - prometheus_client>=0.21,<1.0
   auth:
+    requires: [envelope]
     files:
       - tests/test_auth.py
       - utils/auth.py
   rate_limit:
+    requires: [auth]
     files:
       - tests/test_rate_limit.py
       - utils/rate_limit.py
   logging:
+    requires: [request_id]
     files:
       - tests/test_logger.py
       - utils/logger.py
+
+# Selecting ANY capability also selects these mechanisms (second closure
+# pass in assemble.py) so business apis keep the serving contract on every
+# profile — a bare+detect assembly still ships envelope/request_id/dotenv.
+capability_contract: [envelope, request_id, dotenv]
+
+# Named mechanism presets: --profile selects one, --with unions with it.
+profiles:
+  bare: []
+  kernel: [envelope, request_id, dotenv]
+  production: [envelope, request_id, dotenv, metrics, auth, rate_limit, logging]
 
 capabilities:
   detect:
@@ -221,10 +264,6 @@ shared:
       - scripts/export_yolo.py
 
 template:
-  - .claude/skills/inferforge-add-capability/SKILL.md
-  - .claude/skills/inferforge-add-engine/SKILL.md
-  - .claude/skills/inferforge-bootstrap/SKILL.md
-  - .claude/skills/inferforge-modify-service/SKILL.md
   - CHANGELOG.md
   - CLAUDE.md
   - LICENSE
@@ -271,6 +310,15 @@ features:
       - docs/benchmark.md
       - scripts/benchmark.py
       - scripts/mock_llm.py
+
+# Wiring files: fully marker-covered — guarded by test_bootstrap_manifest.py
+# (every non-blank line must live inside a marker block). Add any new
+# marker-carrying file here.
+wiring:
+  - apis/health.py
+  - app.py
+  - celery_app.py
+  - conftest.py
 
 generated:
   - requirements.txt

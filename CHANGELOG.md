@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-13
+
 ### Added
 
 - **Selective project assembly (bootstrap 2.0)**: templates/manifest.yaml + scripts/assemble.py turn initialization from copy-then-trim into a positive include-list — base shrinks to the minimal serving shell (app factory, health probes, contract tests, dev skills — NO mechanism, NO capability); template identity files and the knowledge library (README/CHANGELOG/LICENSE/VERSION/CLAUDE.md/docs) move to a never-assembled `template` section — new projects generate their own identity (bootstrap §3); a mechanisms layer (metrics/auth/rate_limit/logging) makes each cross-cutting middleware an opt-in piece selected per-check-and-confirm, each declaring its own pip requirements; requirements.txt becomes a GENERATED file — the merge of the selected entries' requirement declarations, never a copy of the template's; capabilities (detect/seg/cls/pipeline/embed/dedup/async/vlm/agent/search) and features (ci/docker/deploy/benchmark) are opt-in with automatic dependency expansion (pipeline → detect+cls, search → embed+async, ...); a serving-stack shared set (engines/registry/start.sh/preflight/utils.errors) ships with the first local-model capability and an http-stack set (schemas/image utils) with the first HTTP business capability; wiring files (app.py, health.py, warmup.py, preflight_models.py, registry.py, registry.example.yaml, conftest.py, shared test files) carry # @inferforge marker blocks that assemble.py strips for unselected capabilities (compound a+b tags = AND), so generated projects never reference absent files; the generated project ships registry.yaml for exactly the selected capabilities; tests/test_bootstrap_manifest.py guards the manifest (file coverage, path existence, marker pairing) and stays factory-only; conftest/check_capability tolerate base-only assemblies (no registry) and test_architecture skips the status-code double-registration check when the doc is absent; bootstrap.md §2/§4 rewritten to the assembly model (the 8-point deletion surface remains only for post-hoc trimming); docs/assembly.md documents the mechanism (manifest include-list, marker convention, extension guide) and docs/design-principles.md records the eight design tradeoffs behind it (reference-not-copy, include-list over trim, contract kernel, per-mechanism confirmation, generated identity/requirements, ...); verified end-to-end — base-only (4 tests + live health probes), detect+async (101 tests) and full-capability (260 tests) assemblies all green
@@ -37,9 +39,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **README positioning synced to the mechanism-ification**: the About section and hero updated in both languages — intro gains the assemble-on-demand template factory identity, the agent-first bullet now states the deterministic-script/agent-glue split, "independent of the inference engine" becomes "replaceable inference engines" (swapping touches `engines/` only), the closing paragraph lists the reference engines (YOLOv8n/DINOv2) alongside the VLM/Agent references, the hero's "download, adapt, deploy" fork-era wording becomes "download, assemble, deploy" with the contract-tests-as-CI-feedback note, and Prometheus metrics move from out-of-the-box to the optional list (production profile)
 
-### Breaking
+### Removed
 
-- **`--force` removed from scripts/assemble.py**: the target guard never overwrites — a non-empty target directory is always refused (with an "existing project" hint when app.py/requirements.txt/pyproject.toml/.git are detected) and targets inside the template repo are rejected; assemble.py has no delete/overwrite path at all
+- **`--force` removed from scripts/assemble.py** (breaking): the target guard never overwrites — a non-empty target directory is always refused (with an "existing project" hint when app.py/requirements.txt/pyproject.toml/.git are detected) and targets inside the template repo are rejected; assemble.py has no delete/overwrite path at all
 
 ### Fixed
 

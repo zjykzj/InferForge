@@ -50,10 +50,11 @@ InferForge 的装配机制经历了三次演进，每一次都对应一个业界
 | 候选 | 未采纳原因 |
 |------|-----------|
 | 以 Copier 替换自研 assemble.py | 评估推迟：manifest 正向清单 + marker + 契约测试已是单一事实源，自研成本已付；Copier 的增量价值（update 回放）是未来增量，届时可在现有 manifest 上评估（forking-contract §4 当前靠 CHANGELOG + 三方合并取舍） |
+| 服务化（HTTP API）与 MCP 包装 | 推迟：本地单用户场景下 CLI 已是零成本接口；触发条件与选择矩阵见 [generator-packaging.md](generator-packaging.md) §7 |
 | marker 否定语法（`!name`） | 范围控制：需要"选中时剔除"的场景用"块内 return + base 回退行"惯用法表达（assembly.md §5），不引入新语法 |
 | LLM 自由生成核心脚手架 | 违背 §3 共识——固定场景固定实现，LLM 只做编排与偏差处理 |
 
 ## 6. 实现状态汇总
 
 - 已落地：目标守卫、profile 分档、capability_contract 闭包、wiring 全覆盖守护、生成物自证、确定性 bootstrap skill
-- 未落地（有意推迟）：Copier 迁移与 update 回放；否定标记
+- 未落地（有意推迟）：Copier 迁移与 update 回放；服务化与 MCP 包装；否定标记

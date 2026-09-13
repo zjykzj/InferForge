@@ -21,6 +21,7 @@
   - [concepts.md](concepts.md)：概念入门——Web 服务、任务队列、回调/轮询、Redis 的零基础科普
   - [release-strategies.md](release-strategies.md)：发布策略——环境模型、五种发布策略谱系（停服/滚动/蓝绿/canary/feature flag）、分流机制（canary vs A/B）、观测回滚、与模型版本管理的关系，附本工程实现状态标注
   - [scaffolding.md](scaffolding.md)：Scaffolding 工具调研——Copier/Yeoman/Spring Initializr/Backstage/schematics/create-* 的机制对照、"确定性生成器 + Agent 做胶水"共识、InferForge 的采纳与未采纳映射，附本工程实现状态标注
+  - [generator-packaging.md](generator-packaging.md)：生成器包装轴——CLI / HTTP / MCP 三种包装形态与 Agent 集成取舍、"Agent + MCP 模板服务化"方案评估、HTTP vs MCP 选择矩阵与触发条件，附本工程实现状态标注
 - **开发规范**
   - [forking-contract.md](workflow/forking-contract.md)：forking contract——模板使用方式、可改/慎改区域、合并上游更新的冲突取舍
   - [bootstrap.md](workflow/bootstrap.md)：从模板创建新工程——下载与按需装配、改名清单、配置初始化、底座验收与知识层继承

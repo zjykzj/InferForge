@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Scaffolding landscape knowledge doc**: docs/scaffolding.md — the industry tool spectrum (Copier / Yeoman / Spring Initializr / Backstage Software Templates / Nx schematics / create-*) mapped to InferForge's adopted mechanisms (target guard, profile presets, marker-block incremental generation, assembly self-proof), the "deterministic generator + agent glue" consensus, and the deliberate non-adoptions (Copier migration deferred, no negation markers); indexed in docs/README.md and cross-referenced from design-principles §5
 
+- **Generator packaging knowledge doc**: docs/generator-packaging.md — the packaging axis (CLI / HTTP / MCP) separated from the generation axis, the "Agent + MCP template service-ization" proposal assessed point by point (what it gets right, what it gets wrong, what to absorb), the HTTP-vs-MCP choice matrix for agent consumption (MCP = HTTP + a protocol shell; HTTP-first is the cheap increment), and the trigger conditions for service-ization; cross-referenced from scaffolding.md §5
+
 ### Breaking
 
 - **`--force` removed from scripts/assemble.py**: the target guard never overwrites — a non-empty target directory is always refused (with an "existing project" hint when app.py/requirements.txt/pyproject.toml/.git are detected) and targets inside the template repo are rejected; assemble.py has no delete/overwrite path at all
